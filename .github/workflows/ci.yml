@@ -1,0 +1,52 @@
+name: CI Build & Test Pipeline
+
+on:
+  push:
+    branches: [ main, 'feature/*', 'fix/*', 'refactor/*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-build-and-test:
+    name: Backend (.NET 9) CI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore Backend Dependencies
+        run: dotnet restore src/backend/Pos.sln
+
+      - name: Build Backend Solution
+        run: dotnet build src/backend/Pos.sln --no-restore --configuration Release
+
+      - name: Run Backend Tests
+        run: dotnet test src/backend/Pos.sln --no-build --configuration Release --verbosity normal
+
+  frontend-build-and-test:
+    name: Frontend (React + Vite) CI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Frontend Dependencies
+        run: npm --prefix src/frontend/pos-web ci
+
+      - name: Run Frontend Tests
+        run: npm --prefix src/frontend/pos-web run test
+
+      - name: Build Frontend Production Asset
+        run: npm --prefix src/frontend/pos-web run build

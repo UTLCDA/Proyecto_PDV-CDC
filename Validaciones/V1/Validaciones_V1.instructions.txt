@@ -1,0 +1,21 @@
+Se realizo la validacion de esta version v1 del PDV Lambrin
+
+1. En el modulo de catalogo de Productos lambrin donde se daran de alta, edita baja etc
+2. Los permisos estan asignados en ingles
+3. Tambien estoy revisando el codigo y esta todo en ingles,  se puede modificar en español tanto clases, controlladores, carpetas, variables etc 
+esto para yo despues si sale algun problema en PR poder debuggear y entender rapido el bug o por mejoras en un futuro
+
+4. En la parte del punto de venta, en el contenedor del RESUMEN DE COBRO, en ocaciones cuando es venta de piso, el cliente llega a pagar un % en efectivo y otro % en tarjeta para pagar la totalidad de su compra , entonces tambien añade esta funcionalidad que va ayudar a tener un mejor control de venta y si se tiene que mejorar los demas modulos realizalo.
+
+5. Ajustar el nombre y espacio del nombre del sistema y cambiarlo por el nombre de la empresa WPC Bajio donde la ruta de la img esta "D:\Proyecto_PDV-CDC\img\logo_lambrin.jpeg"
+
+6. Tambien que exista modo nocturno o modo claro , esto va quedar pendiente por definir por la paleta de colores que se apliquen por peticion del usuario.
+
+7. Cuando se generen los abonos, este detone un envio de correo al correo del cliente con sus datos ya registrados  donde tenga los detalles de su pedido, monto abono etc, cuando se genere el abono se genere un PDF y se guarde de manera local y contenga un codigo de barras , ya que mediante el escaneo del codigo de barras sea mas rapido y facil de aplicar el siguiente abono o liquidar el pedido. Este punto queda pendiente por definir, pero favor de agregar a los requerimientos.
+
+8. Pendiente diagrama de arquitectura del sistema para la fase 1 y 2 "por separado", donde en el local tendra 2 equipos, uno que va ser la caja y otro que va ser la administracion oficina del gerente o dueño. 
+
+9. Pendiente diagrama de componentes para las fases 1 y 2 "por sepadado".
+
+De momento son todas las observaciones, para poder continuar con el siguiente plan de implementación, para los puntos 8 y 9  generar algun txt para que claude code me pueda generar los diagramas y tu no consumas muchos tokens.
+

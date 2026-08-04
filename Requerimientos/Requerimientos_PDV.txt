@@ -1,0 +1,86 @@
+Te comparto la adecuación de la propuesta, el día de ayer se tuvo la sesión para recompilar los requerimientos faltantes, módulos, funcionalidad, etc. 
+
+A continuación te comparto lo que se va trabajar en una primera fase.
+
+Se va desarrollar como primer entregable el sistema punto de venta donde contendrá los siguientes módulos :
+
+1. Login
+2. Empleados
+3. Permisos o Roles
+4. Panel Principal "Punto de venta"
+5. Anticipos , Apartados
+6. Clientes 
+7. Productos
+8. Inventario
+9. Movimientos
+10. Pedidos o ventas
+11. Devoluciones
+12. Pagos , Abonos y/o Transacciones 
+13. Soporte documental "Almacene los abonos o recibos de pago" etc.
+14. Promociones
+15. Cotizaciones
+16. Envios 
+17. Bitagora "Sistema de registro de actividades 100% trazable." es decir que guarde todo lo que hacen los usuarios como cambio de precios etc.
+18. Descuentos
+19. Caja
+20. Turno o cortes
+21. Reportes Generales 
+
+
+- El sistema va ser adaptable a PC y Movil con REACT 
+- Contara con extensiones de idioma chino y español
+- Moneda principal es pesos con la escalabilidad de en una segunda fase "Posibilidad de habilitar otras monedas de pago en el futuro si se requiere."
+- Módulo de Productos  
+Tendrá Clasificación multinivel de productos.
+Galería de imágenes ampliable, especificaciones técnicas, descripción,accesorios compatibles y estado de stock.
+Doble modalidad de producto: precio visible para compra directa o modo solo
+cotización.
+Filtros de búsqueda por categoría, modelo y precio.
+Opción individual por producto para ocultar o mostrar las ventas y el estado de producto más vendido.
+- Modulo de clientes
+Área de clientes con historial de cotizaciones, historial de pedidos, seguimiento de
+envíos y direcciones guardadas.
+Posibilidad de configurar precios especiales para clientes mayoristas.
+- Modulo punto de venta 
+Carrito de compras funcional con cálculo automático de total.
+El sistema permita generar pedidos mediante un anticipo o apartado
+Tener como funcion extra en el formulario del punto de venta solo rol administrativo, que pueda generar descuentos a la venta si es por mayoreo o por seleccion de cliente
+Doble modalidad de pago: pago total y pago de anticipo con porcentaje configurable desde el punto de venta "Por permisos o ROL"
+El administrador puede modificar manualmente precios, descuentos y totales del
+pedido (precios no fijos solo por sistema).
+Estados de pedido: pendiente de pago, anticipo pagado, pendiente de saldo, pago total
+realizado, en preparación, enviado, finalizado, cancelado, devolución.
+Generación automática de recibos de pago en PDF descargables por cada
+transacción.
+- Modulo de Soporte documental
+Varias plantillas de contratos electrónicos editables en modulo.
+Autocompletado de datos del pedido, cliente, montos y porcentaje de anticipo.
+Exportación de contratos en PDF formato A4, listos para enviar por vía
+electrónica o imprimir en físico.
+Módulo de carga de archivos y documentos de cliente (comprobante de domicilio,
+identificaciones, PDFs, fotos).
+La carga de documentos es opcional, no obligatoria para completar cotizaciones ni
+pedidos, para evitar desconfianza de los usuarios.
+Todos los archivos quedan guardados vinculados al cliente o al pedido para consulta y
+descarga futura.
+- Modulo de Bitacora
+Sistema de registro de actividades 100% trazable.
+Guarda usuario que realizó la acción, tipo de modificación y hora y minuto
+exactos.
+Registra cambios de precios, modificaciones de pedidos, subida de archivos, cambios
+de productos y accesos al sistema.
+Los registros no se pueden eliminar ni modificar manualmente por ningún usuario.
+- Modulo Devoluciones
+El sistema cuenta con módulo de devoluciones y etiquetas de estado para gestión
+de reembolsos y conflictos postventa.
+- Modulo de Roles o permisos o Funciones Administrativas Adicionales
+Gestión de cotizaciones con estados de seguimiento.
+Gestión de clientes, historial completo de cada usuario.
+Estadísticas de visitas, consultas, ventas y productos más vendidos.
+Control de permisos de usuario: administrador general y cuentas de vendedor con
+permisos limitados.
+- Reportes
+El sistema permitirá tener la consulta de reportes y permitirá la exportación de PDF o Excel
+
+
+Estos fueron los requerimientos adicionales que se recopilaron en la sesión de ayer para añadirlos como parte funcional en el prototipo para adaptar la propuesta de lo que se va desarrollar, lo que se va entregar en los modulos de la primera etapa y una vez generado esta primera etapa te compartire los requerimientos de la segunda etapa que es el carrito de compras.

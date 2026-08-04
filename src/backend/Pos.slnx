@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="../../tests/backend/Pos.Api.IntegrationTests/Pos.Api.IntegrationTests.csproj" />
+  <Project Path="../../tests/backend/Pos.Application.Tests/Pos.Application.Tests.csproj" />
+  <Project Path="../../tests/backend/Pos.Domain.Tests/Pos.Domain.Tests.csproj" />
+  <Project Path="Pos.Api/Pos.Api.csproj" />
+  <Project Path="Pos.Application/Pos.Application.csproj" />
+  <Project Path="Pos.Domain/Pos.Domain.csproj" />
+  <Project Path="Pos.Infrastructure/Pos.Infrastructure.csproj" />
+</Solution>
