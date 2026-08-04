@@ -1,23 +1,14 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
 ## Estado de la Aplicación
-- **Versión Actual**: `1.0.0-v1.full-modules` (Fase 1 al 100% Funcional con Modales ABC en Todos los Módulos y Bitácora Dual BD + Serilog).
-- **Backend (.NET 9 C#)**: Operativo con arquitectura limpia modular, 23 permisos en español, Serilog a archivo rotativo `logs/auditoria-.log` y BD, controladores API REST para todos los módulos (`UsersController`, `ProductsController`, `CategoriesController`, `CustomersController`, `InventoryController`, `SalesController`, `CommercialOpsController`, `CashShiftController`, `ReportsController`, `AuditController`).
-- **Frontend (React 18 + Vite + TypeScript)**: Operativo con navegación de 9 pestañas (`🛒 PDV`, `💵 Caja`, `📈 Reportes`, `📑 Cotizaciones`, `💰 Operaciones Comercial`, `📦 Catálogo`, `🏭 Inventario`, `👥 Clientes`, `🛡️ Usuarios`), conmutador de tema visual **Modo Claro / Modo Oscuro**, y formularios modales ABC (Altas, Bajas y Cambios) para **CADA UNO** de los módulos.
-- **Base de Datos**: SQL Server `AAM` (`PosLambrinDb`) con validación activa de esquema e inicialización automática de datos.
+- **Versión Actual**: `v1.1.0-catalog-refactor` (Release `v1.0.0` Etiquetada y Commiteada en Git; Fase 1.1 de Productos Completa).
+- **Backend (.NET 9 C#)**: Operativo con arquitectura limpia modular, 24 permisos en español, Serilog dual (BD + `logs/auditoria-.log` + Dashboard UI `/serilog-ui` con login Basic Auth `administrador`/`Aaron096`), extensión de tokens JWT a 24 horas y nuevos campos de `Producto` (`ImagenUrl`, `PiezasPorCaja`, `CoberturaM2Caja`, `LargoCm`, `AltoCm`, `AnchoCm`, `CantidadInventarioInicial`).
+- **Frontend (React 18 + Vite + TypeScript)**: Modal de productos rediseñado en 2 columnas, vista previa de imagen, prefijo inamovible `WPC-` en SKU, escaneo directo con lector de barras USB, unidades de medida ampliadas (`Pza`, `M2`, `ML`, `Caja`, `Kilo`, `Bolsa`, `Tubo`, `Juego`), formateo numérico sin ceros a la izquierda, tabla con miniatura de imágenes (50x50px) y actualización del carrito PDV.
+- **Base de Datos**: SQL Server `AAM` (`PosLambrinDb`) con migración automática y siembra de existencias iniciales en `Stocks`.
 
 ## Cobertura de Pruebas
 - **Pruebas Backend (.NET xUnit)**: **26/26 Pruebas Pasadas (100% Exito)**.
-  - `Pos.Domain.Tests`: 12/12
-  - `Pos.Application.Tests`: 7/7
-  - `Pos.Api.IntegrationTests`: 7/7
-- **Pruebas Frontend (Vitest)**: **1/1 Prueba Pasada**.
-- **Compilación de Producción**: **Éxito en 1.24s sin errores**.
+- **Compilación de Producción**: **Éxito en 1.52s sin errores**.
 
-## Módulos Construidos con Modal ABC
-1. **Usuarios y Empleados (🛡️)**: Alta de usuarios/empleados, asignación de roles (Administrador/Cajero), edición de datos y desactivación de cuentas en [PaginaUsuarios.tsx](file:///d:/Proyecto_PDV-CDC/src/frontend/pos-web/src/pages/Users/PaginaUsuarios.tsx).
-2. **Productos y Categorías (📦)**: Alta/Edición de productos Lambrín y creación de Categorías jerárquicas en [PaginaCatalogoProductos.tsx](file:///d:/Proyecto_PDV-CDC/src/frontend/pos-web/src/pages/Products/PaginaCatalogoProductos.tsx).
-3. **Clientes (👥)**: Alta y Edición de datos fiscales (RFC, Dirección, Teléfono, Tipo Particular/Mayorista, % Descuento Especial) en [CustomerListPage.tsx](file:///d:/Proyecto_PDV-CDC/src/frontend/pos-web/src/pages/Customers/CustomerListPage.tsx).
-4. **Inventario (🏭)**: Formulario modal para capturar movimientos de stock (Entrada, Salida, Ajuste) en [InventoryListPage.tsx](file:///d:/Proyecto_PDV-CDC/src/frontend/pos-web/src/pages/Inventory/InventoryListPage.tsx).
-5. **Operaciones Comerciales (💰)**: Registro de Abonos a plan de apartado, Modal de Procesamiento de Devoluciones y Visor e Impresor de Contrato A4 en [CommercialOpsPage.tsx](file:///d:/Proyecto_PDV-CDC/src/frontend/pos-web/src/pages/Commercial/CommercialOpsPage.tsx).
-6. **Bitácora Dual (BD + Serilog)**: Registros persistidos en SQL Server/EF Core y emitidos a `logs/auditoria-YYYYMMDD.log` con `CorrelationId`.
+## Versiones Git
+- **Tag en Git**: `v1.0.0` (Release Candidate de Fase 1).

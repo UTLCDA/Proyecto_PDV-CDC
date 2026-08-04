@@ -20,6 +20,13 @@ export interface Producto {
   wholesaleMinQuantity: number;
   unitOfMeasure: string;
   coveragePerUnitSqM: number;
+  imageUrl?: string;
+  piecesPerBox?: number;
+  boxCoverageSqM?: number;
+  lengthCm?: number;
+  heightCm?: number;
+  widthCm?: number;
+  initialInventoryQuantity?: number;
   widthMm: number;
   lengthMm: number;
   thicknessMm: number;
@@ -41,6 +48,12 @@ export interface PeticionCrearProducto {
   wholesaleMinQuantity: number;
   unitOfMeasure: string;
   coveragePerUnitSqM: number;
+  imageUrl?: string;
+  piecesPerBox?: number;
+  lengthCm?: number;
+  heightCm?: number;
+  widthCm?: number;
+  initialInventoryQuantity?: number;
   widthMm: number;
   lengthMm: number;
   thicknessMm: number;
@@ -58,6 +71,11 @@ export interface PeticionActualizarProducto {
   wholesaleMinQuantity: number;
   unitOfMeasure: string;
   coveragePerUnitSqM: number;
+  imageUrl?: string;
+  piecesPerBox?: number;
+  lengthCm?: number;
+  heightCm?: number;
+  widthCm?: number;
   widthMm: number;
   lengthMm: number;
   thicknessMm: number;

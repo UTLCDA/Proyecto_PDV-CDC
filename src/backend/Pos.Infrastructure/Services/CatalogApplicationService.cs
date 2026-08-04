@@ -23,10 +23,19 @@ public class CatalogApplicationService : ICatalogApplicationService
     {
         var categories = await _dbContext.Categories
             .Include(c => c.SubCategorias)
-            .Where(c => c.CategoriaPadreId == null && c.EstaActivo)
+            .Where(c => c.CategoriaPadreId == null)
             .ToListAsync(cancellationToken);
 
         return categories.Select(MapCategoryToDto).ToList();
+    }
+
+    public async Task<CategoryDto?> GetCategoryByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var category = await _dbContext.Categories
+            .Include(c => c.SubCategorias)
+            .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+
+        return category == null ? null : MapCategoryToDto(category);
     }
 
     public async Task<CategoryDto> CreateCategoryAsync(CreateCategoryDto request, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default)
@@ -151,6 +160,9 @@ public class CatalogApplicationService : ICatalogApplicationService
             throw new InvalidOperationException($"Ya existe un producto con el SKU '{request.Sku}'.");
         }
 
+        var piezasCaja = request.PiecesPerBox > 0 ? request.PiecesPerBox : 1;
+        var coberturaCaja = Math.Round(piezasCaja * request.CoveragePerUnitSqM, 4);
+
         var product = new Producto
         {
             Sku = request.Sku.Trim(),
@@ -163,6 +175,13 @@ public class CatalogApplicationService : ICatalogApplicationService
             CantidadMinimaMayoreo = request.WholesaleMinQuantity,
             UnidadMedida = request.UnitOfMeasure,
             CoberturaPorUnidadM2 = request.CoveragePerUnitSqM,
+            ImagenUrl = request.ImageUrl ?? string.Empty,
+            PiezasPorCaja = piezasCaja,
+            CoberturaM2Caja = coberturaCaja,
+            LargoCm = request.LengthCm,
+            AltoCm = request.HeightCm,
+            AnchoCm = request.WidthCm,
+            CantidadInventarioInicial = request.InitialInventoryQuantity,
             AnchoMm = request.WidthMm,
             LargoMm = request.LengthMm,
             EspesorMm = request.ThicknessMm,
@@ -175,11 +194,11 @@ public class CatalogApplicationService : ICatalogApplicationService
 
         _dbContext.Products.Add(product);
 
-        // Auto-create Stock record for new product
+        // Auto-create Stock record for new product with CantidadInventarioInicial
         var stock = new Existencia
         {
             ProductoId = product.Id,
-            CantidadDisponible = 100m,
+            CantidadDisponible = request.InitialInventoryQuantity,
             UmbralMinimoAlerta = 10m,
             CantidadReorden = 50m,
             Ubicacion = "Almacén Principal"
@@ -213,6 +232,9 @@ public class CatalogApplicationService : ICatalogApplicationService
 
         var oldValues = $"Name={product.Nombre}, Price={product.PrecioUnitario}, Active={product.EstaActivo}";
 
+        var piezasCaja = request.PiecesPerBox > 0 ? request.PiecesPerBox : 1;
+        var coberturaCaja = Math.Round(piezasCaja * request.CoveragePerUnitSqM, 4);
+
         product.Nombre = request.Name.Trim();
         product.Descripcion = request.Description;
         product.CategoriaId = request.CategoryId;
@@ -221,6 +243,15 @@ public class CatalogApplicationService : ICatalogApplicationService
         product.CantidadMinimaMayoreo = request.WholesaleMinQuantity;
         product.UnidadMedida = request.UnitOfMeasure;
         product.CoberturaPorUnidadM2 = request.CoveragePerUnitSqM;
+        if (!string.IsNullOrWhiteSpace(request.ImageUrl))
+        {
+            product.ImagenUrl = request.ImageUrl;
+        }
+        product.PiezasPorCaja = piezasCaja;
+        product.CoberturaM2Caja = coberturaCaja;
+        product.LargoCm = request.LengthCm;
+        product.AltoCm = request.HeightCm;
+        product.AnchoCm = request.WidthCm;
         product.AnchoMm = request.WidthMm;
         product.LargoMm = request.LengthMm;
         product.EspesorMm = request.ThicknessMm;
@@ -232,8 +263,6 @@ public class CatalogApplicationService : ICatalogApplicationService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        var newValues = $"Name={product.Nombre}, Price={product.PrecioUnitario}, Active={product.EstaActivo}";
-
         await _auditLogService.LogAsync(
             correlationId,
             currentUserId,
@@ -241,7 +270,7 @@ public class CatalogApplicationService : ICatalogApplicationService
             "Producto",
             product.Id.ToString(),
             oldValues,
-            newValues,
+            $"Name={product.Nombre}, Price={product.PrecioUnitario}, Active={product.EstaActivo}",
             ipAddress,
             $"Producto actualizado: {product.Nombre}",
             cancellationToken);
@@ -257,14 +286,13 @@ public class CatalogApplicationService : ICatalogApplicationService
             throw new KeyNotFoundException($"Producto con ID '{id}' no encontrado.");
         }
 
-        var oldValues = $"UnitPrice: {product.PrecioUnitario}, WholesalePrice: {product.PrecioMayoreo}";
+        var oldValues = $"UnitPrice={product.PrecioUnitario}, WholesalePrice={product.PrecioMayoreo}";
+
         product.PrecioUnitario = newUnitPrice;
         product.PrecioMayoreo = newWholesalePrice;
         product.FechaActualizacionUtc = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-
-        var newValues = $"UnitPrice: {newUnitPrice}, WholesalePrice: {newWholesalePrice}";
 
         await _auditLogService.LogAsync(
             correlationId,
@@ -273,22 +301,22 @@ public class CatalogApplicationService : ICatalogApplicationService
             "Producto",
             product.Id.ToString(),
             oldValues,
-            newValues,
+            $"UnitPrice={product.PrecioUnitario}, WholesalePrice={product.PrecioMayoreo}",
             ipAddress,
-            $"Cambio de precio para producto SKU {product.Sku}",
+            $"Precio de producto actualizado: {product.Nombre}",
             cancellationToken);
 
-        return MapProductToDto(product);
+        return (await GetProductByIdAsync(product.Id, cancellationToken))!;
     }
 
     // Customers CRUD
-    public async Task<List<CustomerDto>> GetCustomersAsync(string? search, string? customerType, CancellationToken cancellationToken = default)
+    public async Task<List<CustomerDto>> GetCustomersAsync(string? search, string? type, CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Customers.Where(c => c.EstaActivo);
 
-        if (!string.IsNullOrWhiteSpace(customerType))
+        if (!string.IsNullOrWhiteSpace(type))
         {
-            query = query.Where(c => c.TipoCliente.ToLower() == customerType.ToLower());
+            query = query.Where(c => c.TipoCliente.ToLower() == type.Trim().ToLower());
         }
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -316,14 +344,14 @@ public class CatalogApplicationService : ICatalogApplicationService
         {
             Nombre = request.FirstName.Trim(),
             Apellido = request.LastName.Trim(),
-            NombreEmpresa = request.CompanyName?.Trim(),
-            Rfc = request.TaxId?.Trim(),
+            NombreEmpresa = request.CompanyName,
+            Rfc = request.TaxId,
             Email = request.Email.Trim(),
             Telefono = request.Phone.Trim(),
-            Direccion = request.Address.Trim(),
-            Ciudad = request.City.Trim(),
-            Estado = request.State.Trim(),
-            CodigoPostal = request.PostalCode.Trim(),
+            Direccion = request.Address,
+            Ciudad = request.City,
+            Estado = request.State,
+            CodigoPostal = request.PostalCode,
             TipoCliente = request.CustomerType,
             PorcentajeDescuentoEspecial = request.SpecialDiscountPercentage,
             Notas = request.Notes,
@@ -343,7 +371,7 @@ public class CatalogApplicationService : ICatalogApplicationService
             null,
             $"Name={customer.NombreMostrar}, Type={customer.TipoCliente}",
             ipAddress,
-            $"Nuevo cliente registrado WPC Bajío: {customer.NombreMostrar}",
+            $"Nuevo cliente registrado: {customer.NombreMostrar}",
             cancellationToken);
 
         return MapCustomerToDto(customer);
@@ -357,18 +385,18 @@ public class CatalogApplicationService : ICatalogApplicationService
             throw new KeyNotFoundException($"Cliente con ID '{id}' no encontrado.");
         }
 
-        var oldValues = $"Name={customer.NombreMostrar}, Type={customer.TipoCliente}";
+        var oldValues = $"Name={customer.NombreMostrar}, Active={customer.EstaActivo}";
 
         customer.Nombre = request.FirstName.Trim();
         customer.Apellido = request.LastName.Trim();
-        customer.NombreEmpresa = request.CompanyName?.Trim();
-        customer.Rfc = request.TaxId?.Trim();
+        customer.NombreEmpresa = request.CompanyName;
+        customer.Rfc = request.TaxId;
         customer.Email = request.Email.Trim();
         customer.Telefono = request.Phone.Trim();
-        customer.Direccion = request.Address.Trim();
-        customer.Ciudad = request.City.Trim();
-        customer.Estado = request.State.Trim();
-        customer.CodigoPostal = request.PostalCode.Trim();
+        customer.Direccion = request.Address;
+        customer.Ciudad = request.City;
+        customer.Estado = request.State;
+        customer.CodigoPostal = request.PostalCode;
         customer.TipoCliente = request.CustomerType;
         customer.PorcentajeDescuentoEspecial = request.SpecialDiscountPercentage;
         customer.Notas = request.Notes;
@@ -384,7 +412,7 @@ public class CatalogApplicationService : ICatalogApplicationService
             "Cliente",
             customer.Id.ToString(),
             oldValues,
-            $"Name={customer.NombreMostrar}, Type={customer.TipoCliente}",
+            $"Name={customer.NombreMostrar}, Active={customer.EstaActivo}",
             ipAddress,
             $"Cliente actualizado: {customer.NombreMostrar}",
             cancellationToken);
@@ -400,7 +428,7 @@ public class CatalogApplicationService : ICatalogApplicationService
             c.Slug,
             c.Descripcion,
             c.CategoriaPadreId,
-            c.SubCategorias?.Select(MapCategoryToDto).ToList() ?? new List<CategoryDto>()
+            c.SubCategorias.Select(MapCategoryToDto).ToList()
         );
     }
 
@@ -419,6 +447,13 @@ public class CatalogApplicationService : ICatalogApplicationService
             p.CantidadMinimaMayoreo,
             p.UnidadMedida,
             p.CoberturaPorUnidadM2,
+            p.ImagenUrl,
+            p.PiezasPorCaja,
+            p.CoberturaM2Caja,
+            p.LargoCm,
+            p.AltoCm,
+            p.AnchoCm,
+            p.CantidadInventarioInicial,
             p.AnchoMm,
             p.LargoMm,
             p.EspesorMm,
@@ -426,7 +461,7 @@ public class CatalogApplicationService : ICatalogApplicationService
             p.SoloCotizacion,
             p.VisibleMasVendido,
             p.EstaActivo,
-            p.Imagenes?.Select(i => i.UrlImagen).ToList() ?? new List<string>()
+            p.Imagenes.Select(img => img.UrlImagen).ToList()
         );
     }
 

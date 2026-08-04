@@ -1,23 +1,21 @@
-# HANDOFF — Resumen de Implementación 100% Modales ABC y Serilog
+# HANDOFF — Resumen de Versión v1.0.0 Tagged y Mejoras a Catálogo v1.1
 
-## Resumen General de la Sesión
-- **Enfoque**: Implementación de todos los modales y formularios **ABC (Altas, Bajas y Cambios)** para la totalidad de los módulos del sistema WPC Bajío y la adición del paquete **Serilog** para el **doble sistema de bitácora** (Base de Datos SQL Server + Archivos rotativos diarios `logs/auditoria-.log`).
+## Resumen de la Sesión
+1. **Publicación y Tag v1.0.0 en Git**:
+   - Inicializado el repositorio Git en la raíz del proyecto.
+   - Realizado commit y tag `v1.0.0` etiquetando formalmente el Release Candidate 1 del sistema WPC Bajío.
 
-## Módulos Desarrollados y Probados al 100%
-1. **🛡️ Módulo de Usuarios y Empleados (ABC Completo)**:
-   - Creado `UsersController.cs`, `UserApplicationService.cs` y vista interactiva `PaginaUsuarios.tsx` para alta, edición, asignación de roles (Administrador/Cajero) y desactivación de cuentas.
-2. **📁 Módulo de Categorías (ABC Completo)**:
-   - Agregados endpoints `POST/PUT /api/v1/categories` en `CategoriesController.cs` y modal en `PaginaCatalogoProductos.tsx` para crear y editar categorías de productos.
-3. **👥 Módulo de Clientes (ABC Completo)**:
-   - Agregados endpoints `POST/PUT /api/v1/customers` en `CustomersController.cs` y modal en `CustomerListPage.tsx` para alta y edición de datos fiscales (RFC, Dirección, Teléfono, Tipo Particular/Mayorista, % Descuento Especial).
-4. **🏭 Módulo de Inventario (Captura de Movimientos)**:
-   - Agregado modal en `InventoryListPage.tsx` para capturar Entradas, Salidas y Ajustes de Stock de existencias en almacén.
-5. **💰 Módulo de Operaciones Comerciales (Abonos, Devoluciones y Contrato A4)**:
-   - Modal de registro de Abonos a plan de apartado, Modal de Procesamiento de Devoluciones de productos y Visor e Impresor de Contrato Legal A4 en `CommercialOpsPage.tsx`.
-6. **📜 Doble Bitácora de Log (BD + Serilog)**:
-   - Registros guardados simultáneamente en la tabla `AuditLogs` de SQL Server y emitidos mediante `Serilog.AspNetCore` a archivos rotativos de log diarios `logs/auditoria-YYYYMMDD.log` y salida enriquecida a consola.
+2. **Refactorización Completa del Módulo de Productos (Puntos 1.0 - 2.1)**:
+   - **Base de Datos & Backend**: Nuevas propiedades en `Producto.cs`, `CatalogDtos.cs`, `CatalogApplicationService.cs` y `DbInitializer.cs` (`ImagenUrl`, `PiezasPorCaja`, `CoberturaM2Caja`, `LargoCm`, `AltoCm`, `AnchoCm`, `CantidadInventarioInicial`).
+   - **Stock Automático**: Al dar de alta un producto, se inserta automáticamente el registro correspondiente en la tabla de existencias (`Stocks`).
+   - **Formulario Modal Rediseñado en 2 Columnas**: Organizado en secciones (*Información General*, *Dimensiones y Cobertura*, *Precios e Inventario*).
+   - **Imágenes**: Input de carga de imagen local con vista previa interactiva en tiempo real.
+   - **SKU Estandarizado**: Prefijo obligatorio e inamovible `"WPC-"`.
+   - **Formateo de Cajas Monetarias**: Eliminación del comportamiento de ceros a la izquierda.
+   - **Unidades de Medida**: Selector ampliado con `Pza`, `M2`, `ML`, `Caja`, `Kilo`, `Bolsa`, `Tubo`, `Juego`.
+   - **Tabla con Miniaturas (Thumbnails)**: Columna de imagen de 50x50px con recuadro limpio placeholder si no cuenta con foto.
+   - **Carrito PDV**: Visualización de miniaturas de producto y cobertura de muros en el punto de venta.
 
-## Resultados de Validación
-- **Pruebas Backend**: 26/26 Pasadas al 100%.
-- **Pruebas Frontend**: 1/1 Pasada en Vitest.
-- **Compilación de Producción**: Éxito en 1.24s sin ningún error de TypeScript.
+## Pruebas
+- **Backend (.NET xUnit)**: 26/26 Pasadas al 100%.
+- **Frontend (Vite Build)**: Éxito en 1.52s sin errores.

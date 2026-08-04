@@ -1,151 +1,166 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { servicioCatalogo } from '../../services/servicioCatalogo';
-import { servicioVentas } from '../../services/servicioVentas';
 import { Producto, Cliente } from '../../types/tiposCatalogo';
-import { Venta } from '../../types/tiposVentas';
-import { usarEscanerCodigoBarras } from '../../hooks/usarEscanerCodigoBarras';
-
-interface CartItem {
-  product: Producto;
-  quantity: number;
-  unitPrice: number;
-  discountAmount: number;
-}
+import { servicioCatalogo } from '../../services/servicioCatalogo';
+import { servicioVentas, ElementoCarrito } from '../../services/servicioVentas';
+import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 
 export const PaginaPuntoVenta: React.FC = () => {
-  const { t } = useTranslation();
   const [products, setProducts] = useState<Producto[]>([]);
   const [customers, setCustomers] = useState<Cliente[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [discountAmount, setDiscountAmount] = useState<number>(0);
-  const [advanceAmount, setAdvanceAmount] = useState<number>(0);
+  const [cart, setCart] = useState<ElementoCarrito[]>([]);
 
-  // Payment Breakdown
+  // Tipo de Pago y Montos Mixtos (Solicitud del Usuario)
   const [paymentType, setPaymentType] = useState<'FullPayment' | 'AdvanceDeposit' | 'MixedPayment'>('FullPayment');
-  const [cashAmount, setCashAmount] = useState<number>(0);
-  const [cardAmount, setCardAmount] = useState<number>(0);
-  const [transferAmount, setTransferAmount] = useState<number>(0);
+  const [cashAmount, setCashAmount] = useState<string>('0');
+  const [cardAmount, setCardAmount] = useState<string>('0');
+  const [transferAmount, setTransferAmount] = useState<string>('0');
+  const [discountAmount, setDiscountAmount] = useState<string>('0');
 
-  const [notes, setNotes] = useState<string>('');
-  const [manualCode, setManualCode] = useState<string>('');
-  const [completedSale, setCompletedSale] = useState<Venta | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [manualCode, setManualCode] = useState('');
+  const [lastSaleReceipt, setLastSaleReceipt] = useState<any>(null);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    loadCatalogData();
+    loadCatalogAndCustomers();
   }, []);
 
-  const loadCatalogData = async () => {
+  const loadCatalogAndCustomers = async () => {
     try {
-      const [prods, custs] = await Promise.all([
+      const [prodsData, custsData] = await Promise.all([
         servicioCatalogo.getProducts(),
         servicioCatalogo.getCustomers()
       ]);
-      setProducts(prods);
-      setCustomers(custs);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Error al cargar catálogo de productos WPC Bajío');
+      setProducts(prodsData);
+      setCustomers(custsData);
+    } catch {
+      setErrorMsg('Error al conectar con la API de WPC Bajío.');
     }
   };
 
-  const addProductToCart = (prod: Producto) => {
-    setCart(prev => {
-      const existingIndex = prev.findIndex(item => item.product.id === prod.id);
-      if (existingIndex >= 0) {
-        const updated = [...prev];
+  // Integración con Escáner de Código de Barras USB
+  useBarcodeScanner({
+    onScan: (scannedCode: string) => {
+      findAndAddProduct(scannedCode);
+    }
+  });
+
+  const findAndAddProduct = (code: string) => {
+    const term = code.trim().toLowerCase();
+    const found = products.find(p => p.barcode.toLowerCase() === term || p.sku.toLowerCase() === term);
+    if (found) {
+      addProductToCart(found);
+      setErrorMsg('');
+    } else {
+      setErrorMsg(`Producto con código/SKU "${code}" no encontrado.`);
+    }
+  };
+
+  const addProductToCart = (product: Producto) => {
+    setCart(prevCart => {
+      const existingIndex = prevCart.findIndex(item => item.product.id === product.id);
+      if (existingIndex > -1) {
+        const updated = [...prevCart];
         updated[existingIndex].quantity += 1;
         return updated;
       }
-      return [...prev, { product: prod, quantity: 1, unitPrice: prod.unitPrice, discountAmount: 0 }];
+      return [...prevCart, {
+        product,
+        quantity: 1,
+        unitPrice: product.unitPrice,
+        discountAmount: 0
+      }];
     });
   };
 
-  const handleBarcodeScanned = async (code: string) => {
-    try {
-      const prod = await servicioCatalogo.getProductByCode(code);
-      if (prod) {
-        addProductToCart(prod);
-        setErrorMsg(null);
-      }
-    } catch (err) {
-      setErrorMsg(`Código de barras '${code}' no encontrado en el catálogo.`);
+  const updateQuantity = (index: number, quantity: number) => {
+    if (quantity <= 0) {
+      removeCartItem(index);
+      return;
     }
+    setCart(prev => {
+      const updated = [...prev];
+      updated[index].quantity = quantity;
+      return updated;
+    });
   };
 
-  usarEscanerCodigoBarras({
-    onScan: handleBarcodeScanned,
-    minLength: 4
-  });
+  const removeCartItem = (index: number) => {
+    setCart(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleManualCodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualCode.trim()) return;
-    handleBarcodeScanned(manualCode.trim());
-    setManualCode('');
+    if (manualCode) {
+      findAndAddProduct(manualCode);
+      setManualCode('');
+    }
   };
 
-  const updateQuantity = (index: number, qty: number) => {
-    if (qty <= 0) {
-      setCart(cart.filter((_, i) => i !== index));
+  // Cálculos de Totales y Metros Cuadrados ($m^2$)
+  const subtotal = cart.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
+  const totalDiscount = parseFloat(discountAmount) || 0;
+  const totalCoverageSqM = cart.reduce((acc, item) => acc + (item.quantity * (item.product.coveragePerUnitSqM || 0)), 0);
+  const grandTotal = Math.max(0, subtotal - totalDiscount);
+
+  // Formateador sin Ceros a la Izquierda para Dinero (1.8)
+  const handleNumericInput = (setter: React.Dispatch<React.SetStateAction<string>>, val: string) => {
+    if (val === '') {
+      setter('');
       return;
     }
-    const updated = [...cart];
-    updated[index].quantity = qty;
-    setCart(updated);
+    const cleaned = val.replace(/^0+(?=\d)/, '');
+    setter(cleaned);
   };
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.quantity * item.unitPrice - item.discountAmount), 0);
-  const taxAmount = Math.round(Math.max(0, subtotal - discountAmount) * 0.16 * 100) / 100;
-  const totalAmount = Math.max(0, subtotal - discountAmount + taxAmount);
-  const sumMixed = cashAmount + cardAmount + transferAmount;
-  const remainingMixed = Math.max(0, totalAmount - sumMixed);
-
-  const handleProcessSale = async () => {
+  const handleCompleteSale = async () => {
     if (cart.length === 0) {
-      setErrorMsg('El carrito se encuentra vacío.');
+      alert('El carrito de compras está vacío.');
       return;
     }
 
-    if (paymentType === 'MixedPayment' && Math.abs(sumMixed - totalAmount) > 0.05) {
-      setErrorMsg(`En Pago Mixto, la suma de los montos ($${sumMixed.toFixed(2)}) debe coincidir con el Total ($${totalAmount.toFixed(2)}). Faltan: $${remainingMixed.toFixed(2)}`);
-      return;
+    const cash = parseFloat(cashAmount) || 0;
+    const card = parseFloat(cardAmount) || 0;
+    const transfer = parseFloat(transferAmount) || 0;
+
+    if (paymentType === 'MixedPayment') {
+      const sum = cash + card + transfer;
+      if (Math.abs(sum - grandTotal) > 0.05) {
+        alert(`En Pago Mixto, la suma de Efectivo ($${cash}), Tarjeta ($${card}) y Transferencia ($${transfer}) debe sumar el total de $${grandTotal.toFixed(2)}.`);
+        return;
+      }
     }
 
     setIsLoading(true);
-    setErrorMsg(null);
+    setErrorMsg('');
 
     try {
-      const payload = {
+      const result = await servicioVentas.procesarVenta({
         customerId: selectedCustomerId || undefined,
         paymentType,
-        discountAmount,
-        advanceAmount: paymentType === 'AdvanceDeposit' ? advanceAmount : totalAmount,
-        cashAmount: paymentType === 'MixedPayment' ? cashAmount : (paymentType === 'FullPayment' ? totalAmount : 0),
-        cardAmount: paymentType === 'MixedPayment' ? cardAmount : 0,
-        transferAmount: paymentType === 'MixedPayment' ? transferAmount : 0,
-        notes,
+        discountAmount: totalDiscount,
+        advanceAmount: paymentType === 'AdvanceDeposit' ? cash : grandTotal,
+        cashAmount: paymentType === 'MixedPayment' ? cash : (paymentType === 'FullPayment' ? grandTotal : cash),
+        cardAmount: paymentType === 'MixedPayment' ? card : 0,
+        transferAmount: paymentType === 'MixedPayment' ? transfer : 0,
+        notes: `Venta Mostrador WPC Bajío (${totalCoverageSqM.toFixed(2)} m²)`,
         items: cart.map(item => ({
           productId: item.product.id,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           discountAmount: item.discountAmount
         }))
-      };
+      });
 
-      const sale = await servicioVentas.processSale(payload);
-      setCompletedSale(sale);
+      setLastSaleReceipt(result);
       setCart([]);
-      setDiscountAmount(0);
-      setAdvanceAmount(0);
-      setCashAmount(0);
-      setCardAmount(0);
-      setTransferAmount(0);
-      setNotes('');
+      setCashAmount('0');
+      setCardAmount('0');
+      setTransferAmount('0');
+      setDiscountAmount('0');
     } catch (err: any) {
-      setErrorMsg(err.message || 'Ocurrió un error al procesar la venta.');
+      setErrorMsg(err.message || 'Error al procesar la venta.');
     } finally {
       setIsLoading(false);
     }
@@ -183,33 +198,47 @@ export const PaginaPuntoVenta: React.FC = () => {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr', gap: '1.5rem' }}>
-        {/* Catálogo Rápido de Productos */}
+        {/* Catálogo Rápido de Productos con Imágenes (1.7) */}
         <div className="card">
-          <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>📦 Catálogo de Lambrín</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', maxHeight: '520px', overflowY: 'auto' }}>
+          <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>📦 Catálogo de Lambrín WPC</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem', maxHeight: '540px', overflowY: 'auto' }}>
             {products.map(prod => (
               <div
                 key={prod.id}
                 onClick={() => addProductToCart(prod)}
                 style={{
-                  padding: '1rem',
+                  padding: '0.85rem',
                   background: 'rgba(15, 23, 42, 0.6)',
                   borderRadius: '8px',
                   border: '1px solid rgba(255, 255, 255, 0.08)',
                   cursor: 'pointer',
-                  transition: 'transform 0.15s, border-color 0.15s'
+                  transition: 'transform 0.15s, border-color 0.15s',
+                  display: 'flex',
+                  gap: '0.75rem',
+                  alignItems: 'center'
                 }}
               >
-                <div style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 'bold' }}>{prod.sku}</div>
-                <div style={{ fontWeight: 600, fontSize: '0.9rem', margin: '0.25rem 0' }}>{prod.name}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>M2: {prod.coveragePerUnitSqM} m² / {prod.unitOfMeasure}</div>
-                <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#38bdf8', marginTop: '0.5rem' }}>${prod.unitPrice.toFixed(2)}</div>
+                {/* Imagen del Producto en Catálogo PDV (1.7) */}
+                {prod.imageUrl ? (
+                  <img src={prod.imageUrl} alt={prod.name} style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)' }} />
+                ) : (
+                  <div style={{ width: '55px', height: '55px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>📷</div>
+                )}
+
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 'bold' }}>{prod.sku}</div>
+                  <div style={{ fontWeight: 600, fontSize: '0.85rem', margin: '0.15rem 0', color: '#fff' }}>{prod.name}</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    {prod.coveragePerUnitSqM} $m^2$/pza &bull; {prod.piecesPerBox || 1} pzas/caja
+                  </div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#38bdf8', marginTop: '0.25rem' }}>${prod.unitPrice.toFixed(2)} MXN</div>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Resumen de Cobro y Carrito con Pago Mixto */}
+        {/* Resumen de Cobro y Carrito con Pago Mixto e Imágenes (1.7) */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <h3>🛒 Carrito de Compras</h3>
 
@@ -229,8 +258,8 @@ export const PaginaPuntoVenta: React.FC = () => {
             </select>
           </div>
 
-          {/* Tabla de Carrito */}
-          <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px' }}>
+          {/* Tabla de Carrito con Miniaturas de Imagen (1.7) */}
+          <div style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px' }}>
             <table style={{ width: '100%', fontSize: '0.85rem' }}>
               <thead>
                 <tr style={{ background: 'rgba(15,23,42,0.8)' }}>
@@ -243,8 +272,15 @@ export const PaginaPuntoVenta: React.FC = () => {
                 {cart.map((item, idx) => (
                   <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <td style={{ padding: '0.5rem' }}>
-                      <div>{item.product.name}</div>
-                      <small style={{ color: 'var(--text-muted)' }}>${item.unitPrice.toFixed(2)}</small>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        {item.product.imageUrl ? (
+                          <img src={item.product.imageUrl} alt={item.product.name} style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px' }} />
+                        ) : null}
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{item.product.name}</div>
+                          <small style={{ color: 'var(--text-muted)' }}>${item.unitPrice.toFixed(2)} &bull; {(item.quantity * item.product.coveragePerUnitSqM).toFixed(2)} $m^2$</small>
+                        </div>
+                      </div>
                     </td>
                     <td style={{ textAlign: 'center', padding: '0.5rem' }}>
                       <input
@@ -264,100 +300,135 @@ export const PaginaPuntoVenta: React.FC = () => {
             </table>
           </div>
 
-          {/* Cómputo de Totales */}
+          {/* Cómputo de Totales y $m^2$ */}
           <div style={{ background: 'rgba(15,23,42,0.4)', padding: '0.75rem', borderRadius: '6px', fontSize: '0.85rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
               <span>Subtotal:</span> <span>${subtotal.toFixed(2)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-              <span>IVA (16%):</span> <span>${taxAmount.toFixed(2)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', color: 'var(--accent-primary)' }}>
+              <span>Área Total de Muros:</span> <strong>{totalCoverageSqM.toFixed(2)} $m^2$</strong>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--accent-primary)', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-              <span>TOTAL:</span> <span>${totalAmount.toFixed(2)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.5rem', color: 'var(--accent-gold)' }}>
+              <span>Total a Cobrar:</span> <span>${grandTotal.toFixed(2)} MXN</span>
             </div>
           </div>
 
-          {/* Formato de Cobro con Pago Mixto */}
+          {/* Configuración de Método de Pago y Pago Mixto */}
           <div>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Forma de Cobro:</label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Método de Pago:</label>
             <select
               className="input-field"
               value={paymentType}
               onChange={e => setPaymentType(e.target.value as any)}
               style={{ width: '100%', marginTop: '0.25rem' }}
             >
-              <option value="FullPayment">💵 Pago de Contado (Efectivo)</option>
-              <option value="AdvanceDeposit">📌 Venta de Apartado (Anticipo)</option>
+              <option value="FullPayment">💵 Pago De Contado (Efectivo)</option>
               <option value="MixedPayment">💳 Pago Mixto (Efectivo + Tarjeta + Transferencia)</option>
+              <option value="AdvanceDeposit">📌 Plan de Apartado / Anticipo</option>
             </select>
+          </div>
 
-            {paymentType === 'MixedPayment' && (
-              <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: 'rgba(56, 189, 248, 0.1)', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.3)', fontSize: '0.8rem' }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--accent-primary)' }}>Desglose de Pago Mixto:</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-                  <div>
-                    <label>💵 Efectivo:</label>
-                    <input
-                      type="number"
-                      className="input-field"
-                      style={{ width: '100%', marginTop: '0.2m' }}
-                      value={cashAmount}
-                      onChange={e => setCashAmount(parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
-                  <div>
-                    <label>💳 Tarjeta:</label>
-                    <input
-                      type="number"
-                      className="input-field"
-                      style={{ width: '100%', marginTop: '0.2m' }}
-                      value={cardAmount}
-                      onChange={e => setCardAmount(parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
-                  <div>
-                    <label>🏦 Transferencia:</label>
-                    <input
-                      type="number"
-                      className="input-field"
-                      style={{ width: '100%', marginTop: '0.2m' }}
-                      value={transferAmount}
-                      onChange={e => setTransferAmount(parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
+          {paymentType === 'MixedPayment' && (
+            <div style={{ background: 'rgba(56, 189, 248, 0.1)', padding: '0.75rem', borderRadius: '6px', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--accent-primary)' }}>Desglose de Pago Mixto:</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.7rem' }}>Efectivo $</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    style={{ padding: '0.25rem' }}
+                    value={cashAmount}
+                    onChange={e => handleNumericInput(setCashAmount, e.target.value)}
+                  />
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', fontWeight: 'bold', color: remainingMixed === 0 ? '#4ade80' : '#fca5a5' }}>
-                  <span>Suma Ingresada: ${sumMixed.toFixed(2)}</span>
-                  <span>{remainingMixed === 0 ? '✓ Monto Completo' : `Faltan: $${remainingMixed.toFixed(2)}`}</span>
+                <div>
+                  <label style={{ fontSize: '0.7rem' }}>Tarjeta $</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    style={{ padding: '0.25rem' }}
+                    value={cardAmount}
+                    onChange={e => handleNumericInput(setCardAmount, e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.7rem' }}>Transf. $</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    style={{ padding: '0.25rem' }}
+                    value={transferAmount}
+                    onChange={e => handleNumericInput(setTransferAmount, e.target.value)}
+                  />
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           <button
             className="action-btn"
-            onClick={handleProcessSale}
+            style={{ width: '100%', padding: '0.85rem', fontSize: '1rem', fontWeight: 'bold' }}
+            onClick={handleCompleteSale}
             disabled={isLoading || cart.length === 0}
-            style={{ width: '100%', padding: '0.75rem', fontSize: '1rem', fontWeight: 'bold' }}
           >
-            {isLoading ? 'Procesando Venta...' : '✅ Confirmar y Procesar Venta'}
+            {isLoading ? 'Procesando...' : '✅ Confirmar y Procesar Venta'}
           </button>
         </div>
       </div>
 
-      {/* Ticket Modal al finalizar venta */}
-      {completedSale && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="card" style={{ width: '420px', textAlign: 'center' }}>
-            <img src="/logo_wpc_bajio.jpeg" alt="Logo Ticket" style={{ height: '50px', marginBottom: '0.5rem' }} />
-            <h3>WPC BAJÍO — COMPROBANTE</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Folio: <strong>{completedSale.folioNumber}</strong></p>
-            <div style={{ textAlign: 'left', background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '6px', margin: '1rem 0', fontSize: '0.85rem' }}>
-              <p><strong>Fecha:</strong> {new Date(completedSale.createdAtUtc).toLocaleString()}</p>
-              <p><strong>Tipo Pago:</strong> {completedSale.paymentType}</p>
-              <p style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#38bdf8', marginTop: '0.5rem' }}>TOTAL COBRADO: ${completedSale.totalAmount.toFixed(2)}</p>
+      {/* Ticket / Comprobante de Venta Imprimible WPC Bajío */}
+      {lastSaleReceipt && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="card" style={{ width: '380px', background: '#fff', color: '#000', fontFamily: 'monospace', padding: '1.5rem' }}>
+            <div style={{ textAlign: 'center', borderBottom: '1px dashed #000', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
+              <img src="/logo_wpc_bajio.jpeg" alt="Logo" style={{ height: '40px', marginBottom: '0.25rem' }} />
+              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>WPC BAJÍO</h3>
+              <p style={{ margin: 0, fontSize: '0.75rem' }}>Venta de Lambrín y Revestimientos</p>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', fontWeight: 'bold' }}>Folio: {lastSaleReceipt.folioNumber}</p>
+              <small>{new Date(lastSaleReceipt.createdAtUtc).toLocaleString()}</small>
             </div>
-            <button className="action-btn" onClick={() => setCompletedSale(null)}>Cerrar Comprobante</button>
+
+            <div style={{ borderBottom: '1px dashed #000', paddingBottom: '0.5rem', marginBottom: '0.5rem', fontSize: '0.8rem' }}>
+              {lastSaleReceipt.items.map((it: any, i: number) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                  <span>{it.quantity}x {it.productName}</span>
+                  <span>${it.totalPrice.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ fontSize: '0.85rem', borderBottom: '1px dashed #000', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Subtotal:</span> <span>${lastSaleReceipt.subTotal.toFixed(2)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '1rem', marginTop: '0.25rem' }}>
+                <span>TOTAL:</span> <span>${lastSaleReceipt.totalAmount.toFixed(2)} MXN</span>
+              </div>
+              <div style={{ fontSize: '0.75rem', marginTop: '0.25rem', color: '#444' }}>
+                Tipo Pago: {lastSaleReceipt.paymentType}
+                {lastSaleReceipt.cashAmount > 0 && ` | Efec: $${lastSaleReceipt.cashAmount}`}
+                {lastSaleReceipt.cardAmount > 0 && ` | Tarj: $${lastSaleReceipt.cardAmount}`}
+                {lastSaleReceipt.transferAmount > 0 && ` | Trans: $${lastSaleReceipt.transferAmount}`}
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'center' }}>
+              <button
+                className="action-btn"
+                onClick={() => window.print()}
+                style={{ width: '100%', marginBottom: '0.5rem' }}
+              >
+                🖨️ Imprimir Ticket
+              </button>
+              <button
+                className="lang-btn"
+                onClick={() => setLastSaleReceipt(null)}
+                style={{ width: '100%', color: '#000', borderColor: '#888' }}
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}

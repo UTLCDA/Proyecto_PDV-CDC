@@ -110,20 +110,29 @@ using (var scope = app.Services.CreateScope())
     {
         await context.Database.EnsureCreatedAsync();
 
-        // Schema validation check (triggers exception if columns are in English)
+        // Schema validation check (triggers exception if any new column is missing in SQL Server AAM)
         _ = await context.Users.FirstOrDefaultAsync(u => u.NombreUsuario == "admin");
+        _ = await context.Products.Select(p => new {
+            p.ImagenUrl,
+            p.PiezasPorCaja,
+            p.CoberturaM2Caja,
+            p.LargoCm,
+            p.AltoCm,
+            p.AnchoCm,
+            p.CantidadInventarioInicial
+        }).FirstOrDefaultAsync();
 
         await DbInitializer.SeedAsync(context, passwordHasher);
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"⚠️ Se detectó una versión previa del esquema de BD en SQL Server AAM ({ex.Message}). Recreando base de datos PosLambrinDb con el esquema en Español...");
+        Console.WriteLine($"⚠️ Se detectó una versión previa del esquema de BD en SQL Server AAM ({ex.Message}). Recreando base de datos PosLambrinDb con el esquema actualizado...");
         try
         {
             await context.Database.EnsureDeletedAsync();
             await context.Database.EnsureCreatedAsync();
             await DbInitializer.SeedAsync(context, passwordHasher);
-            Console.WriteLine("✅ Base de datos PosLambrinDb en SQL Server AAM recreada e inicializada con éxito.");
+            Console.WriteLine("✅ Base de datos PosLambrinDb en SQL Server AAM recreada e inicializada con éxito con las nuevas columnas de Productos.");
         }
         catch (Exception innerEx)
         {

@@ -13,8 +13,17 @@ public class Producto : EntidadBase
     public decimal PrecioUnitario { get; set; }
     public decimal PrecioMayoreo { get; set; }
     public decimal CantidadMinimaMayoreo { get; set; }
-    public string UnidadMedida { get; set; } = "Pza"; // Pza, Caja, m²
+    public string UnidadMedida { get; set; } = "Pza"; // Pza, M2, ML, Caja, Kilo, Bolsa, Tubo, Juego
     public decimal CoberturaPorUnidadM2 { get; set; }
+
+    // Nuevos Campos v1.1
+    public string ImagenUrl { get; set; } = string.Empty;
+    public int PiezasPorCaja { get; set; } = 1;
+    public decimal CoberturaM2Caja { get; set; } = 0m;
+    public decimal LargoCm { get; set; } = 0m;
+    public decimal AltoCm { get; set; } = 0m;
+    public decimal AnchoCm { get; set; } = 0m;
+    public decimal CantidadInventarioInicial { get; set; } = 0m;
 
     public int AnchoMm { get; set; }
     public int LargoMm { get; set; }

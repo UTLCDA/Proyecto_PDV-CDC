@@ -1,0 +1,20 @@
+De acuerdo a la validacion previa , sube esta version a github como version 1
+ya que el sistema esta levantado y funciona en los procesos "algunos".
+
+Realmene faltan muchas cosas por implementar y mejoras que realizar.
+nos vamor a ir por modulos correspondiente a su funcionalidad y requerimiento. 
+
+1.0 Primero nos iremos por la parte del alta del producto, 
+1.1 Adecua el formulario "modal" que se vea mas limpio 
+1.2 Agrega el input  Agregar Imagen y agrega el campo en la base de datos
+1.2.1 Se va requerir convertir la imagen en base64 para que se pueda consumir menos recursos o aqui dame una recomendación
+1.3 Agregar al formulario los siguientes campos, Piezas x caja y este se multiplique cobertura y me de mts cuadratos totales que abarca, Largo, Alto , Ancho, cantidadParaInventario
+1.4 Cuando se da de alta el producto inserta un valor de inventario que no pone el usuario
+1.5 En el SKU poner al inicio y que no se borre WPC como iniciales del sku para que el usuario que dara de alta ponga sus datos correspondientes y este estandarizado.
+1.6 en el input de codigo de barras, que permita con el escaner rellene el codigo y sea mas facil al usuario
+1.7 si se va agregar la imagen y estos demas datos adicionales, adecuar el modulo de carrito de compra con las propiedades del producto
+1.8 las cajas de valores $ por ejemplo "precio unitario" este cuando borras el valor o escribes la cifra empieza 0150 y esto al usuario lo va confundir, esto pasa en todos los campos de moneda
+1.9 la unidad de medida puede variar ya que van a vender pijas, clavos, pegamento etc entonces tambien agregar mas unidades de medida
+2.0 Adecuar la tabla de  Catálogo de Productos WPC Bajío añadiendo una columna a la tabla con un recuadro de la imagen, si no tiene imagen poner recuardo en gris o blanco
+2.1 cuando voy a crear el producto se quedan los datos en cache, deben de tener los datos vacios, tambien no aparece la caja de texto de Descripción.
+

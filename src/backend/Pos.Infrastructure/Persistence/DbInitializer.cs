@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Pos.Application.Common.Interfaces;
 using Pos.Domain.Entidades;
 
@@ -8,63 +7,60 @@ public static class DbInitializer
 {
     public static async Task SeedAsync(PosDbContext context, IPasswordHasherService passwordHasher)
     {
-        if (await context.Users.AnyAsync())
+        if (context.Users.Any())
         {
-            return;
+            return; // DB has been seeded
         }
 
-        // 1. Permisos en Español
-        var permisos = new List<Permiso>
-        {
-            new() { Modulo = "Productos", Accion = "Consultar", Descripcion = "Consultar catálogo de productos WPC Bajío" },
-            new() { Modulo = "Productos", Accion = "Crear", Descripcion = "Dar de alta nuevos productos Lambrín" },
-            new() { Modulo = "Productos", Accion = "Editar", Descripcion = "Editar especificaciones y precios de productos" },
-            new() { Modulo = "Productos", Accion = "Eliminar", Descripcion = "Desactivar o eliminar productos del catálogo" },
-
-            new() { Modulo = "Clientes", Accion = "Consultar", Descripcion = "Consultar directorio de clientes" },
-            new() { Modulo = "Clientes", Accion = "Crear", Descripcion = "Registrar nuevos clientes particulares y mayoristas" },
-            new() { Modulo = "Clientes", Accion = "Editar", Descripcion = "Editar datos de clientes y porcentajes de descuento" },
-
-            new() { Modulo = "Inventario", Accion = "Consultar", Descripcion = "Consultar niveles de stock y movimientos" },
-            new() { Modulo = "Inventario", Accion = "Ajustar", Descripcion = "Registrar entradas, salidas y ajustes de inventario" },
-
-            new() { Modulo = "Ventas", Accion = "Consultar", Descripcion = "Consultar historial de ventas" },
-            new() { Modulo = "Ventas", Accion = "Crear", Descripcion = "Procesar ventas de contado, apartado y pago mixto en PDV" },
-            new() { Modulo = "Ventas", Accion = "AprobarDescuento", Descripcion = "Autorizar descuentos especiales en mostrador" },
-
-            new() { Modulo = "Cotizaciones", Accion = "Consultar", Descripcion = "Consultar cotizaciones de clientes" },
-            new() { Modulo = "Cotizaciones", Accion = "Crear", Descripcion = "Generar nuevas cotizaciones de venta" },
-            new() { Modulo = "Cotizaciones", Accion = "Convertir", Descripcion = "Convertir cotización a venta directa en 1-Click" },
-
-            new() { Modulo = "Pagos", Accion = "RegistrarAbono", Descripcion = "Registrar abonos a ventas de apartado" },
-            new() { Modulo = "Devoluciones", Accion = "Procesar", Descripcion = "Procesar devoluciones y reingresos a inventario" },
-
-            new() { Modulo = "Caja", Accion = "GestionarTurno", Descripcion = "Apertura, sangrías y Cierre de Caja X/Z con Arqueo" },
-            new() { Modulo = "Reportes", Accion = "Consultar", Descripcion = "Consultar métricas ejecutivas de ventas y productos más vendidos" },
-            new() { Modulo = "Auditoria", Accion = "Consultar", Descripcion = "Explorar bitácora de auditoría por Correlation ID" },
-
-            new() { Modulo = "Usuarios", Accion = "Consultar", Descripcion = "Consultar usuarios del sistema" },
-            new() { Modulo = "Usuarios", Accion = "Gestionar", Descripcion = "Administrar usuarios y asignación de roles" }
-        };
-
-        context.Permissions.AddRange(permisos);
-
-        // 2. Roles
-        var rolAdmin = new Rol { Nombre = "Administrador", Descripcion = "Administrador general con acceso total a WPC Bajío" };
-        var rolCajero = new Rol { Nombre = "Cajero", Descripcion = "Operador de Punto de Venta y Caja" };
+        // 1. Roles y Permisos en Español
+        var rolAdmin = new Rol { Nombre = "Administrador", Descripcion = "Acceso total al sistema WPC Bajío" };
+        var rolCajero = new Rol { Nombre = "Cajero", Descripcion = "Operación del Punto de Venta y Cobro en Caja" };
 
         context.Roles.AddRange(rolAdmin, rolCajero);
 
-        // Asignar permisos a Administrador
-        foreach (var permiso in permisos)
+        var permisosArray = new[]
         {
-            context.RolePermissions.Add(new RolPermiso { Rol = rolAdmin, Permiso = permiso });
+            ("ventas", "procesar", "Procesar ventas"),
+            ("ventas", "cancelar", "Cancelar ventas"),
+            ("ventas", "descuento", "Aplicar descuentos"),
+            ("ventas", "historial", "Ver historial de ventas"),
+            ("caja", "aperturar", "Apertura de turno de caja"),
+            ("caja", "cerrar", "Cierre de turno de caja"),
+            ("caja", "corte_z", "Ejecutar corte Z de caja"),
+            ("caja", "sangria", "Registrar retiro o sangría"),
+            ("catalogo", "productos_ver", "Ver catálogo de productos"),
+            ("catalogo", "productos_crear", "Crear productos en catálogo"),
+            ("catalogo", "productos_editar", "Editar productos en catálogo"),
+            ("catalogo", "categorias_ver", "Ver categorías de productos"),
+            ("catalogo", "categorias_crear", "Crear categorías de productos"),
+            ("inventario", "ver", "Ver niveles de existencias"),
+            ("inventario", "ajustar", "Ajustar inventarios"),
+            ("inventario", "movimientos", "Registrar movimientos de stock"),
+            ("clientes", "ver", "Ver directorio de clientes"),
+            ("clientes", "crear", "Dar de alta nuevos clientes"),
+            ("clientes", "editar", "Editar información de clientes"),
+            ("comercial", "abonos", "Registrar abonos a ventas"),
+            ("comercial", "devoluciones", "Procesar devoluciones"),
+            ("reportes", "ver_ventas", "Ver reportes ejecutivos de venta"),
+            ("reportes", "ver_inventario", "Ver reportes de inventario"),
+            ("usuarios", "administrar", "Administrar usuarios y permisos")
+        };
+
+        var entidadesPermiso = new List<Permiso>();
+        foreach (var (mod, acc, desc) in permisosArray)
+        {
+            var p = new Permiso { Modulo = mod, Accion = acc, Descripcion = desc };
+            entidadesPermiso.Add(p);
+            context.Permissions.Add(p);
+            context.RolePermissions.Add(new RolPermiso { Rol = rolAdmin, Permiso = p });
         }
 
-        // Asignar permisos a Cajero
-        var permisosCajero = permisos.Where(p =>
-            p.Modulo == "Ventas" || p.Modulo == "Cotizaciones" || p.Modulo == "Clientes" ||
-            p.Modulo == "Productos" || p.Modulo == "Caja" || p.Modulo == "Pagos").ToList();
+        var permisosCajero = entidadesPermiso.Where(p =>
+            p.Modulo == "ventas" ||
+            p.Modulo == "caja" ||
+            p.Modulo == "clientes" ||
+            p.Modulo == "catalogo" ||
+            (p.Modulo == "comercial" && p.Accion == "abonos")).ToList();
 
         foreach (var permiso in permisosCajero)
         {
@@ -97,10 +93,10 @@ public static class DbInitializer
 
         context.Categories.AddRange(catWpcInterior, catWpcExterior);
 
-        // 5. Productos iniciales
+        // 5. Productos iniciales WPC Bajío
         var prodInteriorTeka = new Producto
         {
-            Sku = "LAM-INT-TEK-01",
+            Sku = "WPC-INT-TEK-01",
             Barcode = "7501234560012",
             Nombre = "Lambrín Interior WPC Tono Teka 16cm x 2.90m",
             Descripcion = "Panel de madera plástica WPC de alta densidad con acabado texturizado tono Teka",
@@ -110,6 +106,13 @@ public static class DbInitializer
             CantidadMinimaMayoreo = 10m,
             UnidadMedida = "Pza",
             CoberturaPorUnidadM2 = 0.464m,
+            ImagenUrl = "/logo_wpc_bajio.jpeg",
+            PiezasPorCaja = 10,
+            CoberturaM2Caja = 4.640m,
+            LargoCm = 290m,
+            AltoCm = 2.4m,
+            AnchoCm = 16m,
+            CantidadInventarioInicial = 150m,
             AnchoMm = 160,
             LargoMm = 2900,
             EspesorMm = 24,
@@ -120,7 +123,7 @@ public static class DbInitializer
 
         var prodExteriorRoble = new Producto
         {
-            Sku = "LAM-EXT-ROB-02",
+            Sku = "WPC-EXT-ROB-02",
             Barcode = "7501234560029",
             Nombre = "Lambrín Exterior Co-Extrusión Roble Oscuro 21cm x 2.90m",
             Descripcion = "Lambrín exterior para intemperie con capa protectora Co-Extrusión tono Roble Oscuro",
@@ -130,47 +133,55 @@ public static class DbInitializer
             CantidadMinimaMayoreo = 15m,
             UnidadMedida = "Pza",
             CoberturaPorUnidadM2 = 0.609m,
+            ImagenUrl = "/logo_wpc_bajio.jpeg",
+            PiezasPorCaja = 8,
+            CoberturaM2Caja = 4.872m,
+            LargoCm = 290m,
+            AltoCm = 2.8m,
+            AnchoCm = 21m,
+            CantidadInventarioInicial = 80m,
             AnchoMm = 210,
             LargoMm = 2900,
-            EspesorMm = 26,
-            Material = "Co-Extrusión WPC Premium",
+            EspesorMm = 28,
+            Material = "WPC Co-Extrusión UV",
             SoloCotizacion = false,
             VisibleMasVendido = true
         };
 
         context.Products.AddRange(prodInteriorTeka, prodExteriorRoble);
 
-        // 6. Existencias de Inventario
-        context.Stocks.Add(new Existencia { Producto = prodInteriorTeka, CantidadDisponible = 150m, UmbralMinimoAlerta = 20m, CantidadReorden = 50m, Ubicacion = "Pasillo A-01" });
-        context.Stocks.Add(new Existencia { Producto = prodExteriorRoble, CantidadDisponible = 80m, UmbralMinimoAlerta = 15m, CantidadReorden = 30m, Ubicacion = "Pasillo B-04" });
-
-        // 7. Cliente de demostración
-        var clienteDemostracion = new Cliente
+        // 6. Inventario Inicial
+        var stock1 = new Existencia
         {
-            Nombre = "Arquitectura y Diseños",
-            Apellido = "Bajío S.A. de C.V.",
-            NombreEmpresa = "Arquitectura y Diseños Bajío",
-            Rfc = "ADB120304XYZ",
-            Email = "contacto@arqbajio.com",
-            Telefono = "4771234567",
-            Direccion = "Blvd. Campestre 1204",
-            Ciudad = "León",
-            Estado = "Guanajuato",
-            CodigoPostal = "37160",
-            TipoCliente = "Mayorista",
-            PorcentajeDescuentoEspecial = 5.0m,
-            Notas = "Cliente mayorista frecuente de proyectos residenciales"
+            Producto = prodInteriorTeka,
+            CantidadDisponible = 150m,
+            UmbralMinimoAlerta = 20m,
+            CantidadReorden = 100m,
+            Ubicacion = "Nave A - Pasillo 3"
         };
 
-        context.Customers.Add(clienteDemostracion);
-
-        // 8. Plantillas de Contratos Legales WPC Bajío
-        context.DocumentTemplates.Add(new PlantillaDocumento
+        var stock2 = new Existencia
         {
-            Titulo = "Contrato de Venta Directa WPC Bajío",
-            Categoria = "ContratoVenta",
-            ContenidoHtmlPlantilla = "<h1>Contrato de Venta WPC Bajío</h1><p>Cliente: {{ClienteNombre}}</p><p>Folio: {{VentaFolio}}</p><p>Total: {{MontoTotal}}</p>"
-        });
+            Producto = prodExteriorRoble,
+            CantidadDisponible = 80m,
+            UmbralMinimoAlerta = 15m,
+            CantidadReorden = 50m,
+            Ubicacion = "Nave B - Pasillo 1"
+        };
+
+        context.Stocks.AddRange(stock1, stock2);
+
+        // 7. Cliente de Mostrador General
+        var clientePublico = new Cliente
+        {
+            Nombre = "Público en General",
+            Apellido = "Venta Mostrador",
+            Email = "publico@wpcbajio.com",
+            Telefono = "4770000000",
+            TipoCliente = "Particular"
+        };
+
+        context.Customers.Add(clientePublico);
 
         await context.SaveChangesAsync();
     }

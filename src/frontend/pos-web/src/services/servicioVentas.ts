@@ -1,5 +1,13 @@
 import { apiClient } from './apiClient';
 import { Venta, PeticionCrearVenta } from '../types/tiposVentas';
+import { Producto } from '../types/tiposCatalogo';
+
+export interface ElementoCarrito {
+  product: Producto;
+  quantity: number;
+  unitPrice: number;
+  discountAmount: number;
+}
 
 export const servicioVentas = {
   getSales: (search?: string, customerId?: string, status?: string) => {
@@ -12,6 +20,11 @@ export const servicioVentas = {
   },
   getSaleById: (id: string) => apiClient.request<Venta>(`/sales/${id}`),
   processSale: (request: PeticionCrearVenta) =>
+    apiClient.request<Venta>('/sales', {
+      method: 'POST',
+      body: JSON.stringify(request)
+    }),
+  procesarVenta: (request: PeticionCrearVenta) =>
     apiClient.request<Venta>('/sales', {
       method: 'POST',
       body: JSON.stringify(request)

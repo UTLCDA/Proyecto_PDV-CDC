@@ -62,6 +62,10 @@ public class ProductsController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Error al registrar producto: {ex.Message}" });
+        }
     }
 
     [HttpPut("{id:guid}")]
@@ -81,6 +85,10 @@ public class ProductsController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Error al actualizar producto: {ex.Message}" });
+        }
     }
 
     [HttpPut("{id:guid}/price")]
@@ -99,6 +107,10 @@ public class ProductsController : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Error al actualizar precio: {ex.Message}" });
         }
     }
 }

@@ -34,6 +34,6 @@ public class ProductsControllerIntegrationTests : IClassFixture<WebApplicationFa
         var products = await response.Content.ReadFromJsonAsync<List<ProductDto>>();
         Assert.NotNull(products);
         Assert.NotEmpty(products);
-        Assert.Contains(products, p => p.Sku.StartsWith("LAM-"));
+        Assert.Contains(products, p => p.Sku.StartsWith("WPC-") || p.Sku.StartsWith("LAM-"));
     }
 }

@@ -1,323 +1,733 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Producto, Categoria } from '../../types/tiposCatalogo';
 import { servicioCatalogo } from '../../services/servicioCatalogo';
-import { Producto, Categoria, PeticionCrearProducto, PeticionActualizarProducto } from '../../types/tiposCatalogo';
 
 export const PaginaCatalogoProductos: React.FC = () => {
-  const [products, setProducts] = useState<Producto[]>([]);
-  const [categories, setCategories] = useState<Categoria[]>([]);
-  const [search, setSearch] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const { t } = useTranslation();
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [busqueda, setBusqueda] = useState('');
+  const [categoriaFiltro, setCategoriaFiltro] = useState('');
+  const [cargando, setCargando] = useState(true);
 
-  // Modal State for Product CRUD
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  // Estado Modal Producto
+  const [modalProductoAbierto, setModalProductoAbierto] = useState(false);
+  const [esEdicion, setEsEdicion] = useState(false);
+  const [productoEdicionId, setProductoEdicionId] = useState<string | null>(null);
 
-  // Modal State for Category CRUD
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
-  const [categoryName, setCategoryName] = useState<string>('');
-  const [categoryDesc, setCategoryDesc] = useState<string>('');
+  // Campos del Formulario de Producto (1.1 - 2.1)
+  const [sku, setSku] = useState('WPC-');
+  const [codigoBarras, setCodigoBarras] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [categoriaId, setCategoriaId] = useState('');
+  const [precioUnitario, setPrecioUnitario] = useState<string>('350');
+  const [precioMayoreo, setPrecioMayoreo] = useState<string>('290');
+  const [cantidadMinimaMayoreo, setCantidadMinimaMayoreo] = useState<string>('10');
+  const [unidadMedida, setUnidadMedida] = useState('Pza');
+  const [coberturaUnidadM2, setCoberturaUnidadM2] = useState<string>('0.464');
+  const [piezasPorCaja, setPiezasPorCaja] = useState<string>('10');
+  const [largoCm, setLargoCm] = useState<string>('290');
+  const [altoCm, setAltoCm] = useState<string>('2.4');
+  const [anchoCm, setAnchoCm] = useState<string>('16');
+  const [cantidadInventarioInicial, setCantidadInventarioInicial] = useState<string>('100');
+  const [imagenUrl, setImagenUrl] = useState<string>('/logo_wpc_bajio.jpeg');
+  const [soloCotizacion, setSoloCotizacion] = useState(false);
+  const [visibleMasVendido, setVisibleMasVendido] = useState(true);
 
-  const [formData, setFormData] = useState({
-    sku: '',
-    barcode: '',
-    name: '',
-    description: '',
-    categoryId: '',
-    unitPrice: 0,
-    wholesalePrice: 0,
-    wholesaleMinQuantity: 10,
-    unitOfMeasure: 'Pza',
-    coveragePerUnitSqM: 0.464,
-    widthMm: 160,
-    lengthMm: 2900,
-    thicknessMm: 24,
-    material: 'WPC Madera Plástica',
-    isQuoteOnly: false,
-    isTopSellerVisible: true,
-    isActive: true
-  });
+  // Modal Estado Categoría
+  const [modalCategoriaAbierto, setModalCategoriaAbierto] = useState(false);
+  const [nombreCategoria, setNombreCategoria] = useState('');
+  const [descripcionCategoria, setDescripcionCategoria] = useState('');
+
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    cargarDatos();
+  }, [categoriaFiltro]);
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const cargarDatos = async () => {
+    setCargando(true);
     try {
-      const [prods, cats] = await Promise.all([
-        servicioCatalogo.getProducts(search || undefined, selectedCategory || undefined),
+      const [prodsData, catsData] = await Promise.all([
+        servicioCatalogo.getProducts(busqueda, categoriaFiltro),
         servicioCatalogo.getCategories()
       ]);
-      setProducts(prods);
-      setCategories(cats);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Error al cargar catálogo de productos WPC Bajío');
+      setProductos(prodsData);
+      setCategorias(catsData);
+    } catch {
+      // Fallback
     } finally {
-      setIsLoading(false);
+      setCargando(false);
     }
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  const handleBuscarSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    loadData();
+    cargarDatos();
   };
 
-  const openNewProductModal = () => {
-    setEditingProductId(null);
-    setFormData({
-      sku: `LAM-${Date.now().toString().slice(-6)}`,
-      barcode: `750${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-      name: '',
-      description: '',
-      categoryId: categories.length > 0 ? categories[0].id : '',
-      unitPrice: 350,
-      wholesalePrice: 290,
-      wholesaleMinQuantity: 10,
-      unitOfMeasure: 'Pza',
-      coveragePerUnitSqM: 0.464,
-      widthMm: 160,
-      lengthMm: 2900,
-      thicknessMm: 24,
-      material: 'WPC Madera Plástica',
-      isQuoteOnly: false,
-      isTopSellerVisible: true,
-      isActive: true
-    });
-    setIsModalOpen(true);
+  // Limpieza de Caché y Apertura de Modal Crear (2.1)
+  const abrirModalCrear = () => {
+    setEsEdicion(false);
+    setProductoEdicionId(null);
+    setSku('WPC-');
+    setCodigoBarras('');
+    setNombre('');
+    setDescripcion('');
+    setCategoriaId(categorias.length > 0 ? categorias[0].id : '');
+    setPrecioUnitario('');
+    setPrecioMayoreo('');
+    setCantidadMinimaMayoreo('');
+    setUnidadMedida('Pza');
+    setCoberturaUnidadM2('');
+    setPiezasPorCaja('');
+    setLargoCm('');
+    setAltoCm('');
+    setAnchoCm('');
+    setCantidadInventarioInicial('');
+    setImagenUrl('');
+    setSoloCotizacion(false);
+    setVisibleMasVendido(false);
+    setModalProductoAbierto(true);
+
+    setTimeout(() => {
+      barcodeInputRef.current?.focus();
+    }, 150);
   };
 
-  const openEditProductModal = (prod: Producto) => {
-    setEditingProductId(prod.id);
-    setFormData({
-      sku: prod.sku,
-      barcode: prod.barcode,
-      name: prod.name,
-      description: prod.description,
-      categoryId: prod.categoryId,
-      unitPrice: prod.unitPrice,
-      wholesalePrice: prod.wholesalePrice,
-      wholesaleMinQuantity: prod.wholesaleMinQuantity,
-      unitOfMeasure: prod.unitOfMeasure,
-      coveragePerUnitSqM: prod.coveragePerUnitSqM,
-      widthMm: prod.widthMm,
-      lengthMm: prod.lengthMm,
-      thicknessMm: prod.thicknessMm,
-      material: prod.material,
-      isQuoteOnly: prod.isQuoteOnly,
-      isTopSellerVisible: prod.isTopSellerVisible,
-      isActive: prod.isActive
-    });
-    setIsModalOpen(true);
+  const abrirModalEditar = (p: Producto) => {
+    setEsEdicion(true);
+    setProductoEdicionId(p.id);
+    setSku(p.sku || 'WPC-');
+    setCodigoBarras(p.barcode || '');
+    setNombre(p.name || '');
+    setDescripcion(p.description || '');
+    setCategoriaId(p.categoryId || '');
+    setPrecioUnitario(p.unitPrice?.toString() || '0');
+    setPrecioMayoreo(p.wholesalePrice?.toString() || '0');
+    setCantidadMinimaMayoreo(p.wholesaleMinQuantity?.toString() || '10');
+    setUnidadMedida(p.unitOfMeasure || 'Pza');
+    setCoberturaUnidadM2(p.coveragePerUnitSqM?.toString() || '0');
+    setPiezasPorCaja(p.piecesPerBox?.toString() || '1');
+    setLargoCm(p.lengthCm?.toString() || '0');
+    setAltoCm(p.heightCm?.toString() || '0');
+    setAnchoCm(p.widthCm?.toString() || '0');
+    setCantidadInventarioInicial(p.initialInventoryQuantity?.toString() || '0');
+    setImagenUrl(p.imageUrl || '/logo_wpc_bajio.jpeg');
+    setSoloCotizacion(p.isQuoteOnly);
+    setVisibleMasVendido(p.isTopSellerVisible);
+    setModalProductoAbierto(true);
   };
 
-  const handleSaveProduct = async (e: React.FormEvent) => {
+  // Manejo de SKU con Prefijo Obligatorio WPC- (1.5)
+  const handleSkuChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let valor = e.target.value.toUpperCase();
+    if (!valor.startsWith('WPC-')) {
+      valor = 'WPC-' + valor.replace(/^WPC-?/, '');
+    }
+    setSku(valor);
+  };
+
+  // Manejo de Selección e Imagen Base64 / Local Preview (1.2 & 1.2.1)
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagenUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Formateador sin Ceros Molestos a la Izquierda (1.8)
+  const handleFormattedNumericChange = (setter: React.Dispatch<React.SetStateAction<string>>, rawVal: string) => {
+    if (rawVal === '') {
+      setter('');
+      return;
+    }
+    // Eliminar ceros a la izquierda innecesarios (ej. 0150 -> 150)
+    const cleaned = rawVal.replace(/^0+(?=\d)/, '');
+    setter(cleaned);
+  };
+
+  // Cálculo de Cobertura Total de la Caja (1.3)
+  const piezasNum = parseFloat(piezasPorCaja) || 0;
+  const cobUnitM2Num = parseFloat(coberturaUnidadM2) || 0;
+  const coberturaTotalCajaM2 = (piezasNum * cobUnitM2Num).toFixed(3);
+
+  const handleGuardarProducto = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!nombre.trim()) {
+      alert('Por favor ingrese el nombre del producto.');
+      return;
+    }
+
     try {
-      if (editingProductId) {
-        const updatePayload: PeticionActualizarProducto = { ...formData };
-        await servicioCatalogo.updateProduct(editingProductId, updatePayload);
+      if (esEdicion && productoEdicionId) {
+        await servicioCatalogo.updateProduct(productoEdicionId, {
+          name: nombre,
+          description: descripcion,
+          categoryId: categoriaId,
+          unitPrice: parseFloat(precioUnitario) || 0,
+          wholesalePrice: parseFloat(precioMayoreo) || 0,
+          wholesaleMinQuantity: parseFloat(cantidadMinimaMayoreo) || 1,
+          unitOfMeasure: unidadMedida,
+          coveragePerUnitSqM: parseFloat(coberturaUnidadM2) || 0,
+          imageUrl: imagenUrl,
+          piecesPerBox: parseInt(piezasPorCaja) || 1,
+          lengthCm: parseFloat(largoCm) || 0,
+          heightCm: parseFloat(altoCm) || 0,
+          widthCm: parseFloat(anchoCm) || 0,
+          widthMm: Math.round((parseFloat(anchoCm) || 0) * 10),
+          lengthMm: Math.round((parseFloat(largoCm) || 0) * 10),
+          thicknessMm: 24,
+          material: 'WPC Madera Plástica',
+          isQuoteOnly: soloCotizacion,
+          isTopSellerVisible: visibleMasVendido,
+          isActive: true
+        });
       } else {
-        const createPayload: PeticionCrearProducto = { ...formData };
-        await servicioCatalogo.createProduct(createPayload);
+        await servicioCatalogo.createProduct({
+          sku: sku.trim(),
+          barcode: codigoBarras.trim(),
+          name: nombre.trim(),
+          description: descripcion,
+          categoryId: categoriaId,
+          unitPrice: parseFloat(precioUnitario) || 0,
+          wholesalePrice: parseFloat(precioMayoreo) || 0,
+          wholesaleMinQuantity: parseFloat(cantidadMinimaMayoreo) || 1,
+          unitOfMeasure: unidadMedida,
+          coveragePerUnitSqM: parseFloat(coberturaUnidadM2) || 0,
+          imageUrl: imagenUrl,
+          piecesPerBox: parseInt(piezasPorCaja) || 1,
+          lengthCm: parseFloat(largoCm) || 0,
+          heightCm: parseFloat(altoCm) || 0,
+          widthCm: parseFloat(anchoCm) || 0,
+          initialInventoryQuantity: parseFloat(cantidadInventarioInicial) || 0,
+          widthMm: Math.round((parseFloat(anchoCm) || 0) * 10),
+          lengthMm: Math.round((parseFloat(largoCm) || 0) * 10),
+          thicknessMm: 24,
+          material: 'WPC Madera Plástica',
+          isQuoteOnly: soloCotizacion,
+          isTopSellerVisible: visibleMasVendido
+        });
       }
-      setIsModalOpen(false);
-      loadData();
+
+      setModalProductoAbierto(false);
+      cargarDatos();
     } catch (err: any) {
-      alert(err.message || 'Error al guardar el producto.');
+      alert(err.message || 'Error al guardar producto.');
     }
   };
 
-  const handleSaveCategory = async (e: React.FormEvent) => {
+  const handleCrearCategoria = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!nombreCategoria.trim()) return;
     try {
-      await servicioCatalogo.createCategory({ name: categoryName, description: categoryDesc });
-      setCategoryName('');
-      setCategoryDesc('');
-      setIsCategoryModalOpen(false);
-      loadData();
+      await servicioCatalogo.createCategory({
+        name: nombreCategoria.trim(),
+        description: descripcionCategoria
+      });
+      setNombreCategoria('');
+      setDescripcionCategoria('');
+      setModalCategoriaAbierto(false);
+      cargarDatos();
     } catch (err: any) {
       alert(err.message || 'Error al crear la categoría.');
     }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2>📦 Catálogo de Productos WPC Bajío</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Gestión completa de Alta, Edición y Desactivación de Productos y Categorías</p>
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="lang-btn" onClick={() => setIsCategoryModalOpen(true)}>
-            📁 Crear Categoría
-          </button>
-          <button className="action-btn" onClick={openNewProductModal}>
-            ➕ Nuevo Producto Lambrín
-          </button>
-        </div>
-      </div>
-
-      {errorMsg && <div style={{ color: 'var(--danger)' }}>{errorMsg}</div>}
-
-      {/* Filtros de búsqueda */}
-      <form onSubmit={handleSearchSubmit} className="card" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-        <input
-          type="text"
-          className="input-field"
-          placeholder="Buscar por Nombre, SKU o Código..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ width: '300px' }}
-        />
-        <select
-          className="input-field"
-          value={selectedCategory}
-          onChange={e => setSelectedCategory(e.target.value)}
-        >
-          <option value="">-- Todas las Categorías --</option>
-          {categories.map(c => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-        <button type="submit" className="action-btn">Filtrar</button>
-      </form>
-
-      {/* Tabla de Productos */}
+    <div className="product-list-container">
       <div className="card">
-        <table style={{ width: '100%', fontSize: '0.85rem' }}>
-          <thead>
-            <tr style={{ background: 'rgba(15,23,42,0.8)', textTransform: 'uppercase', fontSize: '0.75rem' }}>
-              <th style={{ padding: '0.75rem' }}>SKU / Barcode</th>
-              <th style={{ padding: '0.75rem', textAlign: 'left' }}>Producto</th>
-              <th style={{ padding: '0.75rem' }}>Cobertura M²</th>
-              <th style={{ padding: '0.75rem', textAlign: 'right' }}>P. Unitario</th>
-              <th style={{ padding: '0.75rem', textAlign: 'right' }}>P. Mayoreo</th>
-              <th style={{ padding: '0.75rem', textAlign: 'center' }}>Estado</th>
-              <th style={{ padding: '0.75rem', textAlign: 'center' }}>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map(p => (
-              <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                <td style={{ padding: '0.75rem', fontWeight: 'bold', color: 'var(--accent-primary)' }}>
-                  <div>{p.sku}</div>
-                  <small style={{ color: 'var(--text-muted)' }}>{p.barcode}</small>
-                </td>
-                <td style={{ padding: '0.75rem' }}>
-                  <div style={{ fontWeight: 600 }}>{p.name}</div>
-                  <small style={{ color: 'var(--text-muted)' }}>{p.categoryName} ({p.material})</small>
-                </td>
-                <td style={{ padding: '0.75rem', textAlign: 'center' }}>{p.coveragePerUnitSqM} m²</td>
-                <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}>${p.unitPrice.toFixed(2)}</td>
-                <td style={{ padding: '0.75rem', textAlign: 'right', color: '#4ade80' }}>${p.wholesalePrice.toFixed(2)}</td>
-                <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                  <span className={`badge ${p.isActive ? 'badge-success' : 'badge-warning'}`}>
-                    {p.isActive ? 'Activo' : 'Inactivo'}
-                  </span>
-                </td>
-                <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                  <button className="lang-btn" onClick={() => openEditProductModal(p)} style={{ fontSize: '0.75rem' }}>
-                    ✏️ Editar
-                  </button>
-                </td>
-              </tr>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h2>📦 Catálogo de Productos WPC Bajío</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+              Gestión de páneles Lambrín, precios de mayoreo, imágenes y dimensiones
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button className="action-btn" onClick={abrirModalCrear}>
+              ➕ Nuevo Producto Lambrín
+            </button>
+            <button className="lang-btn" onClick={() => setModalCategoriaAbierto(true)}>
+              📁 Crear Categoría
+            </button>
+          </div>
+        </div>
+
+        {/* Buscador y Filtros */}
+        <form onSubmit={handleBuscarSubmit} style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            className="input-field"
+            placeholder="🔍 Buscar por Nombre, SKU (WPC-...) o Código de Barras..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            style={{ flex: 1, minWidth: '240px' }}
+          />
+
+          <select
+            className="input-field"
+            value={categoriaFiltro}
+            onChange={(e) => setCategoriaFiltro(e.target.value)}
+            style={{ width: '220px' }}
+          >
+            <option value="">-- Todas las Categorías --</option>
+            {categorias.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
-          </tbody>
-        </table>
+          </select>
+
+          <button type="submit" className="action-btn">Buscar</button>
+        </form>
+
+        {/* Tabla de Productos con Columna de Imagen Thumbnail (Punto 2.0) */}
+        {cargando ? (
+          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Cargando catálogo WPC Bajío...</div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                  <th style={{ padding: '0.75rem', width: '70px' }}>Imagen</th>
+                  <th style={{ padding: '0.75rem' }}>SKU / Producto</th>
+                  <th style={{ padding: '0.75rem' }}>Categoría</th>
+                  <th style={{ padding: '0.75rem' }}>Precio Unit.</th>
+                  <th style={{ padding: '0.75rem' }}>Precio Mayoreo</th>
+                  <th style={{ padding: '0.75rem' }}>Piezas/Caja</th>
+                  <th style={{ padding: '0.75rem' }}>Cobertura (m²)</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productos.map(p => (
+                  <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    {/* Columna Miniatura Imagen (2.0) */}
+                    <td style={{ padding: '0.75rem' }}>
+                      {p.imageUrl ? (
+                        <img
+                          src={p.imageUrl}
+                          alt={p.name}
+                          style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)' }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: '50px',
+                          height: '50px',
+                          borderRadius: '6px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px dashed rgba(255,255,255,0.2)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#94a3b8',
+                          fontSize: '1.2rem'
+                        }}>
+                          📷
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: '0.75rem' }}>
+                      <div style={{ fontWeight: 600, color: '#fff' }}>{p.name}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                        SKU: <strong style={{ color: 'var(--accent-primary)' }}>{p.sku}</strong> &bull; Cod: {p.barcode || 'N/A'}
+                      </div>
+                    </td>
+                    <td style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>{p.categoryName}</td>
+                    <td style={{ padding: '0.75rem', fontWeight: 700, color: 'var(--accent-gold)' }}>
+                      ${p.unitPrice?.toFixed(2)} MXN
+                    </td>
+                    <td style={{ padding: '0.75rem', color: 'var(--success)' }}>
+                      ${p.wholesalePrice?.toFixed(2)} (Min {p.wholesaleMinQuantity} {p.unitOfMeasure})
+                    </td>
+                    <td style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>
+                      {p.piecesPerBox || 1} pzas
+                    </td>
+                     <td style={{ padding: '0.75rem' }}>
+                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                         <span style={{
+                           display: 'inline-flex',
+                           alignItems: 'center',
+                           gap: '0.25rem',
+                           padding: '0.15rem 0.4rem',
+                           borderRadius: '4px',
+                           background: 'rgba(255, 255, 255, 0.05)',
+                           color: '#e2e8f0',
+                           fontSize: '0.75rem',
+                           width: 'fit-content'
+                         }}>
+                           📐 {p.coveragePerUnitSqM || 0} m²/pza
+                         </span>
+                         <span style={{
+                           display: 'inline-flex',
+                           alignItems: 'center',
+                           gap: '0.25rem',
+                           padding: '0.15rem 0.4rem',
+                           borderRadius: '4px',
+                           background: 'rgba(56, 189, 248, 0.12)',
+                           border: '1px solid rgba(56, 189, 248, 0.2)',
+                           color: '#38bdf8',
+                           fontSize: '0.75rem',
+                           width: 'fit-content',
+                           fontWeight: 'bold'
+                         }}>
+                           📦 Caja: {p.boxCoverageSqM ? p.boxCoverageSqM.toFixed(2) : ((p.piecesPerBox || 1) * (p.coveragePerUnitSqM || 0)).toFixed(2)} m²
+                         </span>
+                       </div>
+                     </td>
+                    <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                      <button className="lang-btn" onClick={() => abrirModalEditar(p)} style={{ fontSize: '0.8rem', padding: '0.35rem 0.65rem' }}>
+                        ✏️ Editar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* Modal CRUD Formulario Producto */}
-      {isModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="card" style={{ width: '560px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h3>{editingProductId ? '✏️ Editar Producto Lambrín' : '➕ Alta de Nuevo Producto'}</h3>
-            <form onSubmit={handleSaveProduct} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '1rem', fontSize: '0.85rem' }}>
-              <div>
-                <label>SKU:</label>
-                <input type="text" className="input-field" value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} required />
-              </div>
-              <div>
-                <label>Código de Barras:</label>
-                <input type="text" className="input-field" value={formData.barcode} onChange={e => setFormData({ ...formData, barcode: e.target.value })} required />
-              </div>
-              <div style={{ gridColumn: 'span 2' }}>
-                <label>Nombre del Producto:</label>
-                <input type="text" className="input-field" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
-              </div>
-              <div style={{ gridColumn: 'span 2' }}>
-                <label>Categoría:</label>
-                <select className="input-field" value={formData.categoryId} onChange={e => setFormData({ ...formData, categoryId: e.target.value })} required>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label>Precio Unitario ($):</label>
-                <input type="number" step="0.01" className="input-field" value={formData.unitPrice} onChange={e => setFormData({ ...formData, unitPrice: parseFloat(e.target.value) || 0 })} required />
-              </div>
-              <div>
-                <label>Precio Mayoreo ($):</label>
-                <input type="number" step="0.01" className="input-field" value={formData.wholesalePrice} onChange={e => setFormData({ ...formData, wholesalePrice: parseFloat(e.target.value) || 0 })} required />
-              </div>
-              <div>
-                <label>Cobertura por Unidad (m²):</label>
-                <input type="number" step="0.001" className="input-field" value={formData.coveragePerUnitSqM} onChange={e => setFormData({ ...formData, coveragePerUnitSqM: parseFloat(e.target.value) || 0 })} required />
-              </div>
-              <div>
-                <label>Material:</label>
-                <input type="text" className="input-field" value={formData.material} onChange={e => setFormData({ ...formData, material: e.target.value })} />
+      {/* Modal Rediseñado de Producto WPC Bajío (Puntos 1.1 - 2.1) */}
+      {modalProductoAbierto && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="card" style={{ width: '850px', maxHeight: '90vh', overflowY: 'auto', border: '1px solid var(--accent-primary)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.75rem' }}>
+              <h3>{esEdicion ? '✏️ Editar Producto Lambrín WPC' : '➕ Nuevo Producto Lambrín WPC Bajío'}</h3>
+              <button className="lang-btn" onClick={() => setModalProductoAbierto(false)}>✕</button>
+            </div>
+
+            <form onSubmit={handleGuardarProducto} style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              
+              {/* Sección 1: Información General */}
+              <div style={{ padding: '1rem', background: 'rgba(15,23,42,0.5)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--accent-primary)' }}>📦 1. Información General</h4>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>SKU (Prefijo WPC- Obligatorio) *</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      required
+                      value={sku}
+                      onChange={handleSkuChange}
+                      placeholder="WPC-INT-TEKA-01"
+                      disabled={esEdicion}
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Código de Barras (Escáner USB) *</label>
+                    <input
+                      ref={barcodeInputRef}
+                      type="text"
+                      className="input-field"
+                      required
+                      value={codigoBarras}
+                      onChange={(e) => setCodigoBarras(e.target.value)}
+                      placeholder="Escanee o ingrese código..."
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Nombre Comercial del Producto *</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      required
+                      value={nombre}
+                      onChange={(e) => setNombre(e.target.value)}
+                      placeholder="Ej. Lambrín Interior WPC Tono Teka 16cm x 2.90m"
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Categoría *</label>
+                    <select
+                      className="input-field"
+                      required
+                      value={categoriaId}
+                      onChange={(e) => setCategoriaId(e.target.value)}
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                    >
+                      {categorias.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Unidad de Medida *</label>
+                    <select
+                      className="input-field"
+                      required
+                      value={unidadMedida}
+                      onChange={(e) => setUnidadMedida(e.target.value)}
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                    >
+                      <option value="Pza">Pza (Pieza)</option>
+                      <option value="M2">M2 (Metro Cuadrado)</option>
+                      <option value="ML">ML (Metro Lineal)</option>
+                      <option value="Caja">Caja</option>
+                      <option value="Kilo">Kilo (Kilogramo)</option>
+                      <option value="Bolsa">Bolsa</option>
+                      <option value="Tubo">Tubo (Pegamento)</option>
+                      <option value="Juego">Juego (Kit Pijas / Clavos)</option>
+                    </select>
+                  </div>
+
+                  {/* Caja de Texto de Descripción Visible (Punto 2.1) */}
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Descripción Técnica y Acabados</label>
+                    <textarea
+                      className="input-field"
+                      rows={3}
+                      value={descripcion}
+                      onChange={(e) => setDescripcion(e.target.value)}
+                      placeholder="Ingrese detalles del material, tono, resistencia UV, acabados y textura..."
+                      style={{ resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
               </div>
 
-              {editingProductId && (
-                <div style={{ gridColumn: 'span 2', marginTop: '0.5rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={formData.isActive} onChange={e => setFormData({ ...formData, isActive: e.target.checked })} />
-                    <strong>Producto Activo para Venta</strong>
+              {/* Sección 2: Imagen y Cobertura/Dimensiones (1.2, 1.3) */}
+              <div style={{ padding: '1rem', background: 'rgba(15,23,42,0.5)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--accent-primary)' }}>🖼️ 2. Imagen, Cobertura y Dimensiones</h4>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr', gap: '1rem', alignItems: 'center' }}>
+                  {/* Vista Previa de Imagen (1.2) */}
+                  <div style={{ textAlign: 'center' }}>
+                    {imagenUrl ? (
+                      <img src={imagenUrl} alt="Preview" style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--accent-primary)' }} />
+                    ) : (
+                      <div style={{ width: '90px', height: '90px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px dashed #94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>Sin Foto</div>
+                    )}
+                  </div>
+
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Cargar Imagen del Producto (Local / Base64)</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="input-field"
+                      onChange={handleImageFileChange}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.85rem', marginTop: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Piezas x Caja (1.3) *</label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      min="1"
+                      required
+                      value={piezasPorCaja}
+                      onChange={(e) => handleFormattedNumericChange(setPiezasPorCaja, e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Cobertura por Pieza (📐 m²) *</label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      className="input-field"
+                      required
+                      value={coberturaUnidadM2}
+                      onChange={(e) => handleFormattedNumericChange(setCoberturaUnidadM2, e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Cobertura Total Caja (📐 m²)</label>
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      padding: '0.55rem 0.85rem',
+                      background: 'rgba(56, 189, 248, 0.12)',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      color: '#38bdf8',
+                      borderRadius: '6px',
+                      fontWeight: 'bold',
+                      fontSize: '0.95rem',
+                      width: '100%',
+                      boxSizing: 'border-box'
+                    }}>
+                      📐 {coberturaTotalCajaM2} m²
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Largo (cm)</label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      value={largoCm}
+                      onChange={(e) => handleFormattedNumericChange(setLargoCm, e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Alto (cm)</label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      value={altoCm}
+                      onChange={(e) => handleFormattedNumericChange(setAltoCm, e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Ancho (cm)</label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      value={anchoCm}
+                      onChange={(e) => handleFormattedNumericChange(setAnchoCm, e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección 3: Precios, Unidad de Medida e Inventario Inicial (1.4, 1.8, 1.9) */}
+              <div style={{ padding: '1rem', background: 'rgba(15,23,42,0.5)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--accent-primary)' }}>💰 3. Precios, Unidad de Medida e Inventario Inicial</h4>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem' }}>
+                  {/* Formateo de Cajas Monetarias sin ceros molestos (1.8) */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Precio Unitario ($ MXN) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="input-field"
+                      required
+                      value={precioUnitario}
+                      onChange={(e) => handleFormattedNumericChange(setPrecioUnitario, e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Precio Mayoreo ($ MXN) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="input-field"
+                      required
+                      value={precioMayoreo}
+                      onChange={(e) => handleFormattedNumericChange(setPrecioMayoreo, e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Min. Cantidad Mayoreo *</label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      required
+                      value={cantidadMinimaMayoreo}
+                      onChange={(e) => handleFormattedNumericChange(setCantidadMinimaMayoreo, e.target.value)}
+                    />
+                  </div>
+
+                  {/* Cantidad para Inventario Inicial (1.4) */}
+                  {!esEdicion && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Cantidad Inventario Inicial (1.4) *</label>
+                      <input
+                        type="number"
+                        className="input-field"
+                        required
+                        value={cantidadInventarioInicial}
+                        onChange={(e) => handleFormattedNumericChange(setCantidadInventarioInicial, e.target.value)}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={visibleMasVendido}
+                      onChange={(e) => setVisibleMasVendido(e.target.checked)}
+                    />
+                    ⭐ Destacado / Más Vendido
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={soloCotizacion}
+                      onChange={(e) => setSoloCotizacion(e.target.checked)}
+                    />
+                    📋 Solo Cotización
                   </label>
                 </div>
-              )}
-
-              <div style={{ gridColumn: 'span 2', display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                <button type="submit" className="action-btn" style={{ flex: 1 }}>💾 Guardar Producto</button>
-                <button type="button" className="lang-btn" onClick={() => setIsModalOpen(false)}>Cancelar</button>
               </div>
+
+              {/* Botones de Acción */}
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <button type="button" className="lang-btn" onClick={() => setModalProductoAbierto(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="action-btn">
+                  💾 {esEdicion ? 'Actualizar Producto' : 'Guardar Producto en Catálogo'}
+                </button>
+              </div>
+
             </form>
           </div>
         </div>
       )}
 
-      {/* Modal Categoría */}
-      {isCategoryModalOpen && (
+      {/* Modal Crear Categoría */}
+      {modalCategoriaAbierto && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div className="card" style={{ width: '420px' }}>
-            <h3>📁 Crear Nueva Categoría</h3>
-            <form onSubmit={handleSaveCategory} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+            <h3>📁 Crear Nueva Categoría WPC</h3>
+            <form onSubmit={handleCrearCategoria} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Nombre de Categoría *</label>
                 <input
                   type="text"
                   required
                   className="input-field"
-                  value={categoryName}
-                  onChange={e => setCategoryName(e.target.value)}
-                  placeholder="Ej. Lambrín Acanalado Premium"
+                  value={nombreCategoria}
+                  onChange={(e) => setNombreCategoria(e.target.value)}
+                  placeholder="Ej. Accesorios y Fijación WPC"
                 />
               </div>
+
               <div>
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Descripción</label>
                 <input
                   type="text"
                   className="input-field"
-                  value={categoryDesc}
-                  onChange={e => setCategoryDesc(e.target.value)}
-                  placeholder="Descripción de la línea de productos..."
+                  value={descripcionCategoria}
+                  onChange={(e) => setDescripcionCategoria(e.target.value)}
+                  placeholder="Pijas, grapas, pegamento, remates..."
                 />
               </div>
+
               <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-                <button type="submit" className="action-btn" style={{ flex: 1 }}>💾 Crear Categoría</button>
-                <button type="button" className="lang-btn" onClick={() => setIsCategoryModalOpen(false)}>Cancelar</button>
+                <button type="submit" className="action-btn" style={{ flex: 1 }}>💾 Guardar Categoría</button>
+                <button type="button" className="lang-btn" onClick={() => setModalCategoriaAbierto(false)}>Cancelar</button>
               </div>
             </form>
           </div>

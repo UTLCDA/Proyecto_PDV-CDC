@@ -1,16 +1,16 @@
 # NEXT TASK — Única Tarea Recomendada
 
-## Tarea: Validación del Sistema WPC Bajío 100% Completo y Preparación para el Despliegue de Fase 2
+## Tarea: Validación del Módulo de Productos v1.1 y Siguiente Módulo de Mejoras
 
 ### Objetivo
-Realizar la validación por parte del desarrollador humano y cliente de la versión de la Fase 1 con **todos los modales ABC (Altas, Bajas, Cambios)** operables en el frontend, la integración de **Serilog a archivos rotativos de log** y la ausencia de errores HTTP 400.
+Realizar la validación por parte del desarrollador humano de los 11 puntos de mejora implementados en el **Catálogo de Productos WPC Bajío** (Formulario modal limpio de 2 columnas, vista previa e input de imágenes, prefijo obligacional `WPC-`, cálculo automático de $m^2$ por caja, unidades de medida ampliadas y columna de miniaturas en tabla).
 
 ### Criterios de Aceptación
-1. Probar los modales ABC en cada una de las 9 pestañas del sistema (`Usuarios`, `Clientes`, `Categorías/Productos`, `Inventario`, `Operaciones Comerciales/Abonos/Devoluciones`, `PDV`, `Caja`, `Reportes`).
-2. Verificar que al realizar operaciones en el sistema se generen archivos de log rotativos diarios en la carpeta `logs/auditoria-YYYYMMDD.log`.
-3. Proceder a la Fase 2 (E-Commerce WPC Bajío, comprobante PDF de Abono con Código de Barras y Pasarelas de Pago Web).
-
-### Comandos de Validación
-- `dotnet test src/backend/Pos.slnx`
-- `npm --prefix src/frontend/pos-web run test`
-- `npm --prefix src/frontend/pos-web run build`
+1. Abrir **📦 Catálogo** y verificar la nueva columna de miniatura de imagen.
+2. Hacer clic en **➕ Nuevo Producto Lambrín** y validar:
+   - Prefijo SKU inamovible `WPC-`.
+   - Caja de texto **Descripción** visible.
+   - Input de imagen con vista previa local.
+   - Cálculo automático de $m^2$ totales por caja (`PiezasPorCaja` x `CoberturaUnitarioM2`).
+   - Cajas de dinero sin ceros molestos a la izquierda (ej. `150` en lugar de `0150`).
+3. Confirmar la inserción automática en **🏭 Inventario** al guardar un producto.

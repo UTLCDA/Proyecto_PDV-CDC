@@ -32,7 +32,7 @@ public class ProductApplicationTests
         var category = await context.Categories.FirstAsync();
 
         var request = new CreateProductDto(
-            Sku: "LAM-TEST-001",
+            Sku: "WPC-TEST-001",
             Barcode: "750999888777",
             Name: "Lambrin Test Product",
             Description: "Lambrin de alta calidad para pruebas",
@@ -42,6 +42,12 @@ public class ProductApplicationTests
             WholesaleMinQuantity: 10m,
             UnitOfMeasure: "Pza",
             CoveragePerUnitSqM: 0.45m,
+            ImageUrl: "/logo_wpc_bajio.jpeg",
+            PiecesPerBox: 10,
+            LengthCm: 290m,
+            HeightCm: 2.4m,
+            WidthCm: 16m,
+            InitialInventoryQuantity: 100m,
             WidthMm: 160,
             LengthMm: 2900,
             ThicknessMm: 24,
@@ -55,7 +61,7 @@ public class ProductApplicationTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("LAM-TEST-001", result.Sku);
+        Assert.Equal("WPC-TEST-001", result.Sku);
         Assert.Equal("Lambrin Test Product", result.Name);
 
         var stock = await context.Stocks.FirstOrDefaultAsync(s => s.ProductoId == result.Id);
