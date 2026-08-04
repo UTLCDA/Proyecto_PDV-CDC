@@ -1,0 +1,240 @@
+.inventory-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.inventory-movement-modal {
+  box-sizing: border-box;
+  width: min(560px, 100%);
+  max-height: calc(100vh - 2rem);
+  margin-bottom: 0;
+  overflow-y: auto;
+}
+
+.inventory-movement-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.inventory-movement-form .input-field {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.inventory-page-container .badge-danger {
+  border: 1px solid var(--danger);
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.inventory-page-container .badge-info {
+  border: 1px solid #22d3ee;
+  background: rgba(34, 211, 238, 0.18);
+  color: #67e8f9;
+}
+
+.inventory-search-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.inventory-scanner-hint {
+  color: var(--success);
+  font-size: 0.68rem;
+}
+
+.inventory-field-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.inventory-reason-textarea {
+  min-height: 110px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.inventory-field-hint {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.inventory-file-input {
+  cursor: pointer;
+}
+
+.inventory-evidence-preview-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.inventory-evidence-preview {
+  width: 140px;
+  height: 100px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.inventory-evidence-thumbnail {
+  display: block;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.inventory-evidence-thumbnail-button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.inventory-evidence-thumbnail-button:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
+}
+
+.inventory-evidence-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(6px);
+}
+
+.inventory-evidence-modal {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: min(960px, 100%);
+  max-height: calc(100vh - 3rem);
+  padding: 1rem;
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-glow);
+}
+
+.inventory-evidence-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.inventory-evidence-modal-header h3 {
+  margin: 0;
+}
+
+.inventory-evidence-close-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.inventory-evidence-close-button:hover,
+.inventory-evidence-close-button:focus-visible {
+  border-color: var(--accent-primary);
+  background: rgba(255, 255, 255, 0.14);
+  outline: none;
+}
+
+.inventory-evidence-modal-image {
+  display: block;
+  width: 100%;
+  max-height: calc(100vh - 8rem);
+  border-radius: 8px;
+  background: #050b14;
+  object-fit: contain;
+}
+
+.inventory-no-evidence {
+  color: var(--text-muted);
+}
+
+.inventory-modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.inventory-modal-actions .action-btn {
+  flex: 1;
+}
+
+.inventory-product-thumbnail,
+.inventory-product-thumbnail-placeholder {
+  width: 50px;
+  height: 50px;
+  border-radius: 6px;
+}
+
+.inventory-product-thumbnail {
+  display: block;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  object-fit: cover;
+}
+
+.inventory-product-thumbnail-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+  font-size: 1.2rem;
+}
+
+@media (max-width: 520px) {
+  .inventory-evidence-modal-overlay {
+    padding: 0.75rem;
+  }
+
+  .inventory-evidence-modal {
+    max-height: calc(100vh - 1.5rem);
+  }
+
+  .inventory-modal-actions {
+    flex-direction: column;
+  }
+}

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Pos.Application.Common.Interfaces;
 using Pos.Application.Inventory.DTOs;
@@ -79,6 +80,40 @@ public class InventoryApplicationService : IInventoryApplicationService
 
     public async Task<InventoryMovementDto> RegisterMovementAsync(RegisterMovementDto request, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default)
     {
+        var location = string.IsNullOrWhiteSpace(request.Location)
+            ? InventoryDefaults.DefaultWarehouseLocation
+            : request.Location.Trim();
+
+        if (location.Length > InventoryDefaults.MaxWarehouseLocationLength)
+        {
+            throw new ArgumentException($"La ubicación del almacén no puede exceder {InventoryDefaults.MaxWarehouseLocationLength} caracteres.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            throw new ArgumentException("El motivo u observación es obligatorio.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.MovementType))
+        {
+            throw new ArgumentException("El tipo de movimiento es obligatorio.");
+        }
+
+        var reason = request.Reason.Trim();
+        var referenceNumber = request.ReferenceNumber?.Trim() ?? string.Empty;
+        var evidenceImageUrl = request.EvidenceImageUrl?.Trim() ?? string.Empty;
+
+        if (!string.IsNullOrEmpty(evidenceImageUrl) &&
+            !evidenceImageUrl.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("La evidencia física debe ser una imagen válida.");
+        }
+
+        if (evidenceImageUrl.Length > InventoryDefaults.MaxEvidenceImageDataUrlLength)
+        {
+            throw new ArgumentException("La imagen de evidencia excede el tamaño máximo permitido de 2 MB.");
+        }
+
         var stock = await _dbContext.Stocks
             .Include(s => s.Producto)
             .FirstOrDefaultAsync(s => s.ProductoId == request.ProductId, cancellationToken);
@@ -96,12 +131,14 @@ public class InventoryApplicationService : IInventoryApplicationService
                 ProductoId = request.ProductId,
                 CantidadDisponible = 0m,
                 UmbralMinimoAlerta = 10m,
-                CantidadReorden = 50m
+                CantidadReorden = 50m,
+                Ubicacion = location
             };
             _dbContext.Stocks.Add(stock);
         }
 
         decimal previousQuantity = stock.CantidadDisponible;
+        var previousLocation = stock.Ubicacion;
         var movementType = request.MovementType.Trim();
 
         switch (movementType.ToLowerInvariant())
@@ -124,6 +161,7 @@ public class InventoryApplicationService : IInventoryApplicationService
                 throw new ArgumentException($"Tipo de movimiento de inventario '{request.MovementType}' no válido.");
         }
 
+        stock.Ubicacion = location;
         decimal newQuantity = stock.CantidadDisponible;
 
         var movement = new MovimientoInventario
@@ -133,8 +171,9 @@ public class InventoryApplicationService : IInventoryApplicationService
             Cantidad = request.Quantity,
             CantidadAnterior = previousQuantity,
             CantidadNueva = newQuantity,
-            Motivo = request.Reason,
-            NumeroReferencia = request.ReferenceNumber,
+            Motivo = reason,
+            NumeroReferencia = referenceNumber,
+            EvidenceImageUrl = evidenceImageUrl,
             UsuarioId = currentUserId,
             FechaCreacionUtc = DateTime.UtcNow
         };
@@ -148,10 +187,15 @@ public class InventoryApplicationService : IInventoryApplicationService
             $"STOCK_MOVEMENT_{movementType.ToUpperInvariant()}",
             "Existencia",
             stock.Id.ToString(),
-            $"{{ \"CantidadDisponible\": {previousQuantity} }}",
-            $"{{ \"CantidadDisponible\": {newQuantity} }}",
+            JsonSerializer.Serialize(new { CantidadDisponible = previousQuantity, Ubicacion = previousLocation }),
+            JsonSerializer.Serialize(new
+            {
+                CantidadDisponible = newQuantity,
+                Ubicacion = stock.Ubicacion,
+                TieneEvidenciaFisica = !string.IsNullOrEmpty(evidenceImageUrl)
+            }),
             ipAddress,
-            $"Motivo: {request.Reason}, Ref: {request.ReferenceNumber}",
+            $"Motivo: {reason}, Ref: {referenceNumber}",
             cancellationToken);
 
         return MapMovementToDto(movement);
@@ -164,6 +208,7 @@ public class InventoryApplicationService : IInventoryApplicationService
             stock.ProductoId,
             stock.Producto.Sku,
             stock.Producto.Nombre,
+            string.IsNullOrWhiteSpace(stock.Producto.ImagenUrl) ? null : stock.Producto.ImagenUrl,
             stock.Producto.Categoria?.Nombre ?? "General",
             stock.CantidadDisponible,
             stock.UmbralMinimoAlerta,
@@ -188,6 +233,7 @@ public class InventoryApplicationService : IInventoryApplicationService
             m.CantidadNueva,
             m.Motivo,
             m.NumeroReferencia,
+            string.IsNullOrWhiteSpace(m.EvidenceImageUrl) ? null : m.EvidenceImageUrl,
             m.Usuario?.NombreUsuario,
             m.FechaCreacionUtc
         );

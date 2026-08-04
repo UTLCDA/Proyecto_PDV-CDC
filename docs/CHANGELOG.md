@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-08-04
+
+### Added
+- Evidencia física opcional por movimiento de inventario, con vista previa, límite de 2 MB, persistencia SQL Server, miniatura en historial y visor modal integrado sin abrir pestañas nuevas.
+- Migración EF Core incremental `20260804135557_AddInventoryMovementEvidenceImage`, aplicada a `PosLambrinDb`.
+- Columnas `Cantidad Anterior` y `Cantidad Nueva` en el historial de movimientos.
+- Miniatura de producto en la tabla de existencias.
+- Captura y persistencia de ubicación de almacén con valor temporal `Bodega Adolfo Lopez Mateos`.
+- Filtrado inmediato por lector USB de código de barras.
+
+### Changed
+- Modal de movimientos responsivo, con campos limpios, cantidad borrable y motivo multilinea.
+- Tipos de movimiento traducidos; Entrada usa verde, Salida rojo, Ajuste cian y Venta amarillo.
+- La consulta de evidencia física ahora abre un modal responsivo con cierre por botón, fondo o tecla `Esc`, en lugar de navegar a una pestaña vacía.
+- Auditoría de inventario incluye cambio de ubicación y presencia de evidencia sin copiar imágenes Base64 al log.
+- El arranque deja de recrear destructivamente la base ante errores de migración o esquema; ahora conserva los datos y falla de forma explícita.
+
 ## [1.1.0] - 2026-08-04
 
 ### Added / Refactored

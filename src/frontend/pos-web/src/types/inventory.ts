@@ -3,6 +3,7 @@ export interface Stock {
   productId: string;
   productSku: string;
   productName: string;
+  productImageUrl?: string | null;
   categoryName: string;
   quantityOnHand: number;
   minimumAlertThreshold: number;
@@ -24,6 +25,7 @@ export interface InventoryMovement {
   newQuantity: number;
   reason: string;
   referenceNumber: string;
+  evidenceImageUrl?: string | null;
   userUsername?: string;
   createdAtUtc: string;
 }
@@ -34,4 +36,6 @@ export interface RegisterMovementRequest {
   quantity: number;
   reason: string;
   referenceNumber: string;
+  location: string;
+  evidenceImageUrl?: string;
 }

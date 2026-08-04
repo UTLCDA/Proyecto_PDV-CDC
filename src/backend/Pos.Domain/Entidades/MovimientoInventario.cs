@@ -11,6 +11,7 @@ public class MovimientoInventario : EntidadBase
     public decimal CantidadNueva { get; set; }
     public string Motivo { get; set; } = string.Empty;
     public string NumeroReferencia { get; set; } = string.Empty;
+    public string EvidenceImageUrl { get; set; } = string.Empty;
     public Guid? UsuarioId { get; set; }
 
     public Producto Producto { get; set; } = null!;

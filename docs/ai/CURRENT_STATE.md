@@ -1,14 +1,26 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
 ## Estado de la Aplicación
-- **Versión Actual**: `v1.1.0-catalog-refactor` (Release `v1.0.0` Etiquetada y Commiteada en Git; Fase 1.1 de Productos Completa).
-- **Backend (.NET 9 C#)**: Operativo con arquitectura limpia modular, 24 permisos en español, Serilog dual (BD + `logs/auditoria-.log` + Dashboard UI `/serilog-ui` con login Basic Auth `administrador`/`Aaron096`), extensión de tokens JWT a 24 horas y nuevos campos de `Producto` (`ImagenUrl`, `PiezasPorCaja`, `CoberturaM2Caja`, `LargoCm`, `AltoCm`, `AnchoCm`, `CantidadInventarioInicial`).
-- **Frontend (React 18 + Vite + TypeScript)**: Modal de productos rediseñado en 2 columnas, vista previa de imagen, prefijo inamovible `WPC-` en SKU, escaneo directo con lector de barras USB, unidades de medida ampliadas (`Pza`, `M2`, `ML`, `Caja`, `Kilo`, `Bolsa`, `Tubo`, `Juego`), formateo numérico sin ceros a la izquierda, tabla con miniatura de imágenes (50x50px) y actualización del carrito PDV.
-- **Base de Datos**: SQL Server `AAM` (`PosLambrinDb`) con migración automática y siembra de existencias iniciales en `Stocks`.
+- **Versión actual**: `v1.2.0` — módulo **🏭 Control de Inventarios** completado.
+- **Publicación Git**: historial consolidado en `main` y etiqueta anotada `v1.2.0`.
+- **Backend (.NET 9)**: inventario expone imagen de producto, ubicación, cantidades anterior/nueva y evidencia física opcional por movimiento. La ubicación capturada se persiste y se incluye en auditoría; el Base64 de la evidencia nunca se copia a la bitácora.
+- **Frontend (React 18 + TypeScript)**: modal responsivo y limpio, cantidad borrable, observación multilinea, campos sin datos precargados salvo la bodega temporal, miniaturas de producto, escáner USB con filtrado inmediato y movimientos traducidos con colores diferenciados.
+- **Evidencia física**: una imagen opcional JPG/PNG/WEBP por movimiento, máximo 2 MB, con vista previa y miniatura en historial. Al pulsar la miniatura se abre un visor modal dentro del sistema, sin crear pestañas, con cierre por botón, fondo o tecla `Esc`.
+- **Ubicación temporal**: `Bodega Adolfo Lopez Mateos`. La centralización/multialmacén sigue pendiente para una fase futura.
 
-## Cobertura de Pruebas
-- **Pruebas Backend (.NET xUnit)**: **26/26 Pruebas Pasadas (100% Exito)**.
-- **Compilación de Producción**: **Éxito en 1.52s sin errores**.
+## Base de Datos
+- **Motor**: SQL Server `AAM`, base `PosLambrinDb`.
+- **Migración aplicada**: `20260804135557_AddInventoryMovementEvidenceImage`.
+- **Columna verificada**: `InventoryMovements.EvidenceImageUrl` (`nvarchar(max)`, no nula).
+- Se agregó una factoría de diseño para generar migraciones sin ejecutar el arranque destructivo de la API.
+
+## Cobertura y Validaciones Ejecutadas
+- **Backend xUnit**: **27/27 aprobadas** (`12` dominio, `7` aplicación, `8` integración API).
+- **Frontend Vitest**: **2/2 aprobadas**.
+- **Frontend producción**: `tsc && vite build`, sin errores.
+- **Backend Debug**: compilación sin advertencias ni errores. La instancia temporal de QA se detuvo al terminar para dejar libre `http://localhost:5000`.
+- **Validación visual**: sin errores de consola; Salida roja, Ajuste cian, Venta amarilla, historial antes/después, escaneo inmediato, vista previa y visor modal de evidencia confirmados. El número de pestañas permaneció sin cambios al abrir la evidencia y el cierre por `×`/`Esc` fue verificado.
 
 ## Versiones Git
-- **Tag en Git**: `v1.0.0` (Release Candidate de Fase 1).
+- **Tag actual**: `v1.2.0`.
+- Las mejoras de Inventario forman parte de la versión `v1.2.0`.

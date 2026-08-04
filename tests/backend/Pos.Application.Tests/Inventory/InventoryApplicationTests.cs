@@ -32,13 +32,16 @@ public class InventoryApplicationTests
         var product = await context.Products.FirstAsync();
         var stockBefore = await context.Stocks.FirstAsync(s => s.ProductoId == product.Id);
         var initialQty = stockBefore.CantidadDisponible;
+        const string evidenceImageUrl = "data:image/png;base64,dGVzdA==";
 
         var request = new RegisterMovementDto(
             ProductId: product.Id,
             MovementType: "Entrada",
             Quantity: 25m,
             Reason: "Recepción de contenedor de importación",
-            ReferenceNumber: "FAC-2026-99"
+            ReferenceNumber: "FAC-2026-99",
+            Location: InventoryDefaults.DefaultWarehouseLocation,
+            EvidenceImageUrl: evidenceImageUrl
         );
 
         // Act
@@ -48,8 +51,14 @@ public class InventoryApplicationTests
         Assert.NotNull(movement);
         Assert.Equal("Entrada", movement.MovementType);
         Assert.Equal(25m, movement.Quantity);
+        Assert.Equal(evidenceImageUrl, movement.EvidenceImageUrl);
 
         var stockAfter = await context.Stocks.FirstAsync(s => s.ProductoId == product.Id);
         Assert.Equal(initialQty + 25m, stockAfter.CantidadDisponible);
+        Assert.Equal(InventoryDefaults.DefaultWarehouseLocation, stockAfter.Ubicacion);
+
+        var stockDto = await inventoryService.GetStockByProductIdAsync(product.Id);
+        Assert.NotNull(stockDto);
+        Assert.Equal(product.ImagenUrl, stockDto.ProductImageUrl);
     }
 }

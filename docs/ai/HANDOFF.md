@@ -1,21 +1,39 @@
-# HANDOFF — Resumen de Versión v1.0.0 Tagged y Mejoras a Catálogo v1.1
+# HANDOFF — v1.2.0 Control de Inventarios
 
-## Resumen de la Sesión
-1. **Publicación y Tag v1.0.0 en Git**:
-   - Inicializado el repositorio Git en la raíz del proyecto.
-   - Realizado commit y tag `v1.0.0` etiquetando formalmente el Release Candidate 1 del sistema WPC Bajío.
+## Implementación Realizada
+1. **Modal de movimientos**
+   - Ancho responsivo; los combos permanecen dentro del modal.
+   - Producto, cantidad, motivo y documento se reinician vacíos al abrir.
+   - Cantidad administrada como texto durante la edición para permitir borrado completo y validada al enviar.
+   - Motivo convertido a `textarea` multilinea.
+   - Ubicación editable con valor temporal `Bodega Adolfo Lopez Mateos` y persistencia en `Stocks`.
 
-2. **Refactorización Completa del Módulo de Productos (Puntos 1.0 - 2.1)**:
-   - **Base de Datos & Backend**: Nuevas propiedades en `Producto.cs`, `CatalogDtos.cs`, `CatalogApplicationService.cs` y `DbInitializer.cs` (`ImagenUrl`, `PiezasPorCaja`, `CoberturaM2Caja`, `LargoCm`, `AltoCm`, `AnchoCm`, `CantidadInventarioInicial`).
-   - **Stock Automático**: Al dar de alta un producto, se inserta automáticamente el registro correspondiente en la tabla de existencias (`Stocks`).
-   - **Formulario Modal Rediseñado en 2 Columnas**: Organizado en secciones (*Información General*, *Dimensiones y Cobertura*, *Precios e Inventario*).
-   - **Imágenes**: Input de carga de imagen local con vista previa interactiva en tiempo real.
-   - **SKU Estandarizado**: Prefijo obligatorio e inamovible `"WPC-"`.
-   - **Formateo de Cajas Monetarias**: Eliminación del comportamiento de ceros a la izquierda.
-   - **Unidades de Medida**: Selector ampliado con `Pza`, `M2`, `ML`, `Caja`, `Kilo`, `Bolsa`, `Tubo`, `Juego`.
-   - **Tabla con Miniaturas (Thumbnails)**: Columna de imagen de 50x50px con recuadro limpio placeholder si no cuenta con foto.
-   - **Carrito PDV**: Visualización de miniaturas de producto y cobertura de muros en el punto de venta.
+2. **Tabla de existencias**
+   - Nueva miniatura de producto, reutilizando `ProductImageUrl` del catálogo.
+   - Placeholder visible cuando el producto no tiene imagen.
+   - Búsqueda por nombre, SKU o código de barras; el lector USB filtra inmediatamente al recibir `Enter`.
 
-## Pruebas
-- **Backend (.NET xUnit)**: 26/26 Pasadas al 100%.
-- **Frontend (Vite Build)**: Éxito en 1.52s sin errores.
+3. **Historial de movimientos**
+   - Tipos traducidos a español/chino.
+   - Colores: Entrada verde, Salida roja, Ajuste cian y Venta amarilla.
+   - Columnas `Cantidad Anterior` y `Cantidad Nueva` colocadas junto a `Cantidad` para mostrar claramente el antes/después.
+   - Columna `Evidencia` con miniatura cuando existe una foto asociada.
+   - La miniatura abre un visor modal responsivo dentro del módulo; no navega a una pestaña vacía y puede cerrarse con `×`, clic en el fondo o `Esc`.
+
+4. **Evidencia física y API**
+   - Una imagen opcional por movimiento, máximo 2 MB, validada como `data:image/*`.
+   - `RegisterMovementDto` y `InventoryMovementDto` incluyen `EvidenceImageUrl`.
+   - `MovimientoInventario` persiste `EvidenceImageUrl`; la bitácora registra únicamente `TieneEvidenciaFisica`.
+   - Migración incremental `20260804135557_AddInventoryMovementEvidenceImage` aplicada y verificada en `PosLambrinDb`.
+   - El arranque ya no elimina/recrea la base ante fallos de esquema; registra el error crítico y conserva los datos para diagnóstico.
+
+## Pruebas y Operación
+- Backend: 27/27 pruebas aprobadas en `Release`.
+- Frontend: 2/2 pruebas aprobadas y build de producción exitoso.
+- API `Debug` recompilada sin advertencias; la instancia temporal usada en QA se detuvo y el puerto 5000 quedó libre.
+- Contrato de la API viva verificado: expone `previousQuantity`, `newQuantity` y `evidenceImageUrl`.
+- QA visual en navegador local completado sin errores de consola. El visor mostró la evidencia completa, no abrió pestañas adicionales y cerró correctamente con botón y `Esc`.
+
+## Decisiones Pendientes
+- La fase actual admite una foto por movimiento. Evaluar almacenamiento de múltiples evidencias/archivos fuera de SQL Server cuando aumente el volumen.
+- Diseñar catálogo de almacenes y transferencias antes de reemplazar la ubicación temporal.

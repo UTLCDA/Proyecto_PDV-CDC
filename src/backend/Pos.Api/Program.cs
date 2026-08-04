@@ -101,7 +101,7 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Seed Database with automatic schema validation
+// Apply versioned migrations, validate the schema and seed only when required.
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<PosDbContext>();
@@ -109,6 +109,10 @@ using (var scope = app.Services.CreateScope())
     try
     {
         await context.Database.EnsureCreatedAsync();
+        if (context.Database.IsRelational())
+        {
+            await context.Database.MigrateAsync();
+        }
 
         // Schema validation check (triggers exception if any new column is missing in SQL Server AAM)
         _ = await context.Users.FirstOrDefaultAsync(u => u.NombreUsuario == "admin");
@@ -121,23 +125,16 @@ using (var scope = app.Services.CreateScope())
             p.AnchoCm,
             p.CantidadInventarioInicial
         }).FirstOrDefaultAsync();
+        _ = await context.InventoryMovements
+            .Select(m => m.EvidenceImageUrl)
+            .FirstOrDefaultAsync();
 
         await DbInitializer.SeedAsync(context, passwordHasher);
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"⚠️ Se detectó una versión previa del esquema de BD en SQL Server AAM ({ex.Message}). Recreando base de datos PosLambrinDb con el esquema actualizado...");
-        try
-        {
-            await context.Database.EnsureDeletedAsync();
-            await context.Database.EnsureCreatedAsync();
-            await DbInitializer.SeedAsync(context, passwordHasher);
-            Console.WriteLine("✅ Base de datos PosLambrinDb en SQL Server AAM recreada e inicializada con éxito con las nuevas columnas de Productos.");
-        }
-        catch (Exception innerEx)
-        {
-            Console.WriteLine($"Error al recrear base de datos: {innerEx.Message}");
-        }
+        app.Logger.LogCritical(ex, "No fue posible migrar o validar PosLambrinDb. La base de datos se conservó sin recrearla.");
+        throw;
     }
 }
 

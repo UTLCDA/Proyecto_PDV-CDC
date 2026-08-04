@@ -13,4 +13,24 @@ describe('WPC Bajío Frontend Tests', () => {
     // Reset back to Spanish
     i18n.changeLanguage('es');
   });
+
+  it('i18n should translate inventory movement types in ES and ZH', async () => {
+    await i18n.changeLanguage('es');
+    expect(i18n.t('movementEntry')).toBe('Entrada');
+    expect(i18n.t('movementExit')).toBe('Salida');
+    expect(i18n.t('movementAdjustment')).toBe('Ajuste');
+    expect(i18n.t('previousQuantity')).toBe('Cantidad Anterior');
+    expect(i18n.t('physicalEvidence')).toBe('Evidencia');
+    expect(i18n.t('physicalEvidenceDialogTitle')).toBe('Evidencia Física del Movimiento');
+
+    await i18n.changeLanguage('zh');
+    expect(i18n.t('movementEntry')).toBe('入库');
+    expect(i18n.t('movementExit')).toBe('出库');
+    expect(i18n.t('movementAdjustment')).toBe('盘点调整');
+    expect(i18n.t('previousQuantity')).toBe('变动前数量');
+    expect(i18n.t('physicalEvidence')).toBe('凭证');
+    expect(i18n.t('physicalEvidenceDialogTitle')).toBe('库存变动实物凭证');
+
+    await i18n.changeLanguage('es');
+  });
 });
