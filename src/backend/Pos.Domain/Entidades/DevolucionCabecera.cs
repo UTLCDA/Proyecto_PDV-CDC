@@ -6,6 +6,7 @@ public class DevolucionCabecera : EntidadBase
 {
     public string NumeroDevolucion { get; set; } = string.Empty; // e.g. DEV-2026-00001
     public Guid VentaId { get; set; }
+    public int? IdVenta { get; set; }
     public Guid? UsuarioId { get; set; }
     public decimal MontoTotalDevuelto { get; set; }
     public decimal MontoAplicadoSaldoPendiente { get; set; }

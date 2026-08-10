@@ -16,7 +16,7 @@ export const SaleReceiptModal: React.FC<{ sale: Venta; onClose: () => void }> = 
 
   return <div className="pos-receipt-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
     <div className="pos-receipt" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
-      <header><img src="/logo_wpc_bajio.jpeg" alt="WPC Bajío" /><h2 id="receipt-title">WPC BAJÍO</h2><p>{t('receiptSubtitle')}</p><strong>{sale.folioNumber}</strong><small>{dateTime.format(new Date(sale.createdAtUtc))}</small></header>
+      <header><img src="/logo_wpc_bajio.jpeg" alt="WPC Bajío" /><h2 id="receipt-title">WPC BAJÍO</h2><p>{t('receiptSubtitle')}</p><strong>{sale.folioNumber} {sale.idVenta ? `(#${sale.idVenta.toString().padStart(8, '0')})` : ''}</strong><small>{dateTime.format(new Date(sale.createdAtUtc))}</small></header>
       <div className="pos-receipt__customer">{t('customer')}: <strong>{sale.customerDisplayName || t('generalPublic')}</strong></div>
       <div className="pos-receipt__items">{sale.items.map(item => <div key={item.id}><span>{item.quantity} × {item.productName}<small>{money.format(item.unitPrice)} / {item.unitOfMeasure}</small></span><b>{money.format(item.totalPrice)}</b></div>)}</div>
       <div className="pos-receipt__totals"><span>{t('subtotal')}<b>{money.format(sale.subTotal)}</b></span>{sale.discountAmount > 0 && <span>{t('discount')}<b>-{money.format(sale.discountAmount)}</b></span>}<span>{t('tax')}<b>{money.format(sale.taxAmount)}</b></span><span className="receipt-total">{t('total')}<b>{money.format(sale.totalAmount)}</b></span></div>

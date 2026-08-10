@@ -5,6 +5,7 @@ namespace Pos.Domain.Entidades;
 public class TransaccionCaja : EntidadBase
 {
     public Guid TurnoCajaId { get; set; }
+    public int? IdVenta { get; set; }
     public string TipoTransaccion { get; set; } = CashTransactionTypes.Opening;
     public decimal Monto { get; set; }
     public string Motivo { get; set; } = string.Empty;

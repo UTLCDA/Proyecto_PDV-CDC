@@ -48,20 +48,19 @@
   - `20260805095319_CompleteReportsAndCatalog`
   - `20260805095914_NormalizeDefaultWarehouseLocation`
   - `20260809223936_AddCashShiftTotalEntradas`
+  - `20260810111538_AddIdVentaOperationalFolio`
 
-## Validación ejecutada (2026-08-10 - Iteración 4)
+## Validación ejecutada (2026-08-10 - Rama `fase-1.1`)
 
 - **Backend xUnit**: **56/56** aprobadas al 100%.
 - **Backend build**: solución `src/backend/Pos.slnx`, **0 advertencias / 0 errores**.
 - **Frontend Vitest**: **8/8** aprobadas al 100%.
 - **Frontend producción**: `tsc && vite build`, exitoso sin errores (88 módulos transformados).
-- **📦 Catálogo de Productos**: Ocultamiento dinámico de dimensiones (Largo, Alto, Ancho), cobertura por pieza y precios de mayoreo cuando la Unidad de Medida es distinta de `Caja`, cambiando la etiqueta a `Piezas / Contenido *` y manteniendo `Cantidad Inventario Inicial *`.
-- **🧾 Histórico de Ventas**: Filtrado estricto por rango de fechas en UTC y recálculo dinámico de tarjetas métricas del encabezado exclusivamente sobre ventas filtradas.
-- **💰 Abonos a Saldos Pendientes**: Inclusión explícita de registros mapeados para el `Anticipo Inicial` de ventas en modalidad de apartado en el historial global de abonos.
-- **💳 Histórico de Transacciones**: Corrección en `CommercialOpsPage.tsx` vinculando el estado `transactionHistory` en la vista de transacciones (en lugar del arreglo de abonos `installmentHistory`), mapeo de respaldo para ventas con `MontoTotal > 0` en `MapInitialTransactions` ([CommercialOperationsService.cs](file:///d:/Proyecto_PDV-CDC/src/backend/Pos.Infrastructure/Services/CommercialOperationsService.cs)) y botón `Limpiar Filtros`.
-- **🛒 Punto de Venta (PDV)**: Agregada la opción `💳 Pago total con tarjeta` en el selector de Modalidad de Pago.
-- **💵 Turno de Caja**: Mapeo explícito de la categoría `Corte X` para transacciones `XReport` (corrigiendo la clasificación errónea como Corte Z), formateo estandarizado de la columna Descripción en Movimientos Generales a `abono a venta` tanto para `Venta / Abono` como para `Venta (Cotización)`, y `Entrada de dinero a caja` para `Ingreso / Cambio`.
-- **📑 Cotizaciones y Presupuestos**: Incorporación de los campos explícitos `Anticipo Inicial` (`-$500.00` en verde) y `Monto Restante` (`$X,XXX.XX` en rojo) junto con el distintivo `<span class="badge badge-success">Convertida (Apartado)</span>` al consultar cotizaciones convertidas con modalidad de apartado (`AdvanceDeposit`) en `QuoteListPage.tsx`, respaldado por el recálculo en `MapQuoteToDto` ([CommercialOperationsService.cs](file:///d:/Proyecto_PDV-CDC/src/backend/Pos.Infrastructure/Services/CommercialOperationsService.cs)).
+- **🆔 Folio Operativo `IdVenta`**: Incorporación aditiva y retrocompatible del identificador consecutivo numérico `IdVenta` (`INT IDENTITY(1,1)` en `Sales` e `INT NULL` en `SaleItems`, `PaymentInstallments`, `ReturnHeaders`, `InventoryMovements`, `CashTransactions`).
+  - Mantenidos al 100% los identificadores GUID `Id`, PKs y FKs sin reemplazos ni refactorizaciones masivas.
+  - Concurrencia segura gestionada autoritativamente por SQL Server IDENTITY.
+  - Generación de nuevo endpoint `GET /api/v1/sales/folio/{idVenta:int}` manteniendo intacto `GET /api/v1/sales/{id:guid}`.
+  - Visualización formateada en historial y comprobante de venta (`Folio #00000157`).
 
 ## Pendientes reales de Fase 1
 

@@ -5,6 +5,7 @@ namespace Pos.Domain.Entidades;
 public class MovimientoInventario : EntidadBase
 {
     public Guid ProductoId { get; set; }
+    public int? IdVenta { get; set; }
     public string TipoMovimiento { get; set; } = string.Empty; // Entrada, Salida, Ajuste, Venta, Devolucion
     public decimal Cantidad { get; set; }
     public decimal CantidadAnterior { get; set; }

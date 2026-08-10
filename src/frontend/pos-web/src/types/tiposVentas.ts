@@ -1,5 +1,6 @@
 export interface PartidaVenta {
   id: string;
+  idVenta?: number;
   productId: string;
   productSku: string;
   productName: string;
@@ -12,6 +13,7 @@ export interface PartidaVenta {
 
 export interface Venta {
   id: string;
+  idVenta?: number;
   folioNumber: string;
   customerId?: string;
   customerDisplayName?: string;

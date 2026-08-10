@@ -328,6 +328,7 @@ public class CommercialOperationsService : ICommercialOperationsService
             var installment = new AbonoPago
             {
                 VentaId = sale.Id,
+                IdVenta = sale.IdVenta,
                 NumeroRecibo = GenerateFolio("RECIBO"),
                 MontoAbonado = request.AmountPaid,
                 SaldoPendienteAnterior = previousBalance,
@@ -349,6 +350,7 @@ public class CommercialOperationsService : ICommercialOperationsService
                     _dbContext.CashTransactions.Add(new TransaccionCaja
                     {
                         TurnoCajaId = openShift.Id,
+                        IdVenta = sale.IdVenta,
                         TipoTransaccion = CashTransactionTypes.Installment,
                         Monto = request.AmountPaid,
                         Motivo = $"Abono {installment.NumeroRecibo} de venta {sale.NumeroFolio}",
@@ -586,6 +588,7 @@ public class CommercialOperationsService : ICommercialOperationsService
             {
                 NumeroDevolucion = GenerateFolio("DEV"),
                 VentaId = sale.Id,
+                IdVenta = sale.IdVenta,
                 UsuarioId = currentUserId,
                 FormaReembolso = refundMethod,
                 Motivo = reason,
@@ -613,6 +616,7 @@ public class CommercialOperationsService : ICommercialOperationsService
                 _dbContext.InventoryMovements.Add(new MovimientoInventario
                 {
                     ProductoId = requested.ProductId,
+                    IdVenta = sale.IdVenta,
                     TipoMovimiento = InventoryMovementTypes.Return,
                     Cantidad = requested.Quantity,
                     CantidadAnterior = previousQuantity,

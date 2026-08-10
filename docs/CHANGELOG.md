@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.1] - 2026-08-10
+
+### Folio Operativo Consecutivo `IdVenta` (Rama `fase-1.1`)
+
+- **Incorporación de Folio Consecutivo `IdVenta`**:
+  - **Base de Datos**: Columna `IdVenta INT IDENTITY(1,1) NOT NULL` con índice `UNIQUE` en la tabla principal `Sales`. Columna `IdVenta INT NULL` e índices de trazabilidad en `SaleItems`, `PaymentInstallments`, `ReturnHeaders`, `InventoryMovements` y `CashTransactions`.
+  - **Compatibilidad Total**: Preservados al 100% los identificadores `Id` GUID, PKs y FKs sin reemplazo ni modificación de relaciones existentes.
+  - **Poblado Automático de Históricos**: Propagación retroactiva de `IdVenta` sobre ventas y módulos secundarios existentes.
+  - **API REST**: Nuevo endpoint opcional `GET /api/v1/sales/folio/{idVenta:int}` manteniendo intacto `GET /api/v1/sales/{id:guid}`.
+  - **Interface & Comprobantes**: Visualización del folio operativo (`Folio #00000157`) en la tabla de Histórico de Ventas y el modal de comprobantes.
+
 ## [1.3.0] - 2026-08-10
 
 ### Finalización de Fase 1 — Sistema PDV e Inventario WPC Bajío

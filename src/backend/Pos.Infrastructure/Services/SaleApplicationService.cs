@@ -219,7 +219,22 @@ public class SaleApplicationService : ISaleApplicationService
             {
                 var executionStrategy = _dbContext.Database.CreateExecutionStrategy();
                 await executionStrategy.ExecuteInTransactionAsync(
-                    async token => await _dbContext.SaveChangesAsync(acceptAllChangesOnSuccess: false, token),
+                    async token =>
+                    {
+                        await _dbContext.SaveChangesAsync(acceptAllChangesOnSuccess: false, token);
+                        foreach (var item in sale.Partidas)
+                        {
+                            item.IdVenta = sale.IdVenta;
+                        }
+                        var movements = _dbContext.ChangeTracker.Entries<MovimientoInventario>()
+                            .Where(entry => entry.Entity.NumeroReferencia == sale.NumeroFolio)
+                            .Select(entry => entry.Entity);
+                        foreach (var movement in movements)
+                        {
+                            movement.IdVenta = sale.IdVenta;
+                        }
+                        await _dbContext.SaveChangesAsync(acceptAllChangesOnSuccess: false, token);
+                    },
                     async token => await _dbContext.Sales.AsNoTracking()
                         .AnyAsync(existingSale => existingSale.Id == sale.Id, token),
                     System.Data.IsolationLevel.ReadCommitted,
@@ -228,6 +243,18 @@ public class SaleApplicationService : ISaleApplicationService
             }
             else
             {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                foreach (var item in sale.Partidas)
+                {
+                    item.IdVenta = sale.IdVenta;
+                }
+                var movements = _dbContext.ChangeTracker.Entries<MovimientoInventario>()
+                    .Where(entry => entry.Entity.NumeroReferencia == sale.NumeroFolio)
+                    .Select(entry => entry.Entity);
+                foreach (var movement in movements)
+                {
+                    movement.IdVenta = sale.IdVenta;
+                }
                 await _dbContext.SaveChangesAsync(cancellationToken);
             }
         }
@@ -314,7 +341,17 @@ public class SaleApplicationService : ISaleApplicationService
     {
         var sale = await BuildSaleQuery()
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.Id == id && item.EstaActivo, cancellationToken);
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+        return sale == null ? null : MapSaleToDto(sale);
+    }
+
+    public async Task<SaleDto?> GetSaleByFolioAsync(int idVenta, CancellationToken cancellationToken = default)
+    {
+        var sale = await BuildSaleQuery()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.IdVenta == idVenta, cancellationToken);
+
         return sale == null ? null : MapSaleToDto(sale);
     }
 
@@ -461,6 +498,7 @@ public class SaleApplicationService : ISaleApplicationService
 
         return new SaleDto(
             sale.Id,
+            sale.IdVenta,
             sale.NumeroFolio,
             sale.ClienteId,
             sale.Cliente?.NombreMostrar,

@@ -1,34 +1,17 @@
 # HANDOFF — Cierre de Mejoras del Sistema WPC Bajío y Módulos Independientes
 
-## Iteración completada (2026-08-10): Ajustes Funcionales Multi-Módulo (Iteración 5)
+## Iteración completada (2026-08-10): Incorporación del Folio Operativo `IdVenta` (Rama `fase-1.1`)
 
-1. **📦 Catálogo de Productos WPC Bajío**:
-   - Ajuste dinámico del formulario modal de producto: al seleccionar una Unidad de Medida distinta de `Caja` (ej. `Pza`, `M2`, `ML`), se ocultan los campos de Cobertura por Pieza, Cobertura Total Caja, Largo, Alto, Ancho, Precio Mayoreo y Min. Cantidad Mayoreo.
-   - La etiqueta para piezas cambia automáticamente a `Piezas / Contenido *`.
-   - Se mantiene visible la `Cantidad Inventario Inicial *` para la creación de nuevos productos.
+1. **🆔 Folio Operativo Numérico Consecutivo `IdVenta`**:
+   - Incorporada la columna `IdVenta INT IDENTITY(1,1) NOT NULL` con índice `UNIQUE` en la tabla principal de ventas `Sales`.
+   - Propagación aditiva de `IdVenta INT NULL` en tablas secundarias relacionadas: `SaleItems`, `PaymentInstallments`, `ReturnHeaders`, `InventoryMovements` y `CashTransactions`.
+   - Mantenimiento estricto al 100% de los identificadores `Id` GUID, Primary Keys y Foreign Keys sin modificaciones ni reemplazos.
+   - Script de datos histórico aplicado automáticamente durante la migración EF Core `20260810111538_AddIdVentaOperationalFolio`.
+   - Asignación de consecutivo concurrente autoritativa administrada exclusivamente por SQL Server.
+   - Generación de nuevo endpoint `GET /api/v1/sales/folio/{idVenta:int}` manteniendo intactos los endpoints por GUID.
+   - Formateo y visualización en el frontend de `Folio #00000157` en la tabla de historial de ventas y comprobantes.
 
-2. **🧾 Histórico de Ventas**:
-   - Corrección en la aplicación de filtros por fecha: las tarjetas métricas del encabezado (`sales-history-metrics`) y el listado de ventas recalculan estrictamente según las ventas devueltas en el período filtrado.
-
-3. **💰 Abonos a Saldos Pendientes**:
-   - Inclusión automática del `Anticipo Inicial` de ventas de apartado en el historial global de abonos (`GetInstallmentHistoryAsync`), permitiendo trazabilidad completa desde la apertura del apartado.
-
-4. **💳 Histórico de Transacciones y Movimientos de Pago**:
-   - La vista de transacciones ahora invoca `getPaymentTransactions` y renderiza el desglose completo de todos los movimientos (Anticipos Iniciales, Pagos Totales de Venta y Abonos a Saldo) con folios, cliente, forma de pago y fecha.
-
-5. **🛒 Punto de Venta WPC Bajío**:
-   - Agregada la opción `💳 Pago total con tarjeta` en el selector de Modalidad de Pago del PDV, mapeando de forma segura los montos al procesar la venta.
-
-6. **💵 Turno de Caja y Arqueo (Corte X/Z)**:
-   - Agregada la tarjeta métrica `📥 Ingreso / Ajuste Cambio` (`totalEntradas`) en el desglose de métricas de caja de `CashShiftPage.tsx`.
-   - Mapeo explícito de la categoría `Corte X` para transacciones `XReport` en lugar de `Corte Z`.
-   - Normalización de descripciones en Movimientos Generales: `abono a venta` para `Venta / Abono` y `Venta (Cotización)`, y `Entrada de dinero a caja` para `Ingreso / Cambio`.
-
-7. **📑 Cotizaciones y Presupuestos**:
-   - Incorporación de los campos explícitos `Anticipo Inicial` (`-$500.00` en verde) y `Monto Restante` (`$X,XXX.XX` en rojo) junto con la insignia `<span class="badge badge-success">Convertida (Apartado)</span>` al consultar cotizaciones convertidas en modalidad `Venta con Anticipo / Apartado`.
-   - Discriminación automática entre Descuento Comercial real vs. Anticipo/Abono en `MapQuoteToDto` ([CommercialOperationsService.cs](file:///d:/Proyecto_PDV-CDC/src/backend/Pos.Infrastructure/Services/CommercialOperationsService.cs)).
-
-8. **Resultado de Pruebas, Compilación y Aprobación**:
+2. **Resultado de Pruebas, Compilación y Verificación**:
    - **Backend Build**: Solución `Pos.slnx` compila con **0 advertencias / 0 errores**.
    - **Backend Unit & Integration Tests**: **56/56** pruebas xUnit aprobadas al 100%.
    - **Frontend Build**: `tsc && vite build` finalizado con éxito (88 módulos transformados).

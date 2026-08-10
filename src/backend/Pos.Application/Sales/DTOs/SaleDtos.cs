@@ -53,6 +53,7 @@ public record SalesSummaryDto(
 
 public record SaleDto(
     Guid Id,
+    int IdVenta,
     string FolioNumber,
     Guid? CustomerId,
     string? CustomerDisplayName,

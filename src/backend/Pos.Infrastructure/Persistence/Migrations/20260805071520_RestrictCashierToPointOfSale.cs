@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -12,16 +12,19 @@ namespace Pos.Infrastructure.Persistence.Migrations
         {
             migrationBuilder.Sql(
                 """
-                DELETE rolePermission
-                FROM [RolePermissions] AS rolePermission
-                INNER JOIN [Roles] AS role ON rolePermission.[RolId] = role.[Id]
-                INNER JOIN [Permissions] AS permission ON rolePermission.[PermisoId] = permission.[Id]
-                WHERE role.[Nombre] = N'Cajero'
-                  AND NOT (
-                      (permission.[Modulo] = N'ventas' AND permission.[Accion] = N'procesar')
-                      OR (permission.[Modulo] = N'catalogo' AND permission.[Accion] = N'productos_ver')
-                      OR (permission.[Modulo] = N'clientes' AND permission.[Accion] = N'ver')
-                  );
+                IF OBJECT_ID(N'RolePermissions', N'U') IS NOT NULL AND OBJECT_ID(N'Roles', N'U') IS NOT NULL AND OBJECT_ID(N'Permissions', N'U') IS NOT NULL
+                BEGIN
+                    DELETE rolePermission
+                    FROM [RolePermissions] AS rolePermission
+                    INNER JOIN [Roles] AS role ON rolePermission.[RolId] = role.[Id]
+                    INNER JOIN [Permissions] AS permission ON rolePermission.[PermisoId] = permission.[Id]
+                    WHERE role.[Nombre] = N'Cajero'
+                      AND NOT (
+                          (permission.[Modulo] = N'ventas' AND permission.[Accion] = N'procesar')
+                          OR (permission.[Modulo] = N'catalogo' AND permission.[Accion] = N'productos_ver')
+                          OR (permission.[Modulo] = N'clientes' AND permission.[Accion] = N'ver')
+                      );
+                END
                 """);
         }
 

@@ -75,6 +75,15 @@ public class SalesController : ControllerBase
         return Ok(sale);
     }
 
+    [HttpGet("folio/{idVenta:int}")]
+    [Authorize(Policy = PermissionCodes.Sales.History)]
+    public async Task<ActionResult<SaleDto>> GetSaleByFolio(int idVenta, CancellationToken cancellationToken)
+    {
+        var sale = await _saleService.GetSaleByFolioAsync(idVenta, cancellationToken);
+        if (sale == null) return NotFound(new { message = "Venta no encontrada." });
+        return Ok(sale);
+    }
+
     [HttpPost]
     [Authorize(Policy = PermissionCodes.Sales.Process)]
     public async Task<ActionResult<SaleDto>> ProcessSale([FromBody] CreateSaleDto request, CancellationToken cancellationToken)

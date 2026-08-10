@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -11,6 +11,7 @@ namespace Pos.Infrastructure.Persistence.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql(
+                "IF OBJECT_ID(N'Stocks', N'U') IS NOT NULL " +
                 "UPDATE [Stocks] SET [Ubicacion] = N'Bodega Adolfo Lopez Mateos' " +
                 "WHERE [Ubicacion] = N'Almacén Principal';");
         }

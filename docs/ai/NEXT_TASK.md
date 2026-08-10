@@ -1,32 +1,27 @@
-# NEXT TASK — Finalización y Entrega de Fase 1
+# NEXT TASK — Folio Operativo `IdVenta` en Rama `fase-1.1`
 
-## Fase 1 Completada y Validada al 100%
+## Estado de la Rama `fase-1.1`
 
-La **Fase 1: Sistema Interno, Punto de Venta (PDV) e Inventario WPC Bajío** ha sido concluida, integrada y aprobada explícitamente al 100% el 2026-08-10.
+La implementación del **folio consecutivo operativo `IdVenta`** se ha realizado de forma totalmente aditiva, retrocompatible y segura en la rama `fase-1.1`.
 
-### Estado del Sistema en Fase 1
+### Resumen de la Implementación `IdVenta`
 
-1. **Módulos Operativos Entregados**:
-   - **Catálogo de Productos**: Soporte bilingüe, imágenes, SKU `WPC-`, código de barras USB, unidades flexibles, ocultamiento dinámico de métricas no aplicables para no-Caja y stock inicial.
-   - **Punto de Venta (PDV)**: Búsqueda rápida, carrito dinámico, descuentos automáticos/manuales autorizados, IVA 16%, modalidades (Efectivo, Tarjeta, Transferencia, Mixto, Apartado/Anticipo), comprobantería e impresión.
-   - **Turno de Caja y Arqueo**: Apertura, retiros/sangrías con límite, ingresos/ajustes de cambio (`totalEntradas`), Corte X sin cierre, Corte Z con justificación y reporte de movimientos unificado.
-   - **Cotizaciones y Presupuestos**: Vigencia, precios autorizados, folio único, conversión atómica a venta/apartado, visibilidad de `Anticipo Inicial` y `Monto Restante`.
-   - **Abonos y Contratos**: Registro global de abonos (incluyendo anticipo inicial de apartado), historial filtrable, recibos de pago y contratos PDF/imprimibles membretados WPC Bajío.
-   - **Histórico de Ventas y Transacciones**: Filtrado por fechas UTC, recálculo dinámico de métricas y consulta de comprobantes.
-   - **Reportes y Auditoría**: Resumen neta/bruta, devoluciones, desglose por forma de pago, ranking de productos, inventario y bitácora auditada por permisos.
-   - **Seguridad y Usuarios**: 24 permisos específicos, roles protegidos (Administrador, Cajero), JWT con Refresh Tokens e i18n completa (Español / Chino Simplificado).
+1. **Estructura y Relaciones**:
+   - `Sales.IdVenta`: Columna `INT IDENTITY(1,1) NOT NULL` con índice `UNIQUE`.
+   - Propagación a tablas secundarias: `SaleItems`, `PaymentInstallments`, `ReturnHeaders`, `InventoryMovements` y `CashTransactions` (`INT NULL` con índices de consulta).
+   - Identificadores GUID `Id`, Primary Keys y Foreign Keys conservados al 100%.
 
-2. **Criterios de Aceptación (Definition of Done)**:
+2. **Criterios de Aceptación Cumplidos (DoD)**:
    - ✅ Pruebas xUnit Backend: **56/56** pasadas al 100%.
    - ✅ Pruebas Vitest Frontend: **8/8** pasadas al 100%.
    - ✅ Compilación Backend `.NET 9`: **0 advertencias / 0 errores**.
    - ✅ Compilación Frontend `Vite + React`: **Exitoso** sin errores.
-   - ✅ Aprobación del Usuario Humano: **100% de la funcionalidad validada**.
+   - ✅ Validaciones Cruzadas e Inconsistencia: **0 errores**.
 
 ---
 
 ### Siguiente Paso Recomendado
 
-- **Puesta en Producción / Despliegue de Fase 1**:
-  - Ejecución en ambiente productivo final de la solución `Pos.slnx` y SPA React `pos-web`.
-  - Handoff y capacitación operativa del personal de caja y administración WPC Bajío.
+- **Revisión y Merge a `main` o Continuación de Mejoras en `fase-1.1`**:
+  - Fusionar la rama `fase-1.1` en `main` cuando el usuario lo determine.
+  - Proceder con las siguientes mejoras diferidas (Promociones, Entregas/Envíos, Exportación a PDF/XLSX) o pasar a la Fase 2 (E-commerce).

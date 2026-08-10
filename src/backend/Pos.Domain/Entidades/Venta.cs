@@ -5,6 +5,7 @@ namespace Pos.Domain.Entidades;
 public class Venta : EntidadBase
 {
     public string NumeroFolio { get; set; } = string.Empty; // e.g. VENTA-2026-00001
+    public int IdVenta { get; set; }
     public Guid? ClienteId { get; set; }
     public Guid? UsuarioId { get; set; }
 

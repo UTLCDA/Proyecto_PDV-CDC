@@ -169,6 +169,24 @@ public class PosDbContext : DbContext
         modelBuilder.Entity<LogAuditoria>()
             .HasIndex(log => log.FechaCreacionUtc);
 
+        modelBuilder.Entity<Venta>()
+            .Property(v => v.IdVenta)
+            .ValueGeneratedOnAdd();
+        modelBuilder.Entity<Venta>()
+            .HasIndex(v => v.IdVenta)
+            .IsUnique();
+
+        modelBuilder.Entity<PartidaVenta>()
+            .HasIndex(pv => pv.IdVenta);
+        modelBuilder.Entity<AbonoPago>()
+            .HasIndex(ap => ap.IdVenta);
+        modelBuilder.Entity<DevolucionCabecera>()
+            .HasIndex(dc => dc.IdVenta);
+        modelBuilder.Entity<MovimientoInventario>()
+            .HasIndex(mi => mi.IdVenta);
+        modelBuilder.Entity<TransaccionCaja>()
+            .HasIndex(tc => tc.IdVenta);
+
         // Precision mapping for money fields (decimal(18,2))
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {

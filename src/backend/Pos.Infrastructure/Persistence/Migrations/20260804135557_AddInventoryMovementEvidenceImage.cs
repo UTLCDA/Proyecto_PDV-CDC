@@ -10,7 +10,7 @@ public partial class AddInventoryMovementEvidenceImage : Migration
     {
         migrationBuilder.Sql(
             """
-            IF COL_LENGTH('InventoryMovements', 'EvidenceImageUrl') IS NULL
+            IF OBJECT_ID(N'InventoryMovements', N'U') IS NOT NULL AND COL_LENGTH('InventoryMovements', 'EvidenceImageUrl') IS NULL
             BEGIN
                 ALTER TABLE [InventoryMovements]
                 ADD [EvidenceImageUrl] nvarchar(max) NOT NULL
