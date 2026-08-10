@@ -222,18 +222,55 @@ public class SaleApplicationService : ISaleApplicationService
                     async token =>
                     {
                         await _dbContext.SaveChangesAsync(acceptAllChangesOnSuccess: false, token);
-                        foreach (var item in sale.Partidas)
+
+                        // With acceptAllChangesOnSuccess:false, EF Core can keep a generated
+                        // non-key value in its store-generated sidecar until AcceptAllChanges.
+                        // Read the identity from SQL Server in the same transaction so the
+                        // operational folio is available before updating related records.
+                        var generatedIdVenta = await _dbContext.Sales
+                            .AsNoTracking()
+                            .Where(existingSale => existingSale.Id == sale.Id)
+                            .Select(existingSale => existingSale.IdVenta)
+                            .SingleOrDefaultAsync(token);
+                        if (generatedIdVenta <= 0)
                         {
-                            item.IdVenta = sale.IdVenta;
+                            throw new InvalidOperationException("SQL Server no generó el folio operativo IdVenta de la venta.");
                         }
+
+                        sale.IdVenta = generatedIdVenta;
+
                         var movements = _dbContext.ChangeTracker.Entries<MovimientoInventario>()
                             .Where(entry => entry.Entity.NumeroReferencia == sale.NumeroFolio)
-                            .Select(entry => entry.Entity);
+                            .Select(entry => entry.Entity)
+                            .ToList();
+                        // SaveChanges(false) deliberately keeps the graph pending for a safe retry.
+                        // Update the generated operational folio directly so a second SaveChanges
+                        // does not attempt to insert the same GUID entities again.
+                        var updatedItems = await _dbContext.SaleItems
+                            .Where(item => item.VentaId == sale.Id)
+                            .ExecuteUpdateAsync(
+                                setters => setters.SetProperty(item => item.IdVenta, generatedIdVenta),
+                                token);
+                        var updatedMovements = await _dbContext.InventoryMovements
+                            .Where(movement => movement.NumeroReferencia == sale.NumeroFolio)
+                            .ExecuteUpdateAsync(
+                                setters => setters.SetProperty(movement => movement.IdVenta, generatedIdVenta),
+                                token);
+
+                        if (updatedItems != sale.Partidas.Count || updatedMovements != movements.Count)
+                        {
+                            throw new DbUpdateConcurrencyException(
+                                "No fue posible propagar IdVenta a todas las partidas y movimientos de inventario.");
+                        }
+
+                        foreach (var item in sale.Partidas)
+                        {
+                            item.IdVenta = generatedIdVenta;
+                        }
                         foreach (var movement in movements)
                         {
-                            movement.IdVenta = sale.IdVenta;
+                            movement.IdVenta = generatedIdVenta;
                         }
-                        await _dbContext.SaveChangesAsync(acceptAllChangesOnSuccess: false, token);
                     },
                     async token => await _dbContext.Sales.AsNoTracking()
                         .AnyAsync(existingSale => existingSale.Id == sale.Id, token),

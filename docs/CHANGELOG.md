@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-08-10
+
+### Corrección de persistencia de ventas con `IdVenta`
+
+- Corregido el segundo `SaveChangesAsync(false)` que intentaba insertar nuevamente la venta, sus partidas y movimientos con los mismos GUID, provocando violaciones de `PK_Sales`, `PK_SaleItems` y `PK_InventoryMovements`.
+- La venta se inserta una sola vez dentro de la estrategia reintentable de SQL Server. El `IdVenta` generado se consulta por el GUID dentro de la misma transacción, evitando depender de la promoción diferida de valores de `SaveChangesAsync(false)`, y se propaga a `SaleItems` e `InventoryMovements` mediante actualizaciones directas.
+- Se valida el número de filas secundarias actualizadas para revertir toda la operación ante una propagación incompleta.
+- Eliminado `MultipleActiveResultSets=true` de la conexión operativa para que EF Core pueda utilizar savepoints durante las transacciones.
+- Agregada prueba de equivalencia entre la consulta por GUID y por folio operativo `IdVenta`; backend **57/57**.
+
 ## [1.3.1] - 2026-08-10
 
 ### Folio Operativo Consecutivo `IdVenta` (Rama `fase-1.1`)

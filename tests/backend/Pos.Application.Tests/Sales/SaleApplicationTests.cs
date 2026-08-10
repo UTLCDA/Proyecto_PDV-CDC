@@ -184,6 +184,42 @@ public class SaleApplicationTests
         Assert.Equal(originalStock, stock.CantidadDisponible);
     }
 
+    [Fact]
+    public async Task GetSaleByIdAndOperationalFolio_ShouldReturnTheSameSale()
+    {
+        await using var context = GetInMemoryDbContext();
+        var service = new SaleApplicationService(
+            context,
+            new AuditLogService(context, NullLogger<AuditLogService>.Instance));
+        var sale = new Venta
+        {
+            IdVenta = 157,
+            NumeroFolio = "VENTA-TEST-IDVENTA-000157",
+            TipoPago = SalePaymentTypes.FullPayment,
+            SubTotal = 100m,
+            MontoIva = 16m,
+            MontoTotal = 116m,
+            MontoEfectivo = 116m,
+            MontoAnticipo = 116m,
+            Estado = SaleStatuses.Completed,
+            Notas = "Prueba de equivalencia GUID e IdVenta",
+            EstaActivo = true,
+            FechaCreacionUtc = DateTime.UtcNow
+        };
+        context.Sales.Add(sale);
+        await context.SaveChangesAsync();
+
+        var byGuid = await service.GetSaleByIdAsync(sale.Id);
+        var byOperationalFolio = await service.GetSaleByFolioAsync(sale.IdVenta);
+
+        Assert.NotNull(byGuid);
+        Assert.NotNull(byOperationalFolio);
+        Assert.Equal(byGuid.Id, byOperationalFolio.Id);
+        Assert.Equal(157, byOperationalFolio.IdVenta);
+        Assert.Equal(byGuid.FolioNumber, byOperationalFolio.FolioNumber);
+        Assert.Equal(byGuid.TotalAmount, byOperationalFolio.TotalAmount);
+    }
+
     private static CreateSaleDto CreateFullPaymentRequest(
         Guid productId,
         decimal quantity,

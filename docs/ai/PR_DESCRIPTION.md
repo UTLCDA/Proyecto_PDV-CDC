@@ -17,6 +17,8 @@ Además, migra todo el frontend al Design System claro aprobado por WPC Bajío s
 
 ## Cambios principales
 
+- Corrige la persistencia relacional de ventas con `IdVenta`: elimina la reinserción de entidades con GUID duplicados, recupera el identity por GUID dentro de la transacción y propaga el folio mediante actualizaciones directas.
+- Deshabilita MARS en la conexión operativa para recuperar los savepoints de EF Core durante las transacciones reintentables.
 - Cajero limitado al PDV; administración real de usuarios, roles y matriz de 26 permisos.
 - Caja con Corte X/Z, retiros, historial y cálculos por turno real.
 - PDV con precios autoritativos, mayoreo, IVA, descuentos, stock, pago mixto/anticipo, historial y comprobante.
@@ -35,7 +37,7 @@ Además, migra todo el frontend al Design System claro aprobado por WPC Bajío s
 
 ## Pruebas
 
-- Backend: 56/56; build con 0 advertencias y 0 errores.
+- Backend: 57/57; build con 0 advertencias y 0 errores.
 - Integración SQL Server real: venta creada correctamente con partida, movimiento de inventario y auditoría consistentes.
 - Frontend: 8/8; build de producción exitoso.
 - QA visual ES/ZH y móvil 390×844 con datos reales de AAM y sin crear operaciones ficticias.

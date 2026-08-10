@@ -2,7 +2,7 @@
 
 ## Estado de la aplicación
 
-- **Línea base Git**: tag local `v1.2.0`. La iteración posterior continúa sin commit/tag nuevo y requiere validación humana antes de publicarse.
+- **Línea base Git**: rama `fase-1.1`, commit `b6fa99f` (v1.3.1). Existe una corrección local pendiente de commit y validación humana para el guardado transaccional de ventas con `IdVenta`.
 - **Módulos operativos independientes en navegación principal**:
   - 🛒 **Punto de Venta (PDV)** (validación estricta de caja aperturada antes de procesar ventas, selector de cliente obligatorio en apartado/anticipo, botones `+`/`-` con incremento entero).
   - 🧾 **Histórico de Ventas** (búsqueda, filtros por fecha/estado/cliente y reimpresión de comprobante).
@@ -31,7 +31,7 @@
 
 ## Operación comercial
 
-- **Ventas**: validación de caja aperturada requerida antes de completar ventas; anticipo exige cliente real; folios transaccionales únicos.
+- **Ventas**: validación de caja aperturada requerida antes de completar ventas; anticipo exige cliente real; folios transaccionales únicos. El guardado relacional inserta la venta una sola vez, recupera desde SQL Server el `IdVenta` generado por el GUID de la venta y lo propaga a partidas y movimientos mediante actualizaciones directas dentro de la misma transacción reintentable.
 - **Caja**: módulo con métricas ilustradas (💵 Efectivo, 💳 Tarjeta, 🏦 SPEI, 💸 Sangrías), modal de confirmación en sangrías que superan el saldo en caja, y función de ingreso de dinero para ajuste de cambio.
 - **Clientes**: estatus visible, filtros de bajas y checkbox administrado exclusivamente por rol Admin.
 - **Cotizaciones**: cliente obligatorio (omite público general), cantidades enteras con `+`/`-` y miniatura del producto.
@@ -52,8 +52,8 @@
 
 ## Validación ejecutada (2026-08-10 - Rama `fase-1.1`)
 
-- **Backend xUnit**: **56/56** aprobadas al 100%.
-- **Backend build**: solución `src/backend/Pos.slnx`, **0 advertencias / 0 errores**.
+- **Backend xUnit**: **57/57** aprobadas al 100% (12 dominio, 33 aplicación, 12 integración).
+- **Backend build Release**: solución `src/backend/Pos.slnx`, **0 advertencias / 0 errores**.
 - **Frontend Vitest**: **8/8** aprobadas al 100%.
 - **Frontend producción**: `tsc && vite build`, exitoso sin errores (88 módulos transformados).
 - **🆔 Folio Operativo `IdVenta`**: Incorporación aditiva y retrocompatible del identificador consecutivo numérico `IdVenta` (`INT IDENTITY(1,1)` en `Sales` e `INT NULL` en `SaleItems`, `PaymentInstallments`, `ReturnHeaders`, `InventoryMovements`, `CashTransactions`).
@@ -61,6 +61,15 @@
   - Concurrencia segura gestionada autoritativamente por SQL Server IDENTITY.
   - Generación de nuevo endpoint `GET /api/v1/sales/folio/{idVenta:int}` manteniendo intacto `GET /api/v1/sales/{id:guid}`.
   - Visualización formateada en historial y comprobante de venta (`Folio #00000157`).
+  - Corregido el doble `SaveChangesAsync(false)` que provocaba reinserciones con GUID duplicados al propagar el folio operativo.
+  - Corregida la lectura prematura de `sale.IdVenta`: con `SaveChangesAsync(false)` el valor generado puede permanecer diferido; ahora se consulta en SQL Server dentro de la transacción antes de propagarlo.
+  - MARS deshabilitado en la conexión operativa para conservar los savepoints de EF Core.
+  - Prueba automatizada confirma que consultar una venta por GUID y por `IdVenta` devuelve la misma operación.
+
+## Validación humana pendiente de la corrección actual
+
+- Reiniciar la instancia Debug del API que escucha en el puerto 5000 para cargar los binarios corregidos y la conexión sin MARS.
+- Registrar una venta real controlada y confirmar que devuelve HTTP 201, descuenta stock una sola vez y asigna el mismo `IdVenta` a venta, partidas y movimientos.
 
 ## Pendientes reales de Fase 1
 
@@ -68,4 +77,3 @@
 - Diseñar e implementar **Promociones** con reglas de acumulación/prioridad.
 - Diseñar **Entregas/Envíos** y su flujo de estados.
 - Exportación formal de Reportes a **PDF/XLSX**.
-

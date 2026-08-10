@@ -1,5 +1,16 @@
 # HANDOFF — Cierre de Mejoras del Sistema WPC Bajío y Módulos Independientes
 
+## Corrección local pendiente de validación humana (2026-08-10)
+
+- Se diagnosticó que `ProcessSaleAsync` ejecutaba dos veces `SaveChangesAsync(acceptAllChangesOnSuccess: false)` dentro de la estrategia reintentable. Al conservar las entidades con estado `Added`, el segundo guardado intentaba reinsertar los mismos GUID y generaba errores de Primary Key.
+- Se eliminó la segunda inserción. Después del único guardado, `IdVenta` se propaga con `ExecuteUpdateAsync` a `SaleItems` e `InventoryMovements` dentro de la misma transacción.
+- SQL Server sí devolvía `IdVenta` mediante `OUTPUT INSERTED`, pero `SaveChangesAsync(false)` podía mantener ese valor generado pendiente de promoción. Ahora el servicio consulta el folio por el GUID de la venta dentro de la misma transacción y utiliza ese valor autoritativo.
+- Se retiró `MultipleActiveResultSets=true` de `appsettings.json`; la conexión operativa vuelve a permitir savepoints de EF Core y deja de emitir `SavepointsDisabledBecauseOfMARS` después de reiniciar el API.
+- La cantidad de filas actualizadas debe coincidir con las partidas y movimientos rastreados; cualquier diferencia revierte la venta completa.
+- La venta fallida reportada no dejó venta, partida ni movimiento parcial en SQL Server.
+- Validación técnica: build Release sin errores ni advertencias y backend **57/57**.
+- Para validar en operación se debe reiniciar el API Debug actualmente abierto, confirmar que ya no aparece la advertencia de MARS y procesar una venta controlada.
+
 ## Iteración completada (2026-08-10): Incorporación del Folio Operativo `IdVenta` (Rama `fase-1.1`)
 
 1. **🆔 Folio Operativo Numérico Consecutivo `IdVenta`**:
