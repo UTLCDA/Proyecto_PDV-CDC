@@ -26,14 +26,19 @@ public class QuotesControllerIntegrationTests : IClassFixture<WebApplicationFact
 
         _client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", auth.AccessToken);
 
-        // 2. Fetch products
+        // 2. Fetch products and customers
         var products = await _client.GetFromJsonAsync<List<Pos.Application.Catalog.DTOs.ProductDto>>("/api/v1/products");
         Assert.NotNull(products);
         var product = products.First();
 
+        var customers = await _client.GetFromJsonAsync<List<Pos.Application.Catalog.DTOs.CustomerDto>>("/api/v1/customers");
+        Assert.NotNull(customers);
+        var customer = customers.First();
+
         var request = new CreateQuoteDto(
-            CustomerId: null,
+            CustomerId: customer.Id,
             DiscountAmount: 0m,
+            ValidityDays: 15,
             Notes: "Cotización de prueba de integración",
             Items: new List<CreateQuoteItemDto>
             {

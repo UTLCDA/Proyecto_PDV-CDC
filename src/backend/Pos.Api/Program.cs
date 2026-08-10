@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Pos.Api.Middleware;
 using Pos.Application.Common.Interfaces;
+using Pos.Application.Common.Security;
 using Pos.Infrastructure;
 using Pos.Infrastructure.Persistence;
 using Serilog;
@@ -87,6 +88,38 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+builder.Services.AddAuthorization(options =>
+{
+    foreach (var permission in PermissionCodes.All)
+    {
+        options.AddPolicy(permission, policy =>
+            policy.RequireClaim(PermissionCodes.ClaimType, permission));
+    }
+
+    var cashPermissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        PermissionCodes.Cash.Open,
+        PermissionCodes.Cash.Close,
+        PermissionCodes.Cash.ZReport,
+        PermissionCodes.Cash.Withdrawal,
+        PermissionCodes.Cash.Deposit
+    };
+    options.AddPolicy(AuthorizationPolicyNames.CashShiftRead, policy =>
+        policy.RequireAssertion(context => context.User
+            .FindAll(PermissionCodes.ClaimType)
+            .Any(claim => cashPermissions.Contains(claim.Value))));
+
+    var salesPermissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        PermissionCodes.Sales.Process,
+        PermissionCodes.Sales.History
+    };
+    options.AddPolicy(AuthorizationPolicyNames.SalesRead, policy =>
+        policy.RequireAssertion(context => context.User
+            .FindAll(PermissionCodes.ClaimType)
+            .Any(claim => salesPermissions.Contains(claim.Value))));
+});
+
 // CORS for React Frontend
 builder.Services.AddCors(options =>
 {
@@ -108,10 +141,13 @@ using (var scope = app.Services.CreateScope())
     var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasherService>();
     try
     {
-        await context.Database.EnsureCreatedAsync();
         if (context.Database.IsRelational())
         {
             await context.Database.MigrateAsync();
+        }
+        else
+        {
+            await context.Database.EnsureCreatedAsync();
         }
 
         // Schema validation check (triggers exception if any new column is missing in SQL Server AAM)

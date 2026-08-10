@@ -1,246 +1,209 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../context/AuthContext';
 import { servicioCatalogo } from '../../services/servicioCatalogo';
-import { Cliente, PeticionCrearCliente, PeticionActualizarCliente } from '../../types/tiposCatalogo';
+import { Cliente, PeticionActualizarCliente, PeticionCrearCliente } from '../../types/tiposCatalogo';
+import './CustomerListPage.css';
+
+type CustomerForm = Omit<PeticionCrearCliente, 'specialDiscountPercentage'> & {
+  specialDiscountPercentage: string;
+  isActive: boolean;
+};
+
+const emptyForm = (): CustomerForm => ({
+  firstName: '',
+  lastName: '',
+  companyName: '',
+  taxId: '',
+  email: '',
+  phone: '',
+  address: '',
+  city: '',
+  state: '',
+  postalCode: '',
+  customerType: 'Particular',
+  specialDiscountPercentage: '',
+  notes: '',
+  isActive: true
+});
 
 export const CustomerListPage: React.FC = () => {
+  const { t } = useTranslation();
+  const { hasPermission } = useAuth();
   const [customers, setCustomers] = useState<Cliente[]>([]);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // Modal State
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
+  const [form, setForm] = useState<CustomerForm>(emptyForm);
 
-  const [formData, setFormData] = useState<PeticionCrearCliente & { isActive: boolean }>({
-    firstName: '',
-    lastName: '',
-    companyName: '',
-    taxId: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: 'León',
-    state: 'Guanajuato',
-    postalCode: '37000',
-    customerType: 'Particular',
-    specialDiscountPercentage: 0,
-    notes: '',
-    isActive: true
-  });
+  const canCreate = hasPermission('clientes', 'crear');
+  const canEdit = hasPermission('clientes', 'editar');
+  const canAdminister = hasPermission('usuarios', 'administrar');
 
-  useEffect(() => {
-    loadCustomers();
-  }, [search]);
-
-  const loadCustomers = async () => {
-    setLoading(true);
-    setErrorMsg(null);
+  const loadCustomers = async (term = search) => {
     try {
-      const data = await servicioCatalogo.getCustomers(search || undefined);
-      setCustomers(data);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Error al cargar directorio de clientes.');
+      setLoading(true);
+      const result = await servicioCatalogo.getCustomers(term.trim() || undefined, undefined, canAdminister);
+      setCustomers(result.filter(customer => statusFilter === 'all' || customer.isActive === (statusFilter === 'active')));
+    } catch (error) {
+      setNotice({ type: 'error', text: errorMessage(error, t('customerLoadError')) });
     } finally {
       setLoading(false);
     }
   };
 
-  const openNewCustomerModal = () => {
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadCustomers(search), 250);
+    return () => window.clearTimeout(timer);
+  }, [search, statusFilter, canAdminister]);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => event.key === 'Escape' && setIsModalOpen(false);
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isModalOpen]);
+
+  const openCreate = () => {
     setEditingCustomerId(null);
-    setFormData({
-      firstName: '',
-      lastName: '',
-      companyName: '',
-      taxId: '',
-      email: '',
-      phone: '',
-      address: '',
-      city: 'León',
-      state: 'Guanajuato',
-      postalCode: '37000',
-      customerType: 'Particular',
-      specialDiscountPercentage: 0,
-      notes: '',
-      isActive: true
-    });
+    setForm(emptyForm());
+    setNotice(null);
     setIsModalOpen(true);
   };
 
-  const openEditCustomerModal = (c: Cliente) => {
-    setEditingCustomerId(c.id);
-    setFormData({
-      firstName: c.firstName,
-      lastName: c.lastName,
-      companyName: c.companyName || '',
-      taxId: c.taxId || '',
-      email: c.email,
-      phone: c.phone,
-      address: c.address,
-      city: c.city,
-      state: c.state,
-      postalCode: c.postalCode,
-      customerType: c.customerType,
-      specialDiscountPercentage: c.specialDiscountPercentage,
-      notes: c.notes,
-      isActive: true
+  const openEdit = (customer: Cliente) => {
+    setEditingCustomerId(customer.id);
+    setForm({
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      companyName: customer.companyName ?? '',
+      taxId: customer.taxId ?? '',
+      email: customer.email,
+      phone: customer.phone,
+      address: customer.address,
+      city: customer.city,
+      state: customer.state,
+      postalCode: customer.postalCode,
+      customerType: customer.customerType,
+      specialDiscountPercentage: customer.specialDiscountPercentage ? String(customer.specialDiscountPercentage) : '',
+      notes: customer.notes,
+      isActive: customer.isActive
     });
+    setNotice(null);
     setIsModalOpen(true);
   };
 
-  const handleSaveCustomer = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const updateForm = (field: keyof CustomerForm, value: string | boolean) =>
+    setForm(current => ({ ...current, [field]: value }));
+
+  const saveCustomer = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const discount = Number(form.specialDiscountPercentage || 0);
+    if (!Number.isFinite(discount) || discount < 0 || discount > 100) {
+      setNotice({ type: 'error', text: t('invalidCustomerDiscount') });
+      return;
+    }
+    const payload: PeticionCrearCliente = {
+      firstName: form.firstName,
+      lastName: form.lastName,
+      companyName: form.companyName || undefined,
+      taxId: form.taxId || undefined,
+      email: form.email,
+      phone: form.phone,
+      address: form.address,
+      city: form.city,
+      state: form.state,
+      postalCode: form.postalCode,
+      customerType: form.customerType,
+      specialDiscountPercentage: discount,
+      notes: form.notes
+    };
     try {
+      setSaving(true);
       if (editingCustomerId) {
-        const updatePayload: PeticionActualizarCliente = { ...formData };
-        await servicioCatalogo.updateCustomer(editingCustomerId, updatePayload);
+        await servicioCatalogo.updateCustomer(editingCustomerId, { ...payload, isActive: form.isActive } as PeticionActualizarCliente);
       } else {
-        const createPayload: PeticionCrearCliente = { ...formData };
-        await servicioCatalogo.createCustomer(createPayload);
+        await servicioCatalogo.createCustomer(payload);
       }
       setIsModalOpen(false);
-      loadCustomers();
-    } catch (err: any) {
-      alert(err.message || 'Error al guardar el cliente.');
+      setNotice({ type: 'success', text: t('customerSaved') });
+      await loadCustomers();
+    } catch (error) {
+      setNotice({ type: 'error', text: errorMessage(error, t('customerSaveError')) });
+    } finally {
+      setSaving(false);
     }
   };
 
-  return (
-    <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <div>
-          <h2>👥 Directorio de Clientes WPC Bajío</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Gestión completa de Alta, Edición de datos fiscales (RFC) y Descuentos Especiales</p>
-        </div>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <input
-            type="text"
-            className="input-field"
-            placeholder="Buscar por Nombre, RFC o Empresa..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: '280px' }}
-          />
-          <button className="action-btn" onClick={openNewCustomerModal}>
-            ➕ Nuevo Cliente
-          </button>
-        </div>
+  return <section className="customers-page">
+    <header className="customers-header">
+      <div><h1>👥 {t('customersPageTitle')}</h1><p>{t('customersPageSubtitle')}</p></div>
+      <div className="customers-actions">
+        <input className="form-control" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('searchCustomerAdmin')} />
+        {canAdminister && <select className="form-control" value={statusFilter} onChange={event => setStatusFilter(event.target.value as typeof statusFilter)} aria-label={t('customerStatus')}>
+          <option value="all">{t('allStatuses')}</option>
+          <option value="active">{t('activeStatus')}</option>
+          <option value="inactive">{t('inactiveStatus')}</option>
+        </select>}
+        {canCreate && <button className="action-btn" onClick={openCreate}>➕ {t('newCustomer')}</button>}
       </div>
+    </header>
 
-      {errorMsg && <div style={{ color: 'var(--danger)', marginBottom: '1rem' }}>{errorMsg}</div>}
+    {notice && <div className={`customers-notice customers-notice--${notice.type}`} role="alert">{notice.text}</div>}
 
-      {loading ? (
-        <div>Cargando clientes...</div>
-      ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-            <thead>
-              <tr style={{ background: 'rgba(15,23,42,0.8)', textTransform: 'uppercase', fontSize: '0.75rem' }}>
-                <th style={{ padding: '0.75rem', textAlign: 'left' }}>Cliente / Empresa</th>
-                <th style={{ padding: '0.75rem', textAlign: 'left' }}>RFC / Tax ID</th>
-                <th style={{ padding: '0.75rem', textAlign: 'left' }}>Contacto</th>
-                <th style={{ padding: '0.75rem', textAlign: 'center' }}>Tipo Cliente</th>
-                <th style={{ padding: '0.75rem', textAlign: 'center' }}>Desc. Especial</th>
-                <th style={{ padding: '0.75rem', textAlign: 'center' }}>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {customers.map((c) => (
-                <tr key={c.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  <td style={{ padding: '0.75rem', fontWeight: 500 }}>
-                    <div style={{ fontWeight: 600 }}>{c.displayName}</div>
-                    {c.companyName && <small style={{ color: 'var(--text-muted)' }}>{c.companyName}</small>}
-                  </td>
-                  <td style={{ padding: '0.75rem', fontFamily: 'monospace' }}>{c.taxId || 'N/A'}</td>
-                  <td style={{ padding: '0.75rem' }}>
-                    <div>{c.email}</div>
-                    <small style={{ color: 'var(--text-muted)' }}>{c.phone}</small>
-                  </td>
-                  <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                    <span className={`badge ${c.customerType === 'Mayorista' || c.customerType === 'Wholesale' ? 'badge-success' : ''}`}>
-                      {c.customerType}
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: 600, color: 'var(--accent-gold, #fbbf24)' }}>
-                    {c.specialDiscountPercentage > 0 ? `${c.specialDiscountPercentage}%` : '0%'}
-                  </td>
-                  <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                    <button className="lang-btn" onClick={() => openEditCustomerModal(c)} style={{ fontSize: '0.75rem' }}>
-                      ✏️ Editar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+    <article className="customers-card">
+      {loading ? <div className="customers-empty">{t('loading')}</div> : customers.length === 0 ? <div className="customers-empty">{t('noCustomers')}</div> :
+        <div className="customers-table-wrap"><table className="customers-table"><thead><tr>
+          <th>{t('customerCompany')}</th><th>{t('taxIdLabel')}</th><th>{t('customerContact')}</th><th>{t('customerLocation')}</th><th>{t('customerType')}</th><th>{t('customerDiscount')}</th><th>{t('customerStatus')}</th>{canEdit && <th>{t('actions')}</th>}
+        </tr></thead><tbody>{customers.map(customer => <tr key={customer.id}>
+          <td><strong>{customer.displayName}</strong>{customer.companyName && <small>{customer.companyName}</small>}</td>
+          <td><code>{customer.taxId || '—'}</code></td>
+          <td><span>{customer.email}</span><small>{customer.phone}</small></td>
+          <td><span>{[customer.city, customer.state].filter(Boolean).join(', ') || '—'}</span><small>{customer.postalCode}</small></td>
+          <td><span className={`badge ${customer.customerType === 'Mayorista' ? 'badge-success' : ''}`}>{t(customerTypeKey(customer.customerType))}</span></td>
+          <td>{customer.specialDiscountPercentage}%</td>
+          <td><span className={`badge ${customer.isActive ? 'badge-success' : 'badge-danger'}`}>{t(customer.isActive ? 'activeStatus' : 'inactiveStatus')}</span></td>
+          {canEdit && <td><button className="pos-link-btn" onClick={() => openEdit(customer)}>✏️ {t('editCustomer')}</button></td>}
+        </tr>)}</tbody></table></div>}
+    </article>
 
-      {/* Modal CRUD Cliente */}
-      {isModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="card" style={{ width: '560px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h3>{editingCustomerId ? '✏️ Editar Cliente' : '➕ Alta de Nuevo Cliente WPC Bajío'}</h3>
-            <form onSubmit={handleSaveCustomer} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '1rem', fontSize: '0.85rem' }}>
-              <div>
-                <label>Nombre(s) *:</label>
-                <input type="text" className="input-field" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })} required />
-              </div>
-              <div>
-                <label>Apellido(s) *:</label>
-                <input type="text" className="input-field" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })} required />
-              </div>
-              <div>
-                <label>Nombre de Empresa / Razón Social:</label>
-                <input type="text" className="input-field" value={formData.companyName} onChange={e => setFormData({ ...formData, companyName: e.target.value })} />
-              </div>
-              <div>
-                <label>RFC / Tax ID:</label>
-                <input type="text" className="input-field" value={formData.taxId} onChange={e => setFormData({ ...formData, taxId: e.target.value })} placeholder="XAXX010101000" />
-              </div>
-              <div>
-                <label>Correo Electrónico *:</label>
-                <input type="email" className="input-field" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
-              </div>
-              <div>
-                <label>Teléfono *:</label>
-                <input type="text" className="input-field" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} required />
-              </div>
-              <div style={{ gridColumn: 'span 2' }}>
-                <label>Dirección Completa:</label>
-                <input type="text" className="input-field" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} required />
-              </div>
-              <div>
-                <label>Ciudad:</label>
-                <input type="text" className="input-field" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} />
-              </div>
-              <div>
-                <label>Estado:</label>
-                <input type="text" className="input-field" value={formData.state} onChange={e => setFormData({ ...formData, state: e.target.value })} />
-              </div>
-              <div>
-                <label>Tipo de Cliente *:</label>
-                <select className="input-field" value={formData.customerType} onChange={e => setFormData({ ...formData, customerType: e.target.value })}>
-                  <option value="Particular">Particular (Público General)</option>
-                  <option value="Mayorista">Mayorista (Descuento de Mayoreo)</option>
-                  <option value="Arquitecto/Constructor">Arquitecto / Contratista</option>
-                </select>
-              </div>
-              <div>
-                <label>Descuento Especial (%):</label>
-                <input type="number" step="0.5" className="input-field" value={formData.specialDiscountPercentage} onChange={e => setFormData({ ...formData, specialDiscountPercentage: parseFloat(e.target.value) || 0 })} />
-              </div>
-
-              <div style={{ gridColumn: 'span 2', display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                <button type="submit" className="action-btn" style={{ flex: 1 }}>💾 Guardar Cliente</button>
-                <button type="button" className="lang-btn" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-              </div>
-            </form>
+    {isModalOpen && <div className="customers-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setIsModalOpen(false)}>
+      <div className="customers-modal" role="dialog" aria-modal="true" aria-labelledby="customer-form-title">
+        <header><div><h2 id="customer-form-title">{t(editingCustomerId ? 'editCustomerTitle' : 'newCustomerTitle')}</h2><p>{t('customerFormHint')}</p></div><button aria-label={t('cancel')} onClick={() => setIsModalOpen(false)}>×</button></header>
+        <form onSubmit={saveCustomer}>
+          <div className="customers-form-grid">
+            <Field label={`${t('firstName')} *`}><input required maxLength={100} value={form.firstName} onChange={event => updateForm('firstName', event.target.value)} /></Field>
+            <Field label={`${t('lastName')} *`}><input required maxLength={100} value={form.lastName} onChange={event => updateForm('lastName', event.target.value)} /></Field>
+            <Field label={t('companyName')}><input maxLength={200} value={form.companyName} onChange={event => updateForm('companyName', event.target.value)} /></Field>
+            <Field label={t('taxIdLabel')}><input maxLength={13} value={form.taxId} onChange={event => updateForm('taxId', event.target.value.toUpperCase())} placeholder="XAXX010101000" /></Field>
+            <Field label={`${t('email')} *`}><input required type="email" maxLength={256} value={form.email} onChange={event => updateForm('email', event.target.value)} /></Field>
+            <Field label={`${t('phone')} *`}><input required type="tel" maxLength={25} value={form.phone} onChange={event => updateForm('phone', event.target.value)} /></Field>
+            <Field label={t('address')} wide><input maxLength={300} value={form.address} onChange={event => updateForm('address', event.target.value)} /></Field>
+            <Field label={t('city')}><input maxLength={100} value={form.city} onChange={event => updateForm('city', event.target.value)} /></Field>
+            <Field label={t('state')}><input maxLength={100} value={form.state} onChange={event => updateForm('state', event.target.value)} /></Field>
+            <Field label={t('postalCode')}><input inputMode="numeric" maxLength={5} value={form.postalCode} onChange={event => updateForm('postalCode', event.target.value.replace(/\D/g, ''))} /></Field>
+            <Field label={`${t('customerType')} *`}><select value={form.customerType} onChange={event => updateForm('customerType', event.target.value)}><option value="Particular">{t('customerTypeRetail')}</option><option value="Mayorista">{t('customerTypeWholesale')}</option><option value="Arquitecto/Constructor">{t('customerTypeProfessional')}</option></select></Field>
+            <Field label={t('specialDiscountPercent')}><input type="number" min="0" max="100" step="0.01" value={form.specialDiscountPercentage} onChange={event => updateForm('specialDiscountPercentage', event.target.value)} placeholder="0.00" /></Field>
+            <Field label={t('customerNotes')} wide><textarea rows={3} maxLength={500} value={form.notes} onChange={event => updateForm('notes', event.target.value)} placeholder={t('customerNotesPlaceholder')} /></Field>
+            {editingCustomerId && canAdminister && <label className="customers-checkbox customers-field--wide"><input type="checkbox" checked={form.isActive} onChange={event => updateForm('isActive', event.target.checked)} /> {t('activeCustomer')}</label>}
           </div>
-        </div>
-      )}
-    </div>
-  );
+          <footer><button type="button" className="lang-btn" onClick={() => setIsModalOpen(false)}>{t('cancel')}</button><button className="action-btn" disabled={saving}>{saving ? t('saving') : t('saveCustomer')}</button></footer>
+        </form>
+      </div>
+    </div>}
+  </section>;
 };
+
+const Field: React.FC<{ label: string; wide?: boolean; children: React.ReactNode }> = ({ label, wide, children }) => <label className={`customers-field ${wide ? 'customers-field--wide' : ''}`}><span>{label}</span>{children}</label>;
+const errorMessage = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
+const customerTypeKey = (type: string) => ({ Particular: 'customerTypeRetail', Mayorista: 'customerTypeWholesale', 'Arquitecto/Constructor': 'customerTypeProfessional' } as Record<string, string>)[type] ?? type;
 
 export default CustomerListPage;

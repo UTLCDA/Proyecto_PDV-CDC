@@ -17,9 +17,12 @@ export const catalogService = {
       method: 'PUT',
       body: JSON.stringify({ unitPrice, wholesalePrice, reason })
     }),
-  getCustomers: (search?: string) => {
-    let url = '/customers';
-    if (search) url += `?search=${encodeURIComponent(search)}`;
+  getCustomers: (search?: string, includeInactive = false) => {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (includeInactive) params.append('includeInactive', 'true');
+    const query = params.toString();
+    const url = `/customers${query ? `?${query}` : ''}`;
     return apiClient.request<Customer[]>(url);
   }
 };

@@ -49,7 +49,8 @@ public record ProductDto(
     bool IsQuoteOnly,
     bool IsTopSellerVisible,
     bool IsActive,
-    List<string> ImageUrls
+    List<string> ImageUrls,
+    decimal AvailableQuantity
 );
 
 public record CreateProductDto(
@@ -115,7 +116,8 @@ public record CustomerDto(
     string PostalCode,
     string CustomerType,
     decimal SpecialDiscountPercentage,
-    string Notes
+    string Notes,
+    bool IsActive
 );
 
 public record CreateCustomerDto(

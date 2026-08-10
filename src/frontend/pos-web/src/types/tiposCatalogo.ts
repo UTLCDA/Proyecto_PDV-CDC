@@ -35,6 +35,7 @@ export interface Producto {
   isTopSellerVisible: boolean;
   isActive: boolean;
   imageUrls: string[];
+  availableQuantity: number;
 }
 
 export interface PeticionCrearProducto {
@@ -101,6 +102,7 @@ export interface Cliente {
   customerType: string;
   specialDiscountPercentage: number;
   notes: string;
+  isActive: boolean;
 }
 
 export interface PeticionCrearCliente {

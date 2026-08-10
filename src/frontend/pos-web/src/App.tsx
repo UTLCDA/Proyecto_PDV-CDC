@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/Login/LoginPage';
 import PosPanelPage from './pages/Pos/PosPanelPage';
+import SalesHistoryPage from './pages/Sales/SalesHistoryPage';
 import CashShiftPage from './pages/CashShift/CashShiftPage';
 import ReportsDashboardPage from './pages/Reports/ReportsDashboardPage';
 import QuoteListPage from './pages/Quotes/QuoteListPage';
@@ -10,21 +11,24 @@ import CommercialOpsPage from './pages/Commercial/CommercialOpsPage';
 import ProductListPage from './pages/Products/ProductListPage';
 import CustomerListPage from './pages/Customers/CustomerListPage';
 import InventoryListPage from './pages/Inventory/InventoryListPage';
+import InventoryMovementsPage from './pages/Inventory/InventoryMovementsPage';
 import { PaginaUsuarios } from './pages/Users/PaginaUsuarios';
+import AuditLogPage from './pages/Audit/AuditLogPage';
+import { AppTab, canAccessTab, getDefaultTab } from './security/accessControl';
 
 const MainLayout: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { user, isAuthenticated, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<'pos' | 'shift' | 'reports' | 'quotes' | 'commercial' | 'catalog' | 'inventory' | 'customers' | 'users' | 'profile'>('pos');
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [activeTab, setActiveTab] = useState<AppTab>('pos');
+  const userPermissions = user?.permissions ?? [];
+  const canOpenTab = (tab: AppTab) => isAuthenticated && canAccessTab(userPermissions, tab);
+  const currentTab = canOpenTab(activeTab) ? activeTab : getDefaultTab(userPermissions);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
-  };
+    if (user) {
+      setActiveTab(getDefaultTab(user.permissions));
+    }
+  }, [user?.id]);
 
   const toggleLanguage = () => {
     const nextLang = i18n.language === 'es' ? 'zh' : 'es';
@@ -34,98 +38,153 @@ const MainLayout: React.FC = () => {
   return (
     <div className="app-container">
       <header className="navbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <img src="/logo_wpc_bajio.jpeg" alt="WPC Bajío Logo" style={{ height: '40px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)' }} />
-            <h1 className="brand-title" style={{ fontSize: '1.25rem', letterSpacing: '0.5px' }}>WPC Bajío</h1>
+        <div className="navbar-main">
+          <div className="navbar-brand">
+            <img src="/logo_wpc_bajio.jpeg" alt="WPC Bajío" className="brand-logo" />
+            <h1 className="brand-title">WPC Bajío</h1>
           </div>
 
           {isAuthenticated && (
-            <nav style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+            <nav className="module-nav">
+              {canOpenTab('pos') && (
               <button
-                className="lang-btn"
+                className={`lang-btn ${currentTab === 'pos' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('pos')}
-                style={{ borderColor: activeTab === 'pos' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)', background: activeTab === 'pos' ? 'rgba(56,189,248,0.15)' : undefined }}
               >
                 🛒 {t('navPos')}
               </button>
+              )}
+              {canOpenTab('sales') && (
               <button
-                className="lang-btn"
+                className={`lang-btn ${currentTab === 'sales' ? 'is-active' : ''}`}
+                onClick={() => setActiveTab('sales')}
+              >
+                🧾 {t('navSales')}
+              </button>
+              )}
+              {canOpenTab('shift') && (
+              <button
+                className={`lang-btn ${currentTab === 'shift' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('shift')}
-                style={{ borderColor: activeTab === 'shift' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)', background: activeTab === 'shift' ? 'rgba(56,189,248,0.15)' : undefined }}
               >
                 💵 {t('navShift')}
               </button>
+              )}
+              {canOpenTab('reports') && (
               <button
-                className="lang-btn"
+                className={`lang-btn ${currentTab === 'reports' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('reports')}
-                style={{ borderColor: activeTab === 'reports' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)', background: activeTab === 'reports' ? 'rgba(56,189,248,0.15)' : undefined }}
               >
                 📈 {t('navReports')}
               </button>
+              )}
+              {canOpenTab('quotes') && (
               <button
-                className="lang-btn"
+                className={`lang-btn ${currentTab === 'quotes' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('quotes')}
-                style={{ borderColor: activeTab === 'quotes' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)', background: activeTab === 'quotes' ? 'rgba(56,189,248,0.15)' : undefined }}
               >
                 📑 {t('navQuotes')}
               </button>
+              )}
+              {canOpenTab('commercial') && (
               <button
-                className="lang-btn"
+                className={`lang-btn ${currentTab === 'commercial' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('commercial')}
-                style={{ borderColor: activeTab === 'commercial' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)', background: activeTab === 'commercial' ? 'rgba(56,189,248,0.15)' : undefined }}
               >
                 💰 {t('navCommercial')}
               </button>
+              )}
+              {canOpenTab('transactions') && (
               <button
-                className="lang-btn"
+                className={`lang-btn ${currentTab === 'transactions' ? 'is-active' : ''}`}
+                onClick={() => setActiveTab('transactions')}
+              >
+                💳 {t('navTransactions')}
+              </button>
+              )}
+              {canOpenTab('returns') && (
+              <button
+                className={`lang-btn ${currentTab === 'returns' ? 'is-active' : ''}`}
+                onClick={() => setActiveTab('returns')}
+              >
+                ↩️ {t('navReturns')}
+              </button>
+              )}
+              {canOpenTab('contracts') && (
+              <button
+                className={`lang-btn ${currentTab === 'contracts' ? 'is-active' : ''}`}
+                onClick={() => setActiveTab('contracts')}
+              >
+                📄 {t('navContracts')}
+              </button>
+              )}
+              {canOpenTab('catalog') && (
+              <button
+                className={`lang-btn ${currentTab === 'catalog' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('catalog')}
-                style={{ borderColor: activeTab === 'catalog' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)', background: activeTab === 'catalog' ? 'rgba(56,189,248,0.15)' : undefined }}
               >
                 📦 {t('navCatalog')}
               </button>
+              )}
+              {canOpenTab('inventory') && (
               <button
-                className="lang-btn"
+                className={`lang-btn ${currentTab === 'inventory' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('inventory')}
-                style={{ borderColor: activeTab === 'inventory' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)', background: activeTab === 'inventory' ? 'rgba(56,189,248,0.15)' : undefined }}
               >
                 🏭 {t('navInventory')}
               </button>
+              )}
+              {canOpenTab('inventory-movements') && (
               <button
-                className="lang-btn"
+                className={`lang-btn ${currentTab === 'inventory-movements' ? 'is-active' : ''}`}
+                onClick={() => setActiveTab('inventory-movements')}
+              >
+                📋 {t('navInventoryMovements')}
+              </button>
+              )}
+              {canOpenTab('customers') && (
+              <button
+                className={`lang-btn ${currentTab === 'customers' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('customers')}
-                style={{ borderColor: activeTab === 'customers' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)', background: activeTab === 'customers' ? 'rgba(56,189,248,0.15)' : undefined }}
               >
                 👥 {t('navCustomers')}
               </button>
+              )}
+              {canOpenTab('users') && (
               <button
-                className="lang-btn"
+                className={`lang-btn ${currentTab === 'users' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('users')}
-                style={{ borderColor: activeTab === 'users' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)', background: activeTab === 'users' ? 'rgba(56,189,248,0.15)' : undefined }}
               >
-                🛡️ Usuarios
+                🛡️ {t('navUsers')}
               </button>
+              )}
+              {canOpenTab('audit') && (
+              <button
+                className={`lang-btn ${currentTab === 'audit' ? 'is-active' : ''}`}
+                onClick={() => setActiveTab('audit')}
+              >
+                🔍 {t('navAudit')}
+              </button>
+              )}
             </nav>
           )}
         </div>
 
         <div className="nav-actions">
           {/* Dashboard UI de Logs Serilog */}
-          <a
+          {canOpenTab('users') && <a
             href="http://localhost:5000/serilog-ui"
             target="_blank"
             rel="noopener noreferrer"
-            className="lang-btn"
-            style={{ textDecoration: 'none', borderColor: '#a855f7', color: '#c084fc' }}
-            title="Abrir Dashboard de Logs Serilog en tiempo real (Usuario: administrador / Contraseña: Aaron096)"
+            className="lang-btn nav-audit-link"
+            title={t('openAuditLogs')}
           >
-            📜 Serilog UI
-          </a>
+            📜 {t('auditLogs')}
+          </a>}
 
-          {/* Conmutador Modo Claro / Modo Oscuro */}
-          <button className="lang-btn" onClick={toggleTheme} title="Cambiar Tema Visual">
-            {theme === 'dark' ? '☀️ Modo Claro' : '🌙 Modo Oscuro'}
-          </button>
+          <span className="nav-mode-indicator" title={t('lightMode')}>
+            ☀️ {t('lightMode')}
+          </span>
 
           <button className="lang-btn" onClick={toggleLanguage}>
             🌐 {i18n.language === 'es' ? '中文' : 'Español'}
@@ -133,16 +192,19 @@ const MainLayout: React.FC = () => {
 
           {isAuthenticated && user && (
             <button
-              className="lang-btn"
+              className="lang-btn nav-profile-button"
               onClick={() => setActiveTab('profile')}
-              style={{ fontSize: '0.85rem' }}
             >
-              👤 {user.fullName || user.username}
+              <span aria-hidden="true">👤</span>
+              <span className="nav-profile-copy">
+                <span>{user.fullName || user.username}</span>
+                <small>{user.roles.join(', ')}</small>
+              </span>
             </button>
           )}
 
           {isAuthenticated && (
-            <button className="lang-btn" onClick={logout} style={{ borderColor: 'var(--danger)', color: '#fca5a5' }}>
+            <button className="lang-btn nav-logout-button" onClick={logout}>
               {t('logout')}
             </button>
           )}
@@ -154,31 +216,37 @@ const MainLayout: React.FC = () => {
           <LoginPage />
         ) : (
           <>
-            {activeTab === 'pos' && <PosPanelPage />}
-            {activeTab === 'shift' && <CashShiftPage />}
-            {activeTab === 'reports' && <ReportsDashboardPage />}
-            {activeTab === 'quotes' && <QuoteListPage />}
-            {activeTab === 'commercial' && <CommercialOpsPage />}
-            {activeTab === 'catalog' && <ProductListPage />}
-            {activeTab === 'inventory' && <InventoryListPage />}
-            {activeTab === 'customers' && <CustomerListPage />}
-            {activeTab === 'users' && <PaginaUsuarios />}
-            {activeTab === 'profile' && (
+            {currentTab === 'pos' && <PosPanelPage />}
+            {currentTab === 'sales' && <SalesHistoryPage />}
+            {currentTab === 'shift' && <CashShiftPage />}
+            {currentTab === 'reports' && <ReportsDashboardPage />}
+            {currentTab === 'quotes' && <QuoteListPage />}
+            {currentTab === 'commercial' && <CommercialOpsPage mode="installments" />}
+            {currentTab === 'transactions' && <CommercialOpsPage mode="transactions" />}
+            {currentTab === 'returns' && <CommercialOpsPage mode="returns" />}
+            {currentTab === 'contracts' && <CommercialOpsPage mode="contracts" />}
+            {currentTab === 'catalog' && <ProductListPage />}
+            {currentTab === 'inventory' && <InventoryListPage />}
+            {currentTab === 'inventory-movements' && <InventoryMovementsPage />}
+            {currentTab === 'customers' && <CustomerListPage />}
+            {currentTab === 'users' && <PaginaUsuarios />}
+            {currentTab === 'audit' && <AuditLogPage />}
+            {currentTab === 'profile' && (
               <div className="card">
                 <h2>{t('userProfile')}</h2>
-                <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-                  <div style={{ padding: '1rem', background: 'rgba(15,23,42,0.4)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                <div className="profile-grid">
+                  <div className="profile-panel">
+                    <p>
                       <strong>Email:</strong> {user?.email}
                     </p>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                    <p>
                       <strong>{t('role')}:</strong> {user?.roles.join(', ')}
                     </p>
                   </div>
 
-                  <div style={{ padding: '1rem', background: 'rgba(15,23,42,0.4)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div className="profile-panel">
                     <h4>{t('permissions')} ({user?.permissions.length})</h4>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginTop: '0.5rem' }}>
+                    <div className="profile-permissions">
                       {user?.permissions.map(p => (
                         <span key={p} className="badge badge-success" style={{ fontSize: '0.7rem' }}>
                           {p}

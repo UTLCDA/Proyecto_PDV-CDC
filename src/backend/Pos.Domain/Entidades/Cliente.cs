@@ -15,7 +15,7 @@ public class Cliente : EntidadBase
     public string Estado { get; set; } = string.Empty;
     public string CodigoPostal { get; set; } = string.Empty;
 
-    public string TipoCliente { get; set; } = "Particular"; // Particular, Mayorista
+    public string TipoCliente { get; set; } = CustomerTypes.Retail;
     public decimal PorcentajeDescuentoEspecial { get; set; }
     public string Notas { get; set; } = string.Empty;
 

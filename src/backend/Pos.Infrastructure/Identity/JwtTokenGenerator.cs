@@ -5,6 +5,7 @@ using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Pos.Application.Common.Interfaces;
+using Pos.Application.Common.Security;
 using Pos.Domain.Entidades;
 
 namespace Pos.Infrastructure.Identity;
@@ -24,8 +25,9 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        // Extend token lifetime to 24 hours for seamless work & testing sessions
-        var expiresAtUtc = DateTime.UtcNow.AddHours(24);
+        var configuredMinutes = _configuration.GetValue<int?>("JwtSettings:AccessTokenMinutes") ?? 30;
+        var accessTokenMinutes = Math.Clamp(configuredMinutes, 5, 60);
+        var expiresAtUtc = DateTime.UtcNow.AddMinutes(accessTokenMinutes);
 
         var claims = new List<Claim>
         {
@@ -42,7 +44,7 @@ public class JwtTokenGenerator : IJwtTokenGenerator
 
         foreach (var permission in permissions)
         {
-            claims.Add(new Claim("permission", permission));
+            claims.Add(new Claim(PermissionCodes.ClaimType, permission));
         }
 
         var tokenDescriptor = new SecurityTokenDescriptor

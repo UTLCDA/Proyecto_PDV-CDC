@@ -65,6 +65,110 @@ public class PosDbContext : DbContext
             .WithMany(p => p.RolPermisos)
             .HasForeignKey(rp => rp.PermisoId);
 
+        modelBuilder.Entity<Venta>()
+            .Property(sale => sale.NumeroFolio)
+            .HasMaxLength(64);
+        modelBuilder.Entity<Venta>()
+            .HasIndex(sale => sale.NumeroFolio)
+            .IsUnique();
+
+        modelBuilder.Entity<TurnoCaja>()
+            .Property(shift => shift.NumeroTurno)
+            .HasMaxLength(64);
+        modelBuilder.Entity<TurnoCaja>()
+            .HasIndex(shift => shift.NumeroTurno)
+            .IsUnique();
+
+        modelBuilder.Entity<Cotizacion>()
+            .Property(quote => quote.NumeroCotizacion)
+            .HasMaxLength(64);
+        modelBuilder.Entity<Cotizacion>()
+            .HasIndex(quote => quote.NumeroCotizacion)
+            .IsUnique();
+
+        modelBuilder.Entity<AbonoPago>()
+            .Property(payment => payment.NumeroRecibo)
+            .HasMaxLength(64);
+        modelBuilder.Entity<AbonoPago>()
+            .HasIndex(payment => payment.NumeroRecibo)
+            .IsUnique();
+
+        modelBuilder.Entity<DevolucionCabecera>()
+            .Property(returnHeader => returnHeader.NumeroDevolucion)
+            .HasMaxLength(64);
+        modelBuilder.Entity<DevolucionCabecera>()
+            .Property(returnHeader => returnHeader.FormaReembolso)
+            .HasMaxLength(32);
+        modelBuilder.Entity<DevolucionCabecera>()
+            .HasIndex(returnHeader => returnHeader.NumeroDevolucion)
+            .IsUnique();
+
+        modelBuilder.Entity<Cliente>()
+            .Property(customer => customer.Email)
+            .HasMaxLength(256);
+        modelBuilder.Entity<Cliente>()
+            .Property(customer => customer.Rfc)
+            .HasMaxLength(13);
+        modelBuilder.Entity<Cliente>()
+            .HasIndex(customer => customer.Email)
+            .IsUnique();
+        modelBuilder.Entity<Cliente>()
+            .HasIndex(customer => customer.Rfc)
+            .IsUnique()
+            .HasFilter("[Rfc] IS NOT NULL AND [Rfc] <> N''");
+
+        modelBuilder.Entity<Producto>()
+            .Property(product => product.Sku)
+            .HasMaxLength(64);
+        modelBuilder.Entity<Producto>()
+            .Property(product => product.Barcode)
+            .HasMaxLength(64);
+        modelBuilder.Entity<Producto>()
+            .Property(product => product.Nombre)
+            .HasMaxLength(200);
+        modelBuilder.Entity<Producto>()
+            .Property(product => product.UnidadMedida)
+            .HasMaxLength(16);
+        modelBuilder.Entity<Producto>()
+            .Property(product => product.Material)
+            .HasMaxLength(100);
+        modelBuilder.Entity<Producto>()
+            .HasIndex(product => product.Sku)
+            .IsUnique();
+        modelBuilder.Entity<Producto>()
+            .HasIndex(product => product.Barcode)
+            .IsUnique();
+
+        modelBuilder.Entity<Categoria>()
+            .Property(category => category.Nombre)
+            .HasMaxLength(120);
+        modelBuilder.Entity<Categoria>()
+            .Property(category => category.Slug)
+            .HasMaxLength(140);
+        modelBuilder.Entity<Categoria>()
+            .HasIndex(category => category.Slug)
+            .IsUnique();
+
+        modelBuilder.Entity<Existencia>()
+            .Property(stock => stock.Ubicacion)
+            .HasMaxLength(200);
+        modelBuilder.Entity<Existencia>()
+            .HasIndex(stock => stock.ProductoId)
+            .IsUnique();
+
+        modelBuilder.Entity<LogAuditoria>()
+            .Property(log => log.IdCorrelacion)
+            .HasMaxLength(100);
+        modelBuilder.Entity<LogAuditoria>()
+            .Property(log => log.Accion)
+            .HasMaxLength(100);
+        modelBuilder.Entity<LogAuditoria>()
+            .HasIndex(log => log.IdCorrelacion);
+        modelBuilder.Entity<LogAuditoria>()
+            .HasIndex(log => log.Accion);
+        modelBuilder.Entity<LogAuditoria>()
+            .HasIndex(log => log.FechaCreacionUtc);
+
         // Precision mapping for money fields (decimal(18,2))
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {

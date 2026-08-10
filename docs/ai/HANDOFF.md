@@ -1,4 +1,170 @@
-# HANDOFF — v1.2.0 Control de Inventarios
+# HANDOFF — Cierre de Mejoras del Sistema WPC Bajío y Módulos Independientes
+
+## Iteración completada (2026-08-10): Ajustes Funcionales Multi-Módulo (Iteración 5)
+
+1. **📦 Catálogo de Productos WPC Bajío**:
+   - Ajuste dinámico del formulario modal de producto: al seleccionar una Unidad de Medida distinta de `Caja` (ej. `Pza`, `M2`, `ML`), se ocultan los campos de Cobertura por Pieza, Cobertura Total Caja, Largo, Alto, Ancho, Precio Mayoreo y Min. Cantidad Mayoreo.
+   - La etiqueta para piezas cambia automáticamente a `Piezas / Contenido *`.
+   - Se mantiene visible la `Cantidad Inventario Inicial *` para la creación de nuevos productos.
+
+2. **🧾 Histórico de Ventas**:
+   - Corrección en la aplicación de filtros por fecha: las tarjetas métricas del encabezado (`sales-history-metrics`) y el listado de ventas recalculan estrictamente según las ventas devueltas en el período filtrado.
+
+3. **💰 Abonos a Saldos Pendientes**:
+   - Inclusión automática del `Anticipo Inicial` de ventas de apartado en el historial global de abonos (`GetInstallmentHistoryAsync`), permitiendo trazabilidad completa desde la apertura del apartado.
+
+4. **💳 Histórico de Transacciones y Movimientos de Pago**:
+   - La vista de transacciones ahora invoca `getPaymentTransactions` y renderiza el desglose completo de todos los movimientos (Anticipos Iniciales, Pagos Totales de Venta y Abonos a Saldo) con folios, cliente, forma de pago y fecha.
+
+5. **🛒 Punto de Venta WPC Bajío**:
+   - Agregada la opción `💳 Pago total con tarjeta` en el selector de Modalidad de Pago del PDV, mapeando de forma segura los montos al procesar la venta.
+
+6. **💵 Turno de Caja y Arqueo (Corte X/Z)**:
+   - Agregada la tarjeta métrica `📥 Ingreso / Ajuste Cambio` (`totalEntradas`) en el desglose de métricas de caja de `CashShiftPage.tsx`.
+   - Mapeo explícito de la categoría `Corte X` para transacciones `XReport` en lugar de `Corte Z`.
+   - Normalización de descripciones en Movimientos Generales: `abono a venta` para `Venta / Abono` y `Venta (Cotización)`, y `Entrada de dinero a caja` para `Ingreso / Cambio`.
+
+7. **📑 Cotizaciones y Presupuestos**:
+   - Incorporación de los campos explícitos `Anticipo Inicial` (`-$500.00` en verde) y `Monto Restante` (`$X,XXX.XX` en rojo) junto con la insignia `<span class="badge badge-success">Convertida (Apartado)</span>` al consultar cotizaciones convertidas en modalidad `Venta con Anticipo / Apartado`.
+   - Discriminación automática entre Descuento Comercial real vs. Anticipo/Abono en `MapQuoteToDto` ([CommercialOperationsService.cs](file:///d:/Proyecto_PDV-CDC/src/backend/Pos.Infrastructure/Services/CommercialOperationsService.cs)).
+
+8. **Resultado de Pruebas, Compilación y Aprobación**:
+   - **Backend Build**: Solución `Pos.slnx` compila con **0 advertencias / 0 errores**.
+   - **Backend Unit & Integration Tests**: **56/56** pruebas xUnit aprobadas al 100%.
+   - **Frontend Build**: `tsc && vite build` finalizado con éxito (88 módulos transformados).
+   - **Frontend Unit Tests**: **8/8** pruebas Vitest aprobadas al 100%.
+   - **Validación del Desarrollador Humano**: 100% de la funcionalidad validada y aprobada explícitamente.
+
+---
+
+# HANDOFF — Cierre de módulos operativos existentes
+
+## Migración visual completa: identidad WPC Bajío
+
+- Se reemplazó el tema oscuro/azul por la paleta clara oficial y cálida del cliente en todos los módulos existentes.
+- `src/frontend/pos-web/src/index.css` concentra la paleta, estados semánticos, focus ring, sombras, radios y alias usados por estilos heredados; el escaneo de código no encontró HEX/RGB fuera de ese archivo.
+- Se incorporó el logo aprobado en login y encabezado, y el header muestra nombre y rol del usuario sin alterar sesión ni permisos.
+- Catálogo rápido y Carrito de Venta usan contenedores crema perceptibles; sus cards, campos y filas internas permanecen blancos. Botones, buscador, totales, navegación activa, tablas y modales siguen la paleta aprobada.
+- Se revisaron Caja, Reportes, Cotizaciones, Abonos/Contratos, Catálogo, Inventario, Clientes y Usuarios, incluidos formularios, estados y overlays.
+- QA visual aprobada a 1920×1080, 1440×900, 1366×768 y 768×1024, sin overflow horizontal ni errores de consola. El modal de movimiento conserva el combo dentro de sus límites y el visor de evidencia abre dentro de la aplicación.
+- Validación: frontend 8/8 y build exitoso; backend build con 0 advertencias/errores y pruebas seguras de dominio/aplicación 44/44. No se ejecutó la suite de integración en esta revalidación porque genera ventas reales contra la base configurada.
+- No se modificaron lógica de negocio, endpoints, servicios, modelos, rutas, permisos, cálculos, flujos ni base de datos como parte de este cambio visual.
+
+## Nota operativa del API
+
+- El error `Failed to bind to address http://127.0.0.1:5000: address already in use` correspondió a dos instancias simultáneas. Se detuvo únicamente la instancia temporal de QA y se confirmó el puerto 5000 libre.
+
+## Corrección posterior: transacciones SQL Server reintentables
+
+- Se corrigió el error `SqlServerRetryingExecutionStrategy does not support user-initiated transactions` al procesar ventas.
+- Venta, partidas, descuento de existencias y movimientos se guardan mediante la estrategia retornada por `Database.CreateExecutionStrategy()`; la verificación por ID evita duplicar la venta ante un resultado de commit incierto.
+- Conversión de cotizaciones, abonos y devoluciones usan el mismo límite transaccional reintentable para no presentar el error en operaciones comerciales relacionadas.
+- Build backend sin advertencias/errores y suite completa 56/56. La prueba de venta ejecutada contra SQL Server AAM fue aprobada con folio `VENTA-20260805-E9144D2EB69B4`; SQL confirmó una partida, un movimiento y una auditoría.
+- Una prueba aislada sobre una base temporal vacía reveló que falta una migración inicial completa. La base temporal se eliminó; `PosLambrinDb` no fue alterada por esa prueba. Crear el baseline reproducible es ahora la siguiente tarea prioritaria.
+
+## Iteración completada: clientes, comercial, reportes y catálogo
+
+- Clientes valida sesión activa, correo/RFC únicos, teléfono, CP, tipo, descuento, longitudes y estado; cada cambio queda auditado.
+- Cotizaciones usa precios del servidor, vigencia y folio único; la conversión reclama la cotización atómicamente para impedir ventas duplicadas.
+- Abonos rechaza sobrepagos, actualiza saldo/estado, genera recibo único y afecta caja por método.
+- Devoluciones valida partidas/cantidades acumuladas, calcula reembolso proporcional, resta primero saldo pendiente, restituye stock y registra caja/auditoría en transacción.
+- Plantillas contractuales tienen CRUD real, contenido de texto seguro, vista previa e impresión; se eliminaron plantillas ficticias.
+- Reportes elimina cifras simuladas y presenta venta bruta/devoluciones/neta, cobros, ranking neto, resumen de inventario y bitácora filtrable.
+- Auditoría de base requiere `usuarios:administrar`; un permiso de reporte de inventario no expone ventas ni bitácora.
+- Catálogo valida SKU `WPC-`, código de barras, categoría activa, precios, unidades, dimensiones, imágenes y usuario; crea stock en la bodega temporal aprobada.
+- Inventario ya no sustituye errores de API con existencias ficticias y oculta captura a quien no posee `inventario:movimientos`.
+
+## Migraciones y validación
+
+- `20260805092442_CompleteCommercialOperations`: folios/constraints comerciales y permisos.
+- `20260805095319_CompleteReportsAndCatalog`: unicidad de SKU, barcode, slug y stock; índices de auditoría.
+- `20260805095914_NormalizeDefaultWarehouseLocation`: normaliza `Almacén Principal` a `Bodega Adolfo Lopez Mateos`.
+- Las seis migraciones están registradas en `AAM/PosLambrinDb`; índices y ubicaciones fueron verificados con SQL.
+- Backend 56/56, frontend 8/8 y ambos builds sin errores; .NET con 0 advertencias.
+- QA de Reportes e Inventario con datos reales, ES/ZH y 390×844 sin overflow. No se insertaron operaciones comerciales de prueba.
+
+## Decisiones pendientes
+
+- Promociones necesita reglas aprobadas de alcance, prioridad y acumulación antes de afectar el cálculo autoritativo de ventas.
+- Entregas/envíos y exportación PDF/XLSX aún no existen y forman la siguiente iteración.
+- Secretos JWT, credenciales iniciales y Serilog deben salir de configuración/código versionado antes de producción.
+
+---
+
+# Iteración anterior — Ventas y Punto de Venta
+
+## Iteración completada: Ventas/PDV
+- El servidor es la autoridad de precios: ignora `UnitPrice` del cliente y aplica menudeo o mayoreo según cantidad/tipo de cliente.
+- Valida usuario activo, cliente, producto activo, exclusión de productos sólo-cotización, cantidades, stock, descuentos y coherencia del pago.
+- Los descuentos manuales requieren `ventas:descuento`; el descuento especial del cliente se aplica automáticamente.
+- Venta, partidas, reducción de stock y movimientos se persisten dentro de una transacción SQL; los conflictos de concurrencia producen un error legible.
+- Efectivo total, pago mixto y anticipo tienen reglas independientes. El anticipo exige cliente y deja saldo pendiente.
+- Folios de venta y turnos usan valores resistentes a concurrencia e índices únicos mediante `20260805085801_AddUniqueOperationalFolios`.
+- El catálogo entrega `AvailableQuantity`; el PDV muestra stock, mayoreo, IVA 16%, cobertura, historial y comprobante imprimible ES/ZH.
+
+## Validación
+- Backend 44/44; frontend 7/7; build web y .NET sin errores ni advertencias.
+- SQL Server AAM registra las tres migraciones y confirmó índices únicos de folios.
+- QA de navegador en escritorio y 390×844, sin confirmar ventas ficticias.
+
+---
+
+# Iteración anterior — Caja y Arqueos
+
+## Iteración completada: Caja
+- Corregido el cierre que comparaba `sale.FechaCreacionUtc >= sale.FechaCreacionUtc` y sumaba ventas históricas. Ahora usa el intervalo real del turno y excluye ventas canceladas/inactivas.
+- Corte X disponible en `POST /api/v1/cashshifts/x-report`: actualiza efectivo, tarjeta, transferencia, retiros y esperado sin cerrar.
+- Corte Z valida conteo no negativo y exige justificación cuando la diferencia supera un centavo.
+- Retiros exigen motivo y no pueden superar el efectivo esperado disponible.
+- Apertura, retiro, cierre y Corte/Historial exigen permisos específicos; lectura del turno usa una política compuesta de Caja.
+- Transacciones de retiro/cierre se registran explícitamente como nuevas filas, evitando que EF intente actualizar entidades inexistentes.
+- Pantalla completa con métricas, movimientos, historial, confirmación de Corte Z, estados inline y traducción ES/ZH.
+- Navegación global responsive sin desbordamiento horizontal del documento; menús desplazables por toque sin barras visibles.
+
+## Validación
+- Backend 40/40; frontend 6/6; build .NET y producción web exitosos.
+- Pruebas cubren rango de ventas, ventas canceladas/inactivas, retiro excesivo, justificación de diferencia, Corte X y granularidad de permisos.
+- QA en navegador y SQL Server real sin abrir/cerrar turnos ficticios.
+
+---
+
+# Iteración anterior — Usuarios, Roles y Permisos
+
+## Iteración completada: administración de seguridad
+- API nueva `/api/v1/roles` para consultar roles, catálogo de permisos, crear roles personalizados y actualizar asignaciones.
+- `CreateUserRequestDto` y `UpdateUserRequestDto` utilizan `RoleId`; un rol inexistente o inactivo devuelve `400` y nunca se sustituye silenciosamente.
+- Administrador y Cajero son roles protegidos. Para combinaciones distintas debe crearse un rol personalizado.
+- No se permite desactivar un rol con usuarios activos, desactivar/cambiar el rol de la propia sesión ni dejar el sistema sin administrador activo.
+- Cambios de rol, contraseña o estado revocan refresh tokens; access tokens se limitaron a 30 minutos y el frontend implementa renovación coordinada.
+- La pantalla de Usuarios ahora incluye búsqueda, estados, selector dinámico de rol, pestaña de Roles y matriz de 24 permisos agrupados por módulo.
+- Interfaz ES/ZH, responsive y sin credenciales del tablero de logs embebidas en tooltips del frontend.
+
+## Validación
+- Backend: 35/35 pruebas aprobadas y build con 0 advertencias/errores.
+- Frontend: 5/5 pruebas y build de producción exitosos.
+- Navegador + SQL Server real: 2 usuarios, Administrador con 24 permisos y Cajero con 3; alta y matrices verificadas sin persistir datos ficticios.
+- Modal validado a 390×844; el diálogo cabe en el viewport y bloquea el desplazamiento de la página de fondo.
+
+---
+
+## Iteración previa: restricción de Cajero al Punto de Venta
+
+## Iteración de Autorización posterior a v1.2.0
+- El menú ahora se construye con los permisos devueltos por login; un Cajero sólo ve **🛒 Punto de Venta** y su perfil.
+- Al cambiar de Administrador a Cajero, la pestaña activa se restablece y nunca monta en segundo plano un módulo restringido.
+- El acceso a Serilog UI sólo se muestra a usuarios con `usuarios:administrar`.
+- La API registra políticas para las 24 claves de permiso y protege controladores/acciones con el permiso correspondiente.
+- El rol Cajero conserva `ventas:procesar`, `catalogo:productos_ver` y `clientes:ver`, suficientes para cargar y operar el PDV.
+- La migración `20260805071520_RestrictCashierToPointOfSale` fue aplicada a `AAM/PosLambrinDb` y ajustó también usuarios existentes.
+- Los tokens y datos de sesión emitidos antes de la migración conservan permisos anteriores; se requiere cerrar sesión y volver a ingresar.
+
+## Validación
+- Backend: 29/29 pruebas aprobadas; build Debug con 0 advertencias y 0 errores.
+- Frontend: 4/4 pruebas aprobadas; build de producción exitoso.
+- Prueba de API: Cajero recibe `200` en dependencias del PDV y `403` en Inventario, Usuarios y Reportes.
+- Consulta SQL: el rol Cajero tiene exactamente tres permisos.
+
+---
 
 ## Implementación Realizada
 1. **Modal de movimientos**

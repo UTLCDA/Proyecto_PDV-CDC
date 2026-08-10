@@ -3,12 +3,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Pos.Application.Catalog.DTOs;
 using Pos.Application.Catalog.Services;
+using Pos.Application.Common.Security;
 
 namespace Pos.Api.Controllers.v1;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-[Authorize]
+[Authorize(Policy = PermissionCodes.Catalog.CategoriesView)]
 public class CategoriesController : ControllerBase
 {
     private readonly ICatalogApplicationService _catalogService;
@@ -26,6 +27,7 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = PermissionCodes.Catalog.CategoriesCreate)]
     public async Task<ActionResult<CategoryDto>> CreateCategory([FromBody] CreateCategoryDto request, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
@@ -42,9 +44,14 @@ public class CategoriesController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = PermissionCodes.Catalog.CategoriesCreate)]
     public async Task<ActionResult<CategoryDto>> UpdateCategory(Guid id, [FromBody] UpdateCategoryDto request, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
@@ -60,6 +67,14 @@ public class CategoriesController : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
     }
 }

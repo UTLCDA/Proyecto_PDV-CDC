@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Pos.Application.Auth.Services;
@@ -25,6 +26,8 @@ public static class DependencyInjection
 
         services.AddDbContext<PosDbContext>(options =>
         {
+            options.ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
+
             if (!string.IsNullOrEmpty(connectionString) && !connectionString.Contains("(localdb)") && !connectionString.Contains("InMemory"))
             {
                 options.UseSqlServer(connectionString, sqlOptions => sqlOptions.EnableRetryOnFailure());
@@ -46,6 +49,7 @@ public static class DependencyInjection
         services.AddScoped<ICashShiftApplicationService, CashShiftApplicationService>();
         services.AddScoped<IReportingApplicationService, ReportingApplicationService>();
         services.AddScoped<IUserApplicationService, UserApplicationService>();
+        services.AddScoped<IRoleApplicationService, RoleApplicationService>();
         services.AddScoped<IHealthCheckService, HealthCheckService>();
 
         return services;

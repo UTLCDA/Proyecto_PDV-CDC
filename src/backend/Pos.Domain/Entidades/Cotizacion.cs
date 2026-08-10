@@ -13,7 +13,7 @@ public class Cotizacion : EntidadBase
     public decimal MontoIva { get; set; }
     public decimal MontoTotal { get; set; }
     public DateTime FechaVigenciaUtc { get; set; } = DateTime.UtcNow.AddDays(15);
-    public string Estado { get; set; } = "Activa"; // Activa, Convertida, Expirada, Cancelada
+    public string Estado { get; set; } = QuoteStatuses.Active;
     public string Notas { get; set; } = string.Empty;
 
     public Cliente? Cliente { get; set; }

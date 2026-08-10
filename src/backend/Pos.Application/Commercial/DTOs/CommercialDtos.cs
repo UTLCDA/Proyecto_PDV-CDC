@@ -1,4 +1,11 @@
+using Pos.Application.Catalog.DTOs;
+
 namespace Pos.Application.Commercial.DTOs;
+
+public record QuoteOptionsDto(
+    List<ProductDto> Products,
+    List<CustomerDto> Customers
+);
 
 public record CreateQuoteItemDto(
     Guid ProductId,
@@ -10,8 +17,17 @@ public record CreateQuoteItemDto(
 public record CreateQuoteDto(
     Guid? CustomerId,
     decimal DiscountAmount,
+    int ValidityDays,
     string Notes,
     List<CreateQuoteItemDto> Items
+);
+
+public record ConvertQuoteToSaleDto(
+    string PaymentType,
+    decimal AdvanceAmount,
+    decimal CashAmount,
+    decimal CardAmount,
+    decimal TransferAmount
 );
 
 public record QuoteItemDto(
@@ -41,7 +57,9 @@ public record QuoteDto(
     string Status,
     string Notes,
     DateTime CreatedAtUtc,
-    List<QuoteItemDto> Items
+    List<QuoteItemDto> Items,
+    decimal AdvanceAmount = 0m,
+    decimal PendingBalance = 0m
 );
 
 public record CreateInstallmentDto(
@@ -62,19 +80,42 @@ public record PaymentInstallmentDto(
     string PaymentMethod,
     string? UserUsername,
     string Notes,
+    DateTime CreatedAtUtc,
+    bool IsInitialPayment = false
+);
+
+public record PaymentTransactionDto(
+    string Id,
+    Guid SaleId,
+    string SaleFolioNumber,
+    string? CustomerDisplayName,
+    string TransactionType,
+    string ReferenceNumber,
+    string PaymentMethod,
+    decimal Amount,
+    string? UserUsername,
     DateTime CreatedAtUtc
 );
 
 public record CreateReturnItemDto(
     Guid ProductId,
-    decimal Quantity,
-    decimal RefundUnitPrice
+    decimal Quantity
 );
 
 public record CreateReturnDto(
     Guid SaleId,
+    string RefundMethod,
     string Reason,
     List<CreateReturnItemDto> Items
+);
+
+public record ReturnItemDto(
+    Guid ProductId,
+    string ProductSku,
+    string ProductName,
+    decimal Quantity,
+    decimal RefundUnitPrice,
+    decimal TotalRefundPrice
 );
 
 public record ReturnHeaderDto(
@@ -83,9 +124,13 @@ public record ReturnHeaderDto(
     Guid SaleId,
     string SaleFolioNumber,
     decimal TotalRefundAmount,
+    decimal AppliedToPendingBalance,
+    decimal RefundedAmount,
+    string RefundMethod,
     string Reason,
     string Status,
-    DateTime CreatedAtUtc
+    DateTime CreatedAtUtc,
+    List<ReturnItemDto> Items
 );
 
 public record DocumentTemplateDto(
@@ -93,4 +138,10 @@ public record DocumentTemplateDto(
     string Title,
     string Category,
     string TemplateContentHtml
+);
+
+public record SaveDocumentTemplateDto(
+    string Title,
+    string Category,
+    string TemplateContent
 );

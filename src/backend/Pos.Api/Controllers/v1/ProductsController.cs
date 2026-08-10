@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Pos.Application.Catalog.DTOs;
 using Pos.Application.Catalog.Services;
+using Pos.Application.Common.Security;
 
 namespace Pos.Api.Controllers.v1;
 
@@ -19,6 +20,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = PermissionCodes.Catalog.ProductsView)]
     public async Task<ActionResult<List<ProductDto>>> GetProducts(
         [FromQuery] string? search,
         [FromQuery] Guid? categoryId,
@@ -30,6 +32,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = PermissionCodes.Catalog.ProductsView)]
     public async Task<ActionResult<ProductDto>> GetProductById(Guid id, CancellationToken cancellationToken)
     {
         var product = await _catalogService.GetProductByIdAsync(id, cancellationToken);
@@ -38,6 +41,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("code/{code}")]
+    [Authorize(Policy = PermissionCodes.Catalog.ProductsView)]
     public async Task<ActionResult<ProductDto>> GetProductByCode(string code, CancellationToken cancellationToken)
     {
         var product = await _catalogService.GetProductByCodeAsync(code, cancellationToken);
@@ -46,6 +50,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = PermissionCodes.Catalog.ProductsCreate)]
     public async Task<ActionResult<ProductDto>> CreateProduct([FromBody] CreateProductDto request, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
@@ -62,13 +67,18 @@ public class ProductsController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
-        catch (Exception ex)
+        catch (ArgumentException ex)
         {
-            return StatusCode(500, new { message = $"Error al registrar producto: {ex.Message}" });
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, new { message = "Ocurrió un error inesperado al registrar el producto." });
         }
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = PermissionCodes.Catalog.ProductsEdit)]
     public async Task<ActionResult<ProductDto>> UpdateProduct(Guid id, [FromBody] UpdateProductDto request, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
@@ -85,13 +95,22 @@ public class ProductsController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
-        catch (Exception ex)
+        catch (ArgumentException ex)
         {
-            return StatusCode(500, new { message = $"Error al actualizar producto: {ex.Message}" });
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, new { message = "Ocurrió un error inesperado al actualizar el producto." });
         }
     }
 
     [HttpPut("{id:guid}/price")]
+    [Authorize(Policy = PermissionCodes.Catalog.ProductsEdit)]
     public async Task<ActionResult<ProductDto>> UpdatePrice(Guid id, [FromBody] UpdatePriceRequest request, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
@@ -108,9 +127,17 @@ public class ProductsController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
-        catch (Exception ex)
+        catch (ArgumentException ex)
         {
-            return StatusCode(500, new { message = $"Error al actualizar precio: {ex.Message}" });
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, new { message = "Ocurrió un error inesperado al actualizar el precio." });
         }
     }
 }

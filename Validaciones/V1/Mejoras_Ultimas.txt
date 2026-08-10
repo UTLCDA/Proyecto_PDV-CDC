@@ -1,0 +1,101 @@
+Te comparto las mejoras a realizar en el sistema
+los ## y nombre trae el nombre de los modulos, para que vayas mas al enfoque de lo que quiero.
+
+## Punto de Venta WPC Bajío
+
+1. El <input type="number" min="0.0001" max="5" step="0.0001" aria-label="Cantidad de Lambrin para terraza con calidad prime" value="1">
+incrementa de 0.0001 +0.0001 cuando debe de sumar de 1 + 1, para este caso mejor colocar un btn con un "+" para que el usuario intuya en sumar
+ y "-" en restar, adecuar estos botones en la class="pos-cart-item"
+
+2. cuando se seleccione Modalidad de Pago y se seleccione <option value="AdvanceDeposit">Venta con Anticipo / Apartado</option>
+validar que Seleccionar Cliente sea diferente a Público General ya que si se manda a publico general no esta relacionado a un cliente y es un bug
+que esta accion mande un modal que seleccione un cliente.
+
+3. Cuando se completa la venta <button class="action-btn pos-process-btn">Completar Venta</button>
+y este se abre el comprobante 
+<div class="pos-receipt" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
+y <button class="action-btn">🖨️ Imprimir comprobante</button> queremos imprimir se abren 4 hojas en el pdf revisar este caso.
+
+4. Establecer una validación dond, despues de iniciar sesión > Completar venta, y este no esta Aperturada la caja, no poder realizar la venta ya que seria un bug
+
+5. La card de Ventas recientes , solo colocar un icono de $ y # ventas, no mostrar las ventas recientes, esto quita rendimiento.
+
+## Modulo de Ventas
+
+1. Tener un modulo de ventas en la barra de nav , el modulo debe de contener historico de ventas, filtrar por fecha, por id venta , poder ver el comprobante , ver la modalidad de pago
+Estados, y que tenga un apartado tambien de Resumen de ventas como el que tiene el reporte de auditoria.
+
+## Control de aperturas, sangrías de efectivo y cierre de turno
+
+1. cuando se genera un movimiento de Cotizaciones > Nueva Cotización > Convertir y cobrar , cuando se convierte este no se muestra el movimiento en el Movimientos del turno.
+
+2. Mostrar de acuerdo al paso 1, tener un card que tenga movimientos generales "cotizaciones,ventas,devoluciones,fondo inicial, retiro", otra card diferente a Movimientos del turno.
+
+3. Despues de aperturar la caja no hay opcion para tener entrada de dinero a la caja, es importante  ya que si se requiere tener cambio el vendedor , no se va poder ajustar, esto solo puede hacerlo 
+el administrador.
+
+4. El generar corte X no funciona, su funcinalidad deberia ser, generar corte, registrar el movimiento, aperturar caja con usuario mismo o diferente, implementa reglas "quiero propuestas"
+
+5. en la cash-card donde aparece Responsable ETC , contiene div <div class="cash-metric "><span>Fondo Inicial ($)</span><strong>$1.00</strong></div> añadirle tambien iconos, 
+Ventas Efectivo ($) = billetes , Sangrías / Retiros ($) = sugiereme , Ventas por transferencia ($) icono spei , Ventas con tarjeta icono tarjeta. etc etc etc.
+
+6. Si tiene una validacion donde cuando quieren retirar mas cantidad que lo que esta en caja mande un modal para su mejor interaccion. 
+
+## Modulo de transacciones
+
+1. Este es nuevo modulo, va contener los pagos realizados , mostrar el historio de pagos, abonos, si se realizo con tarjeta, transferencia, efectivo, tener su tabla con los registros
+y en ese modulo pueda tambien filtrar por rangos de fecha, por tipo de pago y solo pueda verlo el administrador.
+
+## Cotizaciones y Presupuestos
+
+1. Cuando se da clic en el boton Nueva cotización , abre el modal, en el combo <option value="">Público General</option> este se debe de omitir para este flujo,
+ya que cuando se genera la cotizacion > Convertir y cobrar > no permite guardar pago y da error,
+
+2. mismo caso para <input required="" type="number" min="0.0001" step="0.0001" placeholder="Cantidad" value="0"> va de 0.0001 + 0.0001 , que debe de sumar de 1 + 1
+
+3. en el combo de <option value="59a445c9-ad95-4ad0-bd63-4a78b7924a71">WPC-FLORAL — Lambrin para exteriores</option> 
+que se pueda colocar la imagen en un formato muy chico al seleccionar para mejor usabilidad al cliente
+
+## Operaciones comerciales y posventa
+
+1. en el card Registro de pagos parciales para compras con apartado o saldo pendiente , cuando seleccione la Venta con saldo pendiente , este debe de mostrar el primer abono que se genero desde un inicio
+no lo muestra. 
+
+2. en este modulo añadir el historico de todos los abonos "Historial de abonos" con sus filtros .
+
+2. retirar la card de Historial de devoluciones y hacerlo un modulo independiente , con su accion de <button class="commercial-danger-btn">↩️ Procesar devolución</button>
+
+3. el card <article class="commercial-card commercial-contracts"><header><div><h2>📄 Plantillas de Contratos A4</h2> hacerlo un modulo independiente y retirarlo de este modulo.
+
+4. Cuando una venta tenga mnuchos abonos y su comprobante se imprima, debe de contener los abonos que se realizaron en la venta hasta el ultimo peso, fecha y tipo de abono 
+en el ticket ya que solo muestra el total liquidado.
+
+## Reportes Ejecutivos WPC Bajío
+
+1. En la card de Indicadores reales de ventas, cobros, devoluciones, inventario y trazabilidad. trae filtros de fecha, estos deben de tener por default la fecha del dia, ya si el 
+usuario quiere filtrar mas rango puede hacerlo
+
+2. en el card Cobros netos por forma de pago, añadir iconos a los div , por ejemplo Efectivo poner billetes, tarjeta poner una tarjeta , Transferencia poner Spei , Descuento dame propuesta.
+
+3.  en el card Resumen de inventario y div de Productos con stock bajo a este valor poner los productos que estan bajo stock , con el numero no me da sentido que producto es el que 
+esta bajo stock
+
+4. Hacer independiente Explorador de Auditoría (Bitácora) en un solo modulo y este tenga sus filtros, solo pueda verlo el administrador.
+
+## 🏭 Control de Inventarios WPC Bajío
+
+1. en el boton de <button class="action-btn">➕ Capturar Movimiento</button> añadir la siguiente funcionalidad, cuando se Seleccionar Producto > <option value="59a445c9-ad95-4ad0-bd63-4a78b7924a71">Lambrin para exteriores (WPC-FLORAL)</option>
+mostrar y que sea dinamico un input de su valor actual en inventario , y que si va ser una entrada pues el usuario vea cuanto tiene.
+
+2. Ubicación Almacén que no sea editable y solo se muestre "Bodega Adolfo Lopez Mateos"
+
+3. hacer independiente Historial Reciente de Movimientos en un solo modulo y con sus filtros para solo administrador
+
+## Directorio de Clientes WPC Bajío
+
+1. cuando un cliente se inactiva , <label class="customers-checkbox customers-field--wide"><input type="checkbox" checked=""> Cliente activo</label>
+ya no se muestra en la tabla de customers-table , añadir una columna con su estus, y que  permita filtrar bajas de cliente , 
+este checkbox que solo sea visible por el administrador.
+
+
+Estas fueron las mejoras que quiero y observaciones que se validan en esta version ya casi lista.

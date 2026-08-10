@@ -9,7 +9,7 @@ public class AbonoPago : EntidadBase
     public decimal MontoAbonado { get; set; }
     public decimal SaldoPendienteAnterior { get; set; }
     public decimal SaldoPendienteNuevo { get; set; }
-    public string FormaPago { get; set; } = "Efectivo"; // Efectivo, Tarjeta, Transferencia
+    public string FormaPago { get; set; } = PaymentMethods.Cash;
     public Guid? UsuarioId { get; set; }
     public string Notas { get; set; } = string.Empty;
 

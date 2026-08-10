@@ -3,6 +3,8 @@ namespace Pos.Application.Reporting.DTOs;
 public record SalesSummaryReportDto(
     int TotalSalesCount,
     decimal TotalSalesAmount,
+    decimal TotalReturnedAmount,
+    decimal NetSalesAmount,
     decimal TotalTaxAmount,
     decimal TotalDiscountAmount,
     decimal AverageTicketAmount,
@@ -17,7 +19,32 @@ public record TopProductReportDto(
     string ProductName,
     string CategoryName,
     decimal TotalQuantitySold,
-    decimal TotalRevenue
+    decimal TotalQuantityReturned,
+    decimal NetQuantitySold,
+    decimal TotalRevenue,
+    decimal TotalReturnedAmount,
+    decimal NetRevenue
+);
+
+public record InventorySummaryReportDto(
+    int TotalProducts,
+    decimal TotalUnitsOnHand,
+    int LowStockProducts,
+    int OutOfStockProducts,
+    decimal InventoryRetailValue,
+    decimal SuggestedReorderUnits,
+    List<LowStockProductReportDto> LowStockProductList
+);
+
+public record LowStockProductReportDto(
+    Guid ProductId,
+    string Sku,
+    string ProductName,
+    decimal QuantityOnHand,
+    decimal MinimumAlertThreshold,
+    decimal SuggestedReorderQuantity,
+    string UnitOfMeasure,
+    bool IsOutOfStock
 );
 
 public record AuditLogDto(

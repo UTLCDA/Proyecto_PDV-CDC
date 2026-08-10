@@ -47,10 +47,11 @@ export const servicioCatalogo = {
   },
 
   // Customers
-  getCustomers: async (search?: string, type?: string): Promise<Cliente[]> => {
+  getCustomers: async (search?: string, type?: string, includeInactive = false): Promise<Cliente[]> => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (type) params.append('type', type);
+    if (includeInactive) params.append('includeInactive', 'true');
 
     const response = await api.get<Cliente[]>(`/customers?${params.toString()}`);
     return response.data;

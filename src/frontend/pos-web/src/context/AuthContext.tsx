@@ -26,11 +26,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    const refreshToken = localStorage.getItem('lambrin_refresh_token');
+    void apiClient.logout(refreshToken);
     setUser(null);
     apiClient.setToken(null);
     localStorage.removeItem('lambrin_user');
     localStorage.removeItem('lambrin_refresh_token');
   };
+
+  useEffect(() => {
+    const actualizarUsuario = (event: Event) => {
+      const refreshedUser = (event as CustomEvent<User>).detail;
+      setUser(refreshedUser);
+    };
+    const expirarSesion = () => setUser(null);
+
+    window.addEventListener('lambrin-auth-refreshed', actualizarUsuario);
+    window.addEventListener('lambrin-auth-expired', expirarSesion);
+    return () => {
+      window.removeEventListener('lambrin-auth-refreshed', actualizarUsuario);
+      window.removeEventListener('lambrin-auth-expired', expirarSesion);
+    };
+  }, []);
 
   const hasPermission = (module: string, action: string): boolean => {
     if (!user) return false;

@@ -35,3 +35,5 @@ Thumbs.db
 # Test & Coverage Outputs
 TestResults/
 *.lcov
+logs/
+*.log

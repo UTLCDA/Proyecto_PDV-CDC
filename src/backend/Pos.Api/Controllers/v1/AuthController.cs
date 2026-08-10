@@ -25,7 +25,7 @@ public class AuthController : ControllerBase
 
         try
         {
-            var response = await _authService.LoginAsync(request, ipAddress, correlationId, cancellationToken);
+            var response = await _authService.LoginAsync(request, correlationId, ipAddress, cancellationToken);
             return Ok(response);
         }
         catch (UnauthorizedAccessException ex)
@@ -43,7 +43,7 @@ public class AuthController : ControllerBase
 
         try
         {
-            var response = await _authService.RefreshTokenAsync(request, ipAddress, correlationId, cancellationToken);
+            var response = await _authService.RefreshTokenAsync(request, correlationId, ipAddress, cancellationToken);
             return Ok(response);
         }
         catch (UnauthorizedAccessException ex)
@@ -59,25 +59,28 @@ public class AuthController : ControllerBase
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
         var correlationId = HttpContext.Items["CorrelationId"]?.ToString() ?? Guid.NewGuid().ToString();
 
-        await _authService.RevokeRefreshTokenAsync(request.RefreshToken, ipAddress, correlationId, cancellationToken);
+        await _authService.RevokeRefreshTokenAsync(request.RefreshToken, correlationId, ipAddress, cancellationToken);
         return Ok(new { message = "Sesión cerrada correctamente." });
     }
 
     [HttpGet("me")]
     [Authorize]
-    public IActionResult GetCurrentUser()
+    public async Task<ActionResult<UserDto>> GetCurrentUser(CancellationToken cancellationToken)
     {
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
-        var roles = User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(r => r.Value).ToList();
-        var permissions = User.FindAll("permission").Select(p => p.Value).ToList();
-
-        return Ok(new
+        var userIdValue = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ??
+            User.FindFirst("sub")?.Value;
+        if (!Guid.TryParse(userIdValue, out var userId))
         {
-            userId,
-            email,
-            roles,
-            permissions
-        });
+            return Unauthorized(new { message = "La sesión no contiene un identificador de usuario válido." });
+        }
+
+        try
+        {
+            return Ok(await _authService.GetCurrentUserAsync(userId, cancellationToken));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Unauthorized(new { message = ex.Message });
+        }
     }
 }

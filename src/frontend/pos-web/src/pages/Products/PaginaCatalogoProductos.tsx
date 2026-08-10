@@ -2,14 +2,23 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Producto, Categoria } from '../../types/tiposCatalogo';
 import { servicioCatalogo } from '../../services/servicioCatalogo';
+import { useAuth } from '../../context/AuthContext';
+import './ProductListPage.css';
+
+const MAX_PRODUCT_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
 
 export const PaginaCatalogoProductos: React.FC = () => {
   const { t } = useTranslation();
+  const { hasPermission } = useAuth();
+  const canCreateProduct = hasPermission('catalogo', 'productos_crear');
+  const canEditProduct = hasPermission('catalogo', 'productos_editar');
+  const canCreateCategory = hasPermission('catalogo', 'categorias_crear');
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [categoriaFiltro, setCategoriaFiltro] = useState('');
   const [cargando, setCargando] = useState(true);
+  const [errorCarga, setErrorCarga] = useState('');
 
   // Estado Modal Producto
   const [modalProductoAbierto, setModalProductoAbierto] = useState(false);
@@ -22,17 +31,17 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [categoriaId, setCategoriaId] = useState('');
-  const [precioUnitario, setPrecioUnitario] = useState<string>('350');
-  const [precioMayoreo, setPrecioMayoreo] = useState<string>('290');
-  const [cantidadMinimaMayoreo, setCantidadMinimaMayoreo] = useState<string>('10');
+  const [precioUnitario, setPrecioUnitario] = useState<string>('');
+  const [precioMayoreo, setPrecioMayoreo] = useState<string>('');
+  const [cantidadMinimaMayoreo, setCantidadMinimaMayoreo] = useState<string>('');
   const [unidadMedida, setUnidadMedida] = useState('Pza');
-  const [coberturaUnidadM2, setCoberturaUnidadM2] = useState<string>('0.464');
-  const [piezasPorCaja, setPiezasPorCaja] = useState<string>('10');
-  const [largoCm, setLargoCm] = useState<string>('290');
-  const [altoCm, setAltoCm] = useState<string>('2.4');
-  const [anchoCm, setAnchoCm] = useState<string>('16');
-  const [cantidadInventarioInicial, setCantidadInventarioInicial] = useState<string>('100');
-  const [imagenUrl, setImagenUrl] = useState<string>('/logo_wpc_bajio.jpeg');
+  const [coberturaUnidadM2, setCoberturaUnidadM2] = useState<string>('');
+  const [piezasPorCaja, setPiezasPorCaja] = useState<string>('');
+  const [largoCm, setLargoCm] = useState<string>('');
+  const [altoCm, setAltoCm] = useState<string>('');
+  const [anchoCm, setAnchoCm] = useState<string>('');
+  const [cantidadInventarioInicial, setCantidadInventarioInicial] = useState<string>('');
+  const [imagenUrl, setImagenUrl] = useState<string>('');
   const [soloCotizacion, setSoloCotizacion] = useState(false);
   const [visibleMasVendido, setVisibleMasVendido] = useState(true);
 
@@ -49,6 +58,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
 
   const cargarDatos = async () => {
     setCargando(true);
+    setErrorCarga('');
     try {
       const [prodsData, catsData] = await Promise.all([
         servicioCatalogo.getProducts(busqueda, categoriaFiltro),
@@ -56,8 +66,10 @@ export const PaginaCatalogoProductos: React.FC = () => {
       ]);
       setProductos(prodsData);
       setCategorias(catsData);
-    } catch {
-      // Fallback
+    } catch (error) {
+      setProductos([]);
+      setCategorias([]);
+      setErrorCarga(error instanceof Error ? error.message : t('catalogLoadError'));
     } finally {
       setCargando(false);
     }
@@ -134,6 +146,16 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert(t('invalidProductImageType'));
+        e.target.value = '';
+        return;
+      }
+      if (file.size > MAX_PRODUCT_IMAGE_SIZE_BYTES) {
+        alert(t('productImageTooLarge'));
+        e.target.value = '';
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagenUrl(reader.result as string);
@@ -167,23 +189,24 @@ export const PaginaCatalogoProductos: React.FC = () => {
     }
 
     try {
+      const isBoxUnit = unidadMedida === 'Caja';
       if (esEdicion && productoEdicionId) {
         await servicioCatalogo.updateProduct(productoEdicionId, {
           name: nombre,
           description: descripcion,
           categoryId: categoriaId,
           unitPrice: parseFloat(precioUnitario) || 0,
-          wholesalePrice: parseFloat(precioMayoreo) || 0,
-          wholesaleMinQuantity: parseFloat(cantidadMinimaMayoreo) || 1,
+          wholesalePrice: isBoxUnit ? (parseFloat(precioMayoreo) || 0) : 0,
+          wholesaleMinQuantity: isBoxUnit ? (parseFloat(cantidadMinimaMayoreo) || 1) : 1,
           unitOfMeasure: unidadMedida,
-          coveragePerUnitSqM: parseFloat(coberturaUnidadM2) || 0,
+          coveragePerUnitSqM: isBoxUnit ? (parseFloat(coberturaUnidadM2) || 0) : 0,
           imageUrl: imagenUrl,
           piecesPerBox: parseInt(piezasPorCaja) || 1,
-          lengthCm: parseFloat(largoCm) || 0,
-          heightCm: parseFloat(altoCm) || 0,
-          widthCm: parseFloat(anchoCm) || 0,
-          widthMm: Math.round((parseFloat(anchoCm) || 0) * 10),
-          lengthMm: Math.round((parseFloat(largoCm) || 0) * 10),
+          lengthCm: isBoxUnit ? (parseFloat(largoCm) || 0) : 0,
+          heightCm: isBoxUnit ? (parseFloat(altoCm) || 0) : 0,
+          widthCm: isBoxUnit ? (parseFloat(anchoCm) || 0) : 0,
+          widthMm: isBoxUnit ? Math.round((parseFloat(anchoCm) || 0) * 10) : 0,
+          lengthMm: isBoxUnit ? Math.round((parseFloat(largoCm) || 0) * 10) : 0,
           thicknessMm: 24,
           material: 'WPC Madera Plástica',
           isQuoteOnly: soloCotizacion,
@@ -198,18 +221,18 @@ export const PaginaCatalogoProductos: React.FC = () => {
           description: descripcion,
           categoryId: categoriaId,
           unitPrice: parseFloat(precioUnitario) || 0,
-          wholesalePrice: parseFloat(precioMayoreo) || 0,
-          wholesaleMinQuantity: parseFloat(cantidadMinimaMayoreo) || 1,
+          wholesalePrice: isBoxUnit ? (parseFloat(precioMayoreo) || 0) : 0,
+          wholesaleMinQuantity: isBoxUnit ? (parseFloat(cantidadMinimaMayoreo) || 1) : 1,
           unitOfMeasure: unidadMedida,
-          coveragePerUnitSqM: parseFloat(coberturaUnidadM2) || 0,
+          coveragePerUnitSqM: isBoxUnit ? (parseFloat(coberturaUnidadM2) || 0) : 0,
           imageUrl: imagenUrl,
           piecesPerBox: parseInt(piezasPorCaja) || 1,
-          lengthCm: parseFloat(largoCm) || 0,
-          heightCm: parseFloat(altoCm) || 0,
-          widthCm: parseFloat(anchoCm) || 0,
+          lengthCm: isBoxUnit ? (parseFloat(largoCm) || 0) : 0,
+          heightCm: isBoxUnit ? (parseFloat(altoCm) || 0) : 0,
+          widthCm: isBoxUnit ? (parseFloat(anchoCm) || 0) : 0,
           initialInventoryQuantity: parseFloat(cantidadInventarioInicial) || 0,
-          widthMm: Math.round((parseFloat(anchoCm) || 0) * 10),
-          lengthMm: Math.round((parseFloat(largoCm) || 0) * 10),
+          widthMm: isBoxUnit ? Math.round((parseFloat(anchoCm) || 0) * 10) : 0,
+          lengthMm: isBoxUnit ? Math.round((parseFloat(largoCm) || 0) * 10) : 0,
           thicknessMm: 24,
           material: 'WPC Madera Plástica',
           isQuoteOnly: soloCotizacion,
@@ -253,14 +276,16 @@ export const PaginaCatalogoProductos: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <button className="action-btn" onClick={abrirModalCrear}>
+            {canCreateProduct && <button className="action-btn" onClick={abrirModalCrear}>
               ➕ Nuevo Producto Lambrín
-            </button>
-            <button className="lang-btn" onClick={() => setModalCategoriaAbierto(true)}>
+            </button>}
+            {canCreateCategory && <button className="lang-btn" onClick={() => setModalCategoriaAbierto(true)}>
               📁 Crear Categoría
-            </button>
+            </button>}
           </div>
         </div>
+
+        {errorCarga && <div className="catalog-error-notice" role="alert">{errorCarga}</div>}
 
         {/* Buscador y Filtros */}
         <form onSubmit={handleBuscarSubmit} style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
@@ -295,7 +320,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-main)', background: 'var(--background-container)' }}>
                   <th style={{ padding: '0.75rem', width: '70px' }}>Imagen</th>
                   <th style={{ padding: '0.75rem' }}>SKU / Producto</th>
                   <th style={{ padding: '0.75rem' }}>Categoría</th>
@@ -303,31 +328,34 @@ export const PaginaCatalogoProductos: React.FC = () => {
                   <th style={{ padding: '0.75rem' }}>Precio Mayoreo</th>
                   <th style={{ padding: '0.75rem' }}>Piezas/Caja</th>
                   <th style={{ padding: '0.75rem' }}>Cobertura (m²)</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Acciones</th>
+                  {canEditProduct && <th style={{ padding: '0.75rem', textAlign: 'right' }}>Acciones</th>}
                 </tr>
               </thead>
               <tbody>
+                {productos.length === 0 && (
+                  <tr><td colSpan={canEditProduct ? 8 : 7} className="catalog-empty-state">{t('noCatalogProducts')}</td></tr>
+                )}
                 {productos.map(p => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <tr key={p.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                     {/* Columna Miniatura Imagen (2.0) */}
                     <td style={{ padding: '0.75rem' }}>
                       {p.imageUrl ? (
                         <img
                           src={p.imageUrl}
                           alt={p.name}
-                          style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)' }}
+                          style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}
                         />
                       ) : (
                         <div style={{
                           width: '50px',
                           height: '50px',
                           borderRadius: '6px',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px dashed rgba(255,255,255,0.2)',
+                          background: 'var(--background-container)',
+                          border: '1px dashed var(--border-input)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: '#94a3b8',
+                          color: 'var(--text-muted)',
                           fontSize: '1.2rem'
                         }}>
                           📷
@@ -335,7 +363,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
                       )}
                     </td>
                     <td style={{ padding: '0.75rem' }}>
-                      <div style={{ fontWeight: 600, color: '#fff' }}>{p.name}</div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{p.name}</div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
                         SKU: <strong style={{ color: 'var(--accent-primary)' }}>{p.sku}</strong> &bull; Cod: {p.barcode || 'N/A'}
                       </div>
@@ -358,8 +386,8 @@ export const PaginaCatalogoProductos: React.FC = () => {
                            gap: '0.25rem',
                            padding: '0.15rem 0.4rem',
                            borderRadius: '4px',
-                           background: 'rgba(255, 255, 255, 0.05)',
-                           color: '#e2e8f0',
+                           background: 'var(--background-container)',
+                           color: 'var(--text-secondary)',
                            fontSize: '0.75rem',
                            width: 'fit-content'
                          }}>
@@ -371,9 +399,9 @@ export const PaginaCatalogoProductos: React.FC = () => {
                            gap: '0.25rem',
                            padding: '0.15rem 0.4rem',
                            borderRadius: '4px',
-                           background: 'rgba(56, 189, 248, 0.12)',
-                           border: '1px solid rgba(56, 189, 248, 0.2)',
-                           color: '#38bdf8',
+                           background: 'var(--background-selected)',
+                           border: '1px solid var(--border-hover)',
+                           color: 'var(--primary-main)',
                            fontSize: '0.75rem',
                            width: 'fit-content',
                            fontWeight: 'bold'
@@ -382,11 +410,11 @@ export const PaginaCatalogoProductos: React.FC = () => {
                          </span>
                        </div>
                      </td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                    {canEditProduct && <td style={{ padding: '0.75rem', textAlign: 'right' }}>
                       <button className="lang-btn" onClick={() => abrirModalEditar(p)} style={{ fontSize: '0.8rem', padding: '0.35rem 0.65rem' }}>
                         ✏️ Editar
                       </button>
-                    </td>
+                    </td>}
                   </tr>
                 ))}
               </tbody>
@@ -396,10 +424,10 @@ export const PaginaCatalogoProductos: React.FC = () => {
       </div>
 
       {/* Modal Rediseñado de Producto WPC Bajío (Puntos 1.1 - 2.1) */}
-      {modalProductoAbierto && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-          <div className="card" style={{ width: '850px', maxHeight: '90vh', overflowY: 'auto', border: '1px solid var(--accent-primary)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.75rem' }}>
+      {modalProductoAbierto && (canCreateProduct || canEditProduct) && (
+        <div className="catalog-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="card catalog-product-modal" style={{ width: '850px', maxHeight: '90vh', overflowY: 'auto', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem' }}>
               <h3>{esEdicion ? '✏️ Editar Producto Lambrín WPC' : '➕ Nuevo Producto Lambrín WPC Bajío'}</h3>
               <button className="lang-btn" onClick={() => setModalProductoAbierto(false)}>✕</button>
             </div>
@@ -407,10 +435,10 @@ export const PaginaCatalogoProductos: React.FC = () => {
             <form onSubmit={handleGuardarProducto} style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               
               {/* Sección 1: Información General */}
-              <div style={{ padding: '1rem', background: 'rgba(15,23,42,0.5)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ padding: '1rem', background: 'var(--background-container)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                 <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--accent-primary)' }}>📦 1. Información General</h4>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                <div className="catalog-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>SKU (Prefijo WPC- Obligatorio) *</label>
                     <input
@@ -503,16 +531,16 @@ export const PaginaCatalogoProductos: React.FC = () => {
               </div>
 
               {/* Sección 2: Imagen y Cobertura/Dimensiones (1.2, 1.3) */}
-              <div style={{ padding: '1rem', background: 'rgba(15,23,42,0.5)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ padding: '1rem', background: 'var(--background-container)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                 <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--accent-primary)' }}>🖼️ 2. Imagen, Cobertura y Dimensiones</h4>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr', gap: '1rem', alignItems: 'center' }}>
+                <div className="catalog-image-grid" style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr', gap: '1rem', alignItems: 'center' }}>
                   {/* Vista Previa de Imagen (1.2) */}
                   <div style={{ textAlign: 'center' }}>
                     {imagenUrl ? (
                       <img src={imagenUrl} alt="Preview" style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--accent-primary)' }} />
                     ) : (
-                      <div style={{ width: '90px', height: '90px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px dashed #94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>Sin Foto</div>
+                      <div style={{ width: '90px', height: '90px', borderRadius: '8px', background: 'var(--background-surface)', border: '1px dashed var(--border-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>Sin Foto</div>
                     )}
                   </div>
 
@@ -529,7 +557,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.85rem', marginTop: '1rem' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Piezas x Caja (1.3) *</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>{unidadMedida === 'Caja' ? 'Piezas x Caja (1.3) *' : 'Piezas / Contenido *'}</label>
                     <input
                       type="number"
                       className="input-field"
@@ -540,72 +568,76 @@ export const PaginaCatalogoProductos: React.FC = () => {
                     />
                   </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Cobertura por Pieza (📐 m²) *</label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      className="input-field"
-                      required
-                      value={coberturaUnidadM2}
-                      onChange={(e) => handleFormattedNumericChange(setCoberturaUnidadM2, e.target.value)}
-                    />
-                  </div>
+                  {unidadMedida === 'Caja' && (
+                    <>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Cobertura por Pieza (📐 m²) *</label>
+                        <input
+                          type="number"
+                          step="0.001"
+                          className="input-field"
+                          required={unidadMedida === 'Caja'}
+                          value={coberturaUnidadM2}
+                          onChange={(e) => handleFormattedNumericChange(setCoberturaUnidadM2, e.target.value)}
+                        />
+                      </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Cobertura Total Caja (📐 m²)</label>
-                    <div style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.4rem',
-                      padding: '0.55rem 0.85rem',
-                      background: 'rgba(56, 189, 248, 0.12)',
-                      border: '1px solid rgba(56, 189, 248, 0.25)',
-                      color: '#38bdf8',
-                      borderRadius: '6px',
-                      fontWeight: 'bold',
-                      fontSize: '0.95rem',
-                      width: '100%',
-                      boxSizing: 'border-box'
-                    }}>
-                      📐 {coberturaTotalCajaM2} m²
-                    </div>
-                  </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Cobertura Total Caja (📐 m²)</label>
+                        <div style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          padding: '0.55rem 0.85rem',
+                          background: 'var(--background-selected)',
+                          border: '1px solid var(--border-hover)',
+                          color: 'var(--primary-main)',
+                          borderRadius: '6px',
+                          fontWeight: 'bold',
+                          fontSize: '0.95rem',
+                          width: '100%',
+                          boxSizing: 'border-box'
+                        }}>
+                          📐 {coberturaTotalCajaM2} m²
+                        </div>
+                      </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Largo (cm)</label>
-                    <input
-                      type="number"
-                      className="input-field"
-                      value={largoCm}
-                      onChange={(e) => handleFormattedNumericChange(setLargoCm, e.target.value)}
-                    />
-                  </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Largo (cm)</label>
+                        <input
+                          type="number"
+                          className="input-field"
+                          value={largoCm}
+                          onChange={(e) => handleFormattedNumericChange(setLargoCm, e.target.value)}
+                        />
+                      </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Alto (cm)</label>
-                    <input
-                      type="number"
-                      className="input-field"
-                      value={altoCm}
-                      onChange={(e) => handleFormattedNumericChange(setAltoCm, e.target.value)}
-                    />
-                  </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Alto (cm)</label>
+                        <input
+                          type="number"
+                          className="input-field"
+                          value={altoCm}
+                          onChange={(e) => handleFormattedNumericChange(setAltoCm, e.target.value)}
+                        />
+                      </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Ancho (cm)</label>
-                    <input
-                      type="number"
-                      className="input-field"
-                      value={anchoCm}
-                      onChange={(e) => handleFormattedNumericChange(setAnchoCm, e.target.value)}
-                    />
-                  </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Ancho (cm)</label>
+                        <input
+                          type="number"
+                          className="input-field"
+                          value={anchoCm}
+                          onChange={(e) => handleFormattedNumericChange(setAnchoCm, e.target.value)}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
               {/* Sección 3: Precios, Unidad de Medida e Inventario Inicial (1.4, 1.8, 1.9) */}
-              <div style={{ padding: '1rem', background: 'rgba(15,23,42,0.5)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ padding: '1rem', background: 'var(--background-container)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                 <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--accent-primary)' }}>💰 3. Precios, Unidad de Medida e Inventario Inicial</h4>
                 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem' }}>
@@ -622,28 +654,32 @@ export const PaginaCatalogoProductos: React.FC = () => {
                     />
                   </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Precio Mayoreo ($ MXN) *</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="input-field"
-                      required
-                      value={precioMayoreo}
-                      onChange={(e) => handleFormattedNumericChange(setPrecioMayoreo, e.target.value)}
-                    />
-                  </div>
+                  {unidadMedida === 'Caja' && (
+                    <>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Precio Mayoreo ($ MXN) *</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="input-field"
+                          required={unidadMedida === 'Caja'}
+                          value={precioMayoreo}
+                          onChange={(e) => handleFormattedNumericChange(setPrecioMayoreo, e.target.value)}
+                        />
+                      </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Min. Cantidad Mayoreo *</label>
-                    <input
-                      type="number"
-                      className="input-field"
-                      required
-                      value={cantidadMinimaMayoreo}
-                      onChange={(e) => handleFormattedNumericChange(setCantidadMinimaMayoreo, e.target.value)}
-                    />
-                  </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Min. Cantidad Mayoreo *</label>
+                        <input
+                          type="number"
+                          className="input-field"
+                          required={unidadMedida === 'Caja'}
+                          value={cantidadMinimaMayoreo}
+                          onChange={(e) => handleFormattedNumericChange(setCantidadMinimaMayoreo, e.target.value)}
+                        />
+                      </div>
+                    </>
+                  )}
 
                   {/* Cantidad para Inventario Inicial (1.4) */}
                   {!esEdicion && (
@@ -697,8 +733,8 @@ export const PaginaCatalogoProductos: React.FC = () => {
       )}
 
       {/* Modal Crear Categoría */}
-      {modalCategoriaAbierto && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+      {modalCategoriaAbierto && canCreateCategory && (
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div className="card" style={{ width: '420px' }}>
             <h3>📁 Crear Nueva Categoría WPC</h3>
             <form onSubmit={handleCrearCategoria} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>

@@ -3,12 +3,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Pos.Application.Inventory.DTOs;
 using Pos.Application.Inventory.Services;
+using Pos.Application.Common.Security;
 
 namespace Pos.Api.Controllers.v1;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-[Authorize]
+[Authorize(Policy = PermissionCodes.Inventory.View)]
 public class InventoryController : ControllerBase
 {
     private readonly IInventoryApplicationService _inventoryService;
@@ -37,16 +38,28 @@ public class InventoryController : ControllerBase
     }
 
     [HttpGet("movements")]
+    [Authorize(Policy = PermissionCodes.Users.Administer)]
     public async Task<ActionResult<List<InventoryMovementDto>>> GetMovements(
         [FromQuery] Guid? productId,
         [FromQuery] string? movementType,
+        [FromQuery] string? search,
+        [FromQuery] DateTime? startDateUtc,
+        [FromQuery] DateTime? endDateUtc,
         CancellationToken cancellationToken)
     {
-        var movements = await _inventoryService.GetMovementsAsync(productId, movementType, cancellationToken);
-        return Ok(movements);
+        try
+        {
+            var movements = await _inventoryService.GetMovementsAsync(productId, movementType, search, startDateUtc, endDateUtc, cancellationToken);
+            return Ok(movements);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpPost("movements")]
+    [Authorize(Policy = PermissionCodes.Inventory.Movements)]
     public async Task<ActionResult<InventoryMovementDto>> RegisterMovement([FromBody] RegisterMovementDto request, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

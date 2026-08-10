@@ -4,6 +4,7 @@ const API_BASE = '/api/v1';
 
 class ApiClient {
   private token: string | null = null;
+  private refreshPromise: Promise<boolean> | null = null;
 
   setToken(token: string | null) {
     this.token = token;
@@ -21,7 +22,7 @@ class ApiClient {
     return this.token;
   }
 
-  async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  async request<T>(endpoint: string, options: RequestInit = {}, allowRefresh = true): Promise<T> {
     const token = this.getToken();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -38,11 +39,18 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      if (response.status === 401) {
-        this.setToken(null);
+      if (response.status === 401 && allowRefresh && !endpoint.startsWith('/auth/')) {
+        const refreshed = await this.tryRefreshSession();
+        if (refreshed) {
+          return this.request<T>(endpoint, options, false);
+        }
       }
       const errorData = await response.json().catch(() => ({ message: 'Error de red o servidor' }));
       throw new Error(errorData.message || `HTTP Error ${response.status}`);
+    }
+
+    if (response.status === 204) {
+      return null as T;
     }
 
     return response.json();
@@ -61,9 +69,22 @@ class ApiClient {
     const res = await this.request<AuthResponse>('/auth/refresh-token', {
       method: 'POST',
       body: JSON.stringify({ refreshToken })
-    });
+    }, false);
     this.setToken(res.accessToken);
     return res;
+  }
+
+  async logout(refreshToken: string | null): Promise<void> {
+    if (refreshToken) {
+      try {
+        await this.request('/auth/logout', {
+          method: 'POST',
+          body: JSON.stringify({ refreshToken })
+        }, false);
+      } catch {
+        // El cierre local siempre debe completarse aunque la API no esté disponible.
+      }
+    }
   }
 
   async get<T>(endpoint: string): Promise<{ data: T }> {
@@ -85,6 +106,41 @@ class ApiClient {
       body: JSON.stringify(body)
     });
     return { data };
+  }
+
+  private async tryRefreshSession(): Promise<boolean> {
+    if (!this.refreshPromise) {
+      this.refreshPromise = this.refreshSession().finally(() => {
+        this.refreshPromise = null;
+      });
+    }
+    return this.refreshPromise;
+  }
+
+  private async refreshSession(): Promise<boolean> {
+    const storedRefreshToken = localStorage.getItem('lambrin_refresh_token');
+    if (!storedRefreshToken) {
+      this.clearSession();
+      return false;
+    }
+
+    try {
+      const response = await this.refreshToken(storedRefreshToken);
+      localStorage.setItem('lambrin_refresh_token', response.refreshToken);
+      localStorage.setItem('lambrin_user', JSON.stringify(response.user));
+      window.dispatchEvent(new CustomEvent('lambrin-auth-refreshed', { detail: response.user }));
+      return true;
+    } catch {
+      this.clearSession();
+      return false;
+    }
+  }
+
+  private clearSession() {
+    this.setToken(null);
+    localStorage.removeItem('lambrin_refresh_token');
+    localStorage.removeItem('lambrin_user');
+    window.dispatchEvent(new Event('lambrin-auth-expired'));
   }
 }
 

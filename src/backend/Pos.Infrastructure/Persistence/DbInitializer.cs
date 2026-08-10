@@ -1,4 +1,6 @@
 using Pos.Application.Common.Interfaces;
+using Pos.Application.Common.Security;
+using Pos.Domain.Common;
 using Pos.Domain.Entidades;
 
 namespace Pos.Infrastructure.Persistence;
@@ -28,6 +30,7 @@ public static class DbInitializer
             ("caja", "cerrar", "Cierre de turno de caja"),
             ("caja", "corte_z", "Ejecutar corte Z de caja"),
             ("caja", "sangria", "Registrar retiro o sangría"),
+            ("caja", "entrada", "Registrar entrada manual de efectivo"),
             ("catalogo", "productos_ver", "Ver catálogo de productos"),
             ("catalogo", "productos_crear", "Crear productos en catálogo"),
             ("catalogo", "productos_editar", "Editar productos en catálogo"),
@@ -39,8 +42,10 @@ public static class DbInitializer
             ("clientes", "ver", "Ver directorio de clientes"),
             ("clientes", "crear", "Dar de alta nuevos clientes"),
             ("clientes", "editar", "Editar información de clientes"),
+            ("comercial", "cotizaciones", "Administrar cotizaciones"),
             ("comercial", "abonos", "Registrar abonos a ventas"),
             ("comercial", "devoluciones", "Procesar devoluciones"),
+            ("comercial", "contratos", "Administrar plantillas de contratos"),
             ("reportes", "ver_ventas", "Ver reportes ejecutivos de venta"),
             ("reportes", "ver_inventario", "Ver reportes de inventario"),
             ("usuarios", "administrar", "Administrar usuarios y permisos")
@@ -56,11 +61,9 @@ public static class DbInitializer
         }
 
         var permisosCajero = entidadesPermiso.Where(p =>
-            p.Modulo == "ventas" ||
-            p.Modulo == "caja" ||
-            p.Modulo == "clientes" ||
-            p.Modulo == "catalogo" ||
-            (p.Modulo == "comercial" && p.Accion == "abonos")).ToList();
+            p.ClavePermiso is PermissionCodes.Sales.Process
+                or PermissionCodes.Catalog.ProductsView
+                or PermissionCodes.Customers.View).ToList();
 
         foreach (var permiso in permisosCajero)
         {

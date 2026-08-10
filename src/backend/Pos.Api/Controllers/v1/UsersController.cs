@@ -3,12 +3,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Pos.Application.Users.DTOs;
 using Pos.Application.Users.Services;
+using Pos.Application.Common.Security;
 
 namespace Pos.Api.Controllers.v1;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-[Authorize]
+[Authorize(Policy = PermissionCodes.Users.Administer)]
 public class UsersController : ControllerBase
 {
     private readonly IUserApplicationService _userService;
@@ -68,6 +69,10 @@ public class UsersController : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
     }
 }

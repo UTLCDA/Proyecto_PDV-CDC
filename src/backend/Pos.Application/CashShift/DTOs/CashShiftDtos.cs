@@ -10,6 +10,11 @@ public record CashWithdrawalDto(
     string Reason
 );
 
+public record CashDepositDto(
+    decimal Amount,
+    string Reason
+);
+
 public record CloseCashShiftDto(
     decimal ActualClosingAmount,
     string Notes
@@ -24,6 +29,16 @@ public record CashTransactionDto(
     DateTime CreatedAtUtc
 );
 
+public record CashGeneralMovementDto(
+    string Id,
+    string Category,
+    string Reference,
+    string PaymentMethod,
+    decimal Amount,
+    string? UserUsername,
+    DateTime CreatedAtUtc
+);
+
 public record CashShiftDto(
     Guid Id,
     string ShiftNumber,
@@ -33,6 +48,7 @@ public record CashShiftDto(
     decimal TotalSalesCash,
     decimal TotalSalesCard,
     decimal TotalSalesTransfer,
+    decimal TotalCashDeposits,
     decimal TotalWithdrawals,
     decimal ExpectedClosingAmount,
     decimal ActualClosingAmount,

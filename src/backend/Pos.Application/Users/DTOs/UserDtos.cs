@@ -9,6 +9,8 @@ public record UserManagementDto(
     string FullName,
     string JobTitle,
     bool IsActive,
+    Guid RoleId,
+    string RoleName,
     List<string> Roles,
     DateTime CreatedAtUtc
 );
@@ -20,7 +22,7 @@ public record CreateUserRequestDto(
     string FirstName,
     string LastName,
     string JobTitle,
-    string RoleName
+    Guid RoleId
 );
 
 public record UpdateUserRequestDto(
@@ -28,7 +30,7 @@ public record UpdateUserRequestDto(
     string FirstName,
     string LastName,
     string JobTitle,
-    string RoleName,
+    Guid RoleId,
     bool IsActive,
     string? NewPassword
 );

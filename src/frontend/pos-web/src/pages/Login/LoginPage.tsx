@@ -30,6 +30,7 @@ export const LoginPage: React.FC = () => {
     <div className="login-wrapper">
       <div className="login-card">
         <div className="login-header">
+          <img className="login-logo" src="/logo_wpc_bajio.jpeg" alt="WPC Bajío" />
           <h2>{t('loginTitle')}</h2>
           <p>{t('loginSubtitle')}</p>
         </div>

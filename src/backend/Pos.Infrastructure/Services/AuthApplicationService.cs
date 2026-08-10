@@ -53,9 +53,14 @@ public class AuthApplicationService : IAuthApplicationService
             throw new UnauthorizedAccessException("Credenciales de acceso inválidas.");
         }
 
-        var roles = user.UsuarioRoles.Select(ur => ur.Rol.Nombre).ToList();
+        var roles = user.UsuarioRoles
+            .Where(ur => ur.Rol.EstaActivo)
+            .Select(ur => ur.Rol.Nombre)
+            .ToList();
         var permissions = user.UsuarioRoles
+            .Where(ur => ur.Rol.EstaActivo)
             .SelectMany(ur => ur.Rol.RolPermisos)
+            .Where(rp => rp.Permiso.EstaActivo)
             .Select(rp => rp.Permiso.ClavePermiso)
             .Distinct()
             .ToList();
@@ -114,9 +119,14 @@ public class AuthApplicationService : IAuthApplicationService
         refreshToken.FechaActualizacionUtc = DateTime.UtcNow;
 
         var user = refreshToken.Usuario;
-        var roles = user.UsuarioRoles.Select(ur => ur.Rol.Nombre).ToList();
+        var roles = user.UsuarioRoles
+            .Where(ur => ur.Rol.EstaActivo)
+            .Select(ur => ur.Rol.Nombre)
+            .ToList();
         var permissions = user.UsuarioRoles
+            .Where(ur => ur.Rol.EstaActivo)
             .SelectMany(ur => ur.Rol.RolPermisos)
+            .Where(rp => rp.Permiso.EstaActivo)
             .Select(rp => rp.Permiso.ClavePermiso)
             .Distinct()
             .ToList();
@@ -150,6 +160,18 @@ public class AuthApplicationService : IAuthApplicationService
             refreshToken.EsRevocado = true;
             refreshToken.FechaActualizacionUtc = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync(cancellationToken);
+
+            await _auditLogService.LogAsync(
+                correlationId,
+                refreshToken.UsuarioId,
+                "LOGOUT",
+                "Usuario",
+                refreshToken.UsuarioId.ToString(),
+                null,
+                null,
+                ipAddress,
+                "Cierre de sesión y revocación de token de refresco",
+                cancellationToken);
         }
     }
 
@@ -168,9 +190,14 @@ public class AuthApplicationService : IAuthApplicationService
             throw new KeyNotFoundException("Usuario no encontrado.");
         }
 
-        var roles = user.UsuarioRoles.Select(ur => ur.Rol.Nombre).ToList();
+        var roles = user.UsuarioRoles
+            .Where(ur => ur.Rol.EstaActivo)
+            .Select(ur => ur.Rol.Nombre)
+            .ToList();
         var permissions = user.UsuarioRoles
+            .Where(ur => ur.Rol.EstaActivo)
             .SelectMany(ur => ur.Rol.RolPermisos)
+            .Where(rp => rp.Permiso.EstaActivo)
             .Select(rp => rp.Permiso.ClavePermiso)
             .Distinct()
             .ToList();

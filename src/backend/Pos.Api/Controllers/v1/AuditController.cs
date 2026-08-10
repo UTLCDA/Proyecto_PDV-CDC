@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Pos.Application.Common.Security;
 using Pos.Application.Reporting.DTOs;
 using Pos.Application.Reporting.Services;
 
@@ -7,7 +8,7 @@ namespace Pos.Api.Controllers.v1;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-[Authorize]
+[Authorize(Policy = PermissionCodes.Users.Administer)]
 public class AuditController : ControllerBase
 {
     private readonly IReportingApplicationService _reportingService;
@@ -22,9 +23,18 @@ public class AuditController : ControllerBase
         [FromQuery] string? correlationId,
         [FromQuery] string? user,
         [FromQuery] string? action,
+        [FromQuery] DateTime? startDate,
+        [FromQuery] DateTime? endDate,
         CancellationToken cancellationToken)
     {
-        var logs = await _reportingService.GetAuditLogsAsync(correlationId, user, action, cancellationToken);
-        return Ok(logs);
+        try
+        {
+            var logs = await _reportingService.GetAuditLogsAsync(correlationId, user, action, startDate, endDate, cancellationToken);
+            return Ok(logs);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 }

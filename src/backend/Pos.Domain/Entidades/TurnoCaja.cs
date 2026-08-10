@@ -10,12 +10,13 @@ public class TurnoCaja : EntidadBase
     public decimal TotalVentasEfectivo { get; set; }
     public decimal TotalVentasTarjeta { get; set; }
     public decimal TotalVentasTransferencia { get; set; }
+    public decimal TotalEntradas { get; set; }
     public decimal TotalRetiros { get; set; }
     public decimal MontoCierreEsperado { get; set; }
     public decimal MontoCierreReal { get; set; }
     public decimal MontoDiferencia { get; set; }
 
-    public string Estado { get; set; } = "Abierto"; // Abierto, Cerrado
+    public string Estado { get; set; } = CashShiftStatuses.Open;
     public DateTime FechaAperturaUtc { get; set; } = DateTime.UtcNow;
     public DateTime? FechaCierreUtc { get; set; }
     public string Notas { get; set; } = string.Empty;
@@ -25,7 +26,7 @@ public class TurnoCaja : EntidadBase
 
     public void CalcularEsperado()
     {
-        MontoCierreEsperado = MontoApertura + TotalVentasEfectivo - TotalRetiros;
+        MontoCierreEsperado = MontoApertura + TotalEntradas + TotalVentasEfectivo - TotalRetiros;
     }
 
     public void CerrarTurno(decimal montoCierreReal)
@@ -33,7 +34,7 @@ public class TurnoCaja : EntidadBase
         CalcularEsperado();
         MontoCierreReal = montoCierreReal;
         MontoDiferencia = MontoCierreReal - MontoCierreEsperado;
-        Estado = "Cerrado";
+        Estado = CashShiftStatuses.Closed;
         FechaCierreUtc = DateTime.UtcNow;
     }
 }

@@ -1,0 +1,10 @@
+hay que procurar y añadir este paso :
+ Esquema Anterior en SQL Server AAM: La base de datos PosLambrinDb en tu servidor SQL Server local fue creada antes de que agregáramos las 
+ 7 nuevas columnas a la tabla de Products. cuando se modifiquen , 
+ se creen los objetos de datos en sql ya que me genera errores al momento de testear.|
+
+1. El texto o formato de $m^2$ se ve feo mejora esta parte. ya sea que añadas un icono o propon una solucion
+2. En el modal seccion de 📦 1. Información General esta muy desordenado las cajas de texto.
+3. El campo de Descripción Técnica y Acabados ajustarlo al contenedor 
+4. Los campos siguen cargando valores por default, deben de estar vacios 
+

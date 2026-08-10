@@ -31,6 +31,26 @@ public record SaleItemDto(
     decimal TotalPrice
 );
 
+public record SalePaymentDto(
+    string Id,
+    string ReferenceNumber,
+    decimal Amount,
+    string PaymentMethod,
+    string? UserUsername,
+    bool IsInitialPayment,
+    DateTime CreatedAtUtc
+);
+
+public record SalesSummaryDto(
+    int SalesCount,
+    decimal TotalAmount,
+    decimal TotalPaid,
+    decimal PendingBalance,
+    decimal CashAmount,
+    decimal CardAmount,
+    decimal TransferAmount
+);
+
 public record SaleDto(
     Guid Id,
     string FolioNumber,
@@ -51,5 +71,6 @@ public record SaleDto(
     string Status,
     string Notes,
     DateTime CreatedAtUtc,
-    List<SaleItemDto> Items
+    List<SaleItemDto> Items,
+    List<SalePaymentDto> Payments
 );

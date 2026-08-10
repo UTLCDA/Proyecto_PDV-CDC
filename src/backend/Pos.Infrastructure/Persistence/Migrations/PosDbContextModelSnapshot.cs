@@ -51,7 +51,8 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("NumeroRecibo")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<decimal>("SaldoPendienteAnterior")
                         .HasPrecision(18, 2)
@@ -68,6 +69,9 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("NumeroRecibo")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioId");
 
@@ -100,15 +104,20 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Nombre")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
 
                     b.Property<string>("Slug")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(140)
+                        .HasColumnType("nvarchar(140)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CategoriaPadreId");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
 
                     b.ToTable("Categories");
                 });
@@ -137,7 +146,8 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<bool>("EstaActivo")
                         .HasColumnType("bit");
@@ -168,7 +178,8 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Rfc")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(13)
+                        .HasColumnType("nvarchar(13)");
 
                     b.Property<string>("Telefono")
                         .IsRequired()
@@ -179,6 +190,13 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("Rfc")
+                        .IsUnique()
+                        .HasFilter("[Rfc] IS NOT NULL AND [Rfc] <> N''");
 
                     b.ToTable("Customers");
                 });
@@ -226,7 +244,8 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("NumeroCotizacion")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<decimal>("SubTotal")
                         .HasPrecision(18, 2)
@@ -238,6 +257,9 @@ namespace Pos.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClienteId");
+
+                    b.HasIndex("NumeroCotizacion")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioId");
 
@@ -263,6 +285,19 @@ namespace Pos.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("FechaCreacionUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("FormaReembolso")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<decimal>("MontoAplicadoSaldoPendiente")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("MontoReembolsado")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("MontoTotalDevuelto")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -273,7 +308,8 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("NumeroDevolucion")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<Guid?>("UsuarioId")
                         .HasColumnType("uniqueidentifier");
@@ -282,6 +318,9 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("NumeroDevolucion")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioId");
 
@@ -396,7 +435,8 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Ubicacion")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<decimal>("UmbralMinimoAlerta")
                         .HasPrecision(18, 2)
@@ -410,7 +450,8 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProductoId");
+                    b.HasIndex("ProductoId")
+                        .IsUnique();
 
                     b.ToTable("Stocks");
                 });
@@ -455,7 +496,8 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Accion")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("DireccionIp")
                         .IsRequired()
@@ -475,7 +517,8 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("IdCorrelacion")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Motivo")
                         .HasColumnType("nvarchar(max)");
@@ -494,6 +537,12 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Accion");
+
+                    b.HasIndex("FechaCreacionUtc");
+
+                    b.HasIndex("IdCorrelacion");
 
                     b.HasIndex("UsuarioId");
 
@@ -733,7 +782,8 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Barcode")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<decimal>("CantidadInventarioInicial")
                         .HasPrecision(18, 2)
@@ -783,11 +833,13 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Material")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("PiezasPorCaja")
                         .HasColumnType("int");
@@ -802,21 +854,29 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Sku")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<bool>("SoloCotizacion")
                         .HasColumnType("bit");
 
                     b.Property<string>("UnidadMedida")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<bool>("VisibleMasVendido")
                         .HasColumnType("bit");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Barcode")
+                        .IsUnique();
+
                     b.HasIndex("CategoriaId");
+
+                    b.HasIndex("Sku")
+                        .IsUnique();
 
                     b.ToTable("Products");
                 });
@@ -1010,7 +1070,12 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("NumeroTurno")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<decimal>("TotalEntradas")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("TotalRetiros")
                         .HasPrecision(18, 2)
@@ -1032,6 +1097,9 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("NumeroTurno")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioId");
 
@@ -1146,7 +1214,8 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("NumeroFolio")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<decimal>("SaldoPendiente")
                         .HasPrecision(18, 2)
@@ -1167,6 +1236,9 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ClienteId");
 
+                    b.HasIndex("NumeroFolio")
+                        .IsUnique();
+
                     b.HasIndex("UsuarioId");
 
                     b.ToTable("Sales");
@@ -1179,7 +1251,7 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UsuarioId");
 
                     b.HasOne("Pos.Domain.Entidades.Venta", "Venta")
-                        .WithMany()
+                        .WithMany("Abonos")
                         .HasForeignKey("VentaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1495,6 +1567,8 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Pos.Domain.Entidades.Venta", b =>
                 {
+                    b.Navigation("Abonos");
+
                     b.Navigation("Partidas");
                 });
 #pragma warning restore 612, 618

@@ -1,59 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Stock, InventoryMovement } from '../../types/inventory';
+import { Stock } from '../../types/inventory';
 import { inventoryService } from '../../services/inventoryService';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
+import { useAuth } from '../../context/AuthContext';
+import { permissionCodes } from '../../security/accessControl';
 import './InventoryListPage.css';
 
 const DEFAULT_WAREHOUSE_LOCATION = 'Bodega Adolfo Lopez Mateos';
 const MAX_EVIDENCE_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
 
-const getMovementTranslationKey = (movementType: string) => {
-  switch (movementType.trim().toLowerCase()) {
-    case 'entry':
-    case 'entrada':
-    case 'entradas':
-      return 'movementEntry';
-    case 'exit':
-    case 'salida':
-    case 'salidas':
-      return 'movementExit';
-    case 'adjustment':
-    case 'ajuste':
-      return 'movementAdjustment';
-    case 'sale':
-    case 'venta':
-      return 'movementSale';
-    case 'return':
-    case 'devolucion':
-    case 'devolución':
-      return 'movementReturn';
-    default:
-      return null;
-  }
-};
-
-const getMovementBadgeClass = (movementType: string) => {
-  const normalizedType = movementType.trim().toLowerCase();
-  if (['entry', 'entrada', 'entradas', 'return', 'devolucion', 'devolución'].includes(normalizedType)) {
-    return 'badge-success';
-  }
-  if (['exit', 'salida', 'salidas'].includes(normalizedType)) {
-    return 'badge-danger';
-  }
-  if (['adjustment', 'ajuste'].includes(normalizedType)) {
-    return 'badge-info';
-  }
-  return 'badge-warning';
-};
-
 export const InventoryListPage: React.FC = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const canCaptureMovements = user?.permissions.some(
+    permission => permission.toLowerCase() === permissionCodes.inventoryMovements.toLowerCase()
+  ) ?? false;
   const [stocks, setStocks] = useState<Stock[]>([]);
-  const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [search, setSearch] = useState('');
   const [isLowStockOnly, setIsLowStockOnly] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   // Modal State for Stock Movement Entry
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -64,65 +31,20 @@ export const InventoryListPage: React.FC = () => {
   const [referenceDoc, setReferenceDoc] = useState('');
   const [location, setLocation] = useState(DEFAULT_WAREHOUSE_LOCATION);
   const [evidenceImageUrl, setEvidenceImageUrl] = useState('');
-  const [selectedEvidenceImageUrl, setSelectedEvidenceImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
   }, [isLowStockOnly]);
 
-  useEffect(() => {
-    if (!selectedEvidenceImageUrl) {
-      return undefined;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setSelectedEvidenceImageUrl(null);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedEvidenceImageUrl]);
-
   const loadData = async (searchTerm = search) => {
     setLoading(true);
+    setError('');
     try {
       const stockData = await inventoryService.getStockLevels(searchTerm, isLowStockOnly);
-      const movementData = await inventoryService.getMovements();
       setStocks(stockData);
-      setMovements(movementData);
-    } catch {
-      setStocks([
-        {
-          id: 'st-1',
-          productId: 'p-1',
-          productSku: 'LAM-INT-TEKA',
-          productName: 'Lambrín Interior WPC Tono Teka',
-          categoryName: 'Lambrín Interior WPC',
-          quantityOnHand: 150,
-          minimumAlertThreshold: 20,
-          reorderQuantity: 100,
-          unitOfMeasure: 'Pza',
-          location: 'Nave A - Pasillo 3',
-          isLowStock: false,
-          isOutOfStock: false
-        },
-        {
-          id: 'st-2',
-          productId: 'p-2',
-          productSku: 'LAM-EXT-ROBLE',
-          productName: 'Lambrín Exterior Co-Extrusión Roble Oscuro',
-          categoryName: 'Lambrín Exterior Co-Extrusión',
-          quantityOnHand: 8,
-          minimumAlertThreshold: 15,
-          reorderQuantity: 50,
-          unitOfMeasure: 'Pza',
-          location: 'Nave B - Pasillo 1',
-          isLowStock: true,
-          isOutOfStock: false
-        }
-      ]);
+    } catch (loadError) {
+      setStocks([]);
+      setError(loadError instanceof Error ? loadError.message : t('inventoryLoadError'));
     } finally {
       setLoading(false);
     }
@@ -244,11 +166,15 @@ export const InventoryListPage: React.FC = () => {
               </label>
             </form>
 
-            <button className="action-btn" onClick={handleOpenMovementModal}>
-              ➕ {t('captureMovement')}
-            </button>
+            {canCaptureMovements && (
+              <button className="action-btn" onClick={handleOpenMovementModal}>
+                ➕ {t('captureMovement')}
+              </button>
+            )}
           </div>
         </div>
+
+        {error && <div className="inventory-error-notice" role="alert">{error}</div>}
 
         {loading ? (
           <div>{t('loading')}</div>
@@ -256,7 +182,7 @@ export const InventoryListPage: React.FC = () => {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-main)', background: 'var(--background-container)' }}>
                   <th style={{ padding: '0.75rem', width: '70px' }}>{t('productImage')}</th>
                   <th style={{ padding: '0.75rem' }}>SKU / {t('productCatalog')}</th>
                   <th style={{ padding: '0.75rem' }}>{t('location')}</th>
@@ -266,8 +192,13 @@ export const InventoryListPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
+                {stocks.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="inventory-empty-state">{t('noInventoryRecords')}</td>
+                  </tr>
+                )}
                 {stocks.map((s) => (
-                  <tr key={s.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <tr key={s.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                     <td style={{ padding: '0.75rem' }}>
                       {s.productImageUrl ? (
                         <img
@@ -282,7 +213,7 @@ export const InventoryListPage: React.FC = () => {
                       )}
                     </td>
                     <td style={{ padding: '0.75rem' }}>
-                      <div style={{ fontWeight: 600, color: '#fff' }}>{s.productName}</div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{s.productName}</div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
                         {s.productSku} &bull; {s.categoryName}
                       </div>
@@ -296,11 +227,11 @@ export const InventoryListPage: React.FC = () => {
                     </td>
                     <td style={{ padding: '0.75rem' }}>
                       {s.isOutOfStock ? (
-                        <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.2)', color: 'var(--danger)', border: '1px solid var(--danger)' }}>
+                        <span className="badge badge-danger">
                           🔴 {t('outOfStock')}
                         </span>
                       ) : s.isLowStock ? (
-                        <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.2)', color: 'var(--accent-gold)', border: '1px solid var(--accent-gold)' }}>
+                        <span className="badge badge-warning">
                           ⚠️ {t('lowStockAlert')}
                         </span>
                       ) : (
@@ -316,69 +247,6 @@ export const InventoryListPage: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* Histórico de Movimientos */}
-      {movements.length > 0 && (
-        <div className="card" style={{ marginTop: '1.5rem' }}>
-          <h3>📋 {t('recentMovementsLog')}</h3>
-          <div style={{ overflowX: 'auto', marginTop: '1rem' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left', color: 'var(--text-muted)' }}>
-                  <th style={{ padding: '0.5rem' }}>{t('date')}</th>
-                  <th style={{ padding: '0.5rem' }}>{t('productCatalog')}</th>
-                  <th style={{ padding: '0.5rem' }}>{t('type')}</th>
-                  <th style={{ padding: '0.5rem' }}>{t('quantity')}</th>
-                  <th style={{ padding: '0.5rem' }}>{t('previousQuantity')}</th>
-                  <th style={{ padding: '0.5rem' }}>{t('newQuantity')}</th>
-                  <th style={{ padding: '0.5rem' }}>{t('physicalEvidence')}</th>
-                  <th style={{ padding: '0.5rem' }}>{t('reason')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movements.map((m) => {
-                  const movementTranslationKey = getMovementTranslationKey(m.movementType);
-                  return (
-                    <tr key={m.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>
-                        {new Date(m.createdAtUtc).toLocaleString()}
-                      </td>
-                      <td style={{ padding: '0.5rem' }}>{m.productName || m.productSku}</td>
-                      <td style={{ padding: '0.5rem' }}>
-                        <span className={`badge ${getMovementBadgeClass(m.movementType)}`}>
-                          {movementTranslationKey ? t(movementTranslationKey) : m.movementType}
-                        </span>
-                      </td>
-                      <td style={{ padding: '0.5rem', fontWeight: 600 }}>{m.quantity}</td>
-                      <td style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>{m.previousQuantity}</td>
-                      <td style={{ padding: '0.5rem', fontWeight: 700 }}>{m.newQuantity}</td>
-                      <td style={{ padding: '0.5rem' }}>
-                        {m.evidenceImageUrl ? (
-                          <button
-                            type="button"
-                            className="inventory-evidence-thumbnail-button"
-                            onClick={() => setSelectedEvidenceImageUrl(m.evidenceImageUrl ?? null)}
-                            aria-label={t('viewPhysicalEvidence')}
-                          >
-                            <img
-                              src={m.evidenceImageUrl}
-                              alt={t('physicalEvidence')}
-                              className="inventory-evidence-thumbnail"
-                            />
-                          </button>
-                        ) : (
-                          <span className="inventory-no-evidence">—</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>{m.reason}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {/* Modal Captura Movimiento de Inventario */}
       {isModalOpen && (
@@ -400,6 +268,15 @@ export const InventoryListPage: React.FC = () => {
                     <option key={s.productId} value={s.productId}>{s.productName} ({s.productSku})</option>
                   ))}
                 </select>
+                {selectedProductId && (() => {
+                  const selectedStock = stocks.find(stock => stock.productId === selectedProductId);
+                  return selectedStock ? (
+                    <div className="inventory-current-stock" role="status">
+                      <span>{t('currentStock')}</span>
+                      <strong>{selectedStock.quantityOnHand} {selectedStock.unitOfMeasure}</strong>
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
               <div>
@@ -462,7 +339,7 @@ export const InventoryListPage: React.FC = () => {
                   maxLength={200}
                   className="input-field"
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  readOnly
                 />
                 <small className="inventory-field-hint">{t('temporaryDefaultWarehouse')}</small>
               </div>
@@ -496,38 +373,6 @@ export const InventoryListPage: React.FC = () => {
         </div>
       )}
 
-      {selectedEvidenceImageUrl && (
-        <div
-          className="inventory-evidence-modal-overlay"
-          role="presentation"
-          onClick={() => setSelectedEvidenceImageUrl(null)}
-        >
-          <div
-            className="inventory-evidence-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="inventory-evidence-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="inventory-evidence-modal-header">
-              <h3 id="inventory-evidence-modal-title">{t('physicalEvidenceDialogTitle')}</h3>
-              <button
-                type="button"
-                className="inventory-evidence-close-button"
-                onClick={() => setSelectedEvidenceImageUrl(null)}
-                aria-label={t('closeEvidence')}
-              >
-                ×
-              </button>
-            </div>
-            <img
-              src={selectedEvidenceImageUrl}
-              alt={t('physicalEvidence')}
-              className="inventory-evidence-modal-image"
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 };

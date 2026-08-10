@@ -53,8 +53,13 @@ public class InventoryApplicationService : IInventoryApplicationService
         return stock == null ? null : MapStockToDto(stock);
     }
 
-    public async Task<List<InventoryMovementDto>> GetMovementsAsync(Guid? productId, string? movementType, CancellationToken cancellationToken = default)
+    public async Task<List<InventoryMovementDto>> GetMovementsAsync(Guid? productId, string? movementType, string? search, DateTime? startDateUtc, DateTime? endDateUtc, CancellationToken cancellationToken = default)
     {
+        if (startDateUtc.HasValue && endDateUtc.HasValue && startDateUtc.Value > endDateUtc.Value)
+        {
+            throw new ArgumentException("La fecha inicial no puede ser posterior a la fecha final.");
+        }
+
         var query = _dbContext.InventoryMovements
             .Include(m => m.Producto)
             .Include(m => m.Usuario)
@@ -67,12 +72,44 @@ public class InventoryApplicationService : IInventoryApplicationService
 
         if (!string.IsNullOrWhiteSpace(movementType))
         {
-            query = query.Where(m => m.TipoMovimiento.ToLower() == movementType.ToLower());
+            var type = movementType.Trim().ToLower();
+            var synonyms = type switch
+            {
+                "sale" or "sales" or "venta" or "ventas" => new[] { "sale", "sales", "venta", "ventas" },
+                "entry" or "entries" or "entrada" or "entradas" => new[] { "entry", "entries", "entrada", "entradas" },
+                "exit" or "exits" or "salida" or "salidas" => new[] { "exit", "exits", "salida", "salidas" },
+                "adjustment" or "adjustments" or "ajuste" or "ajustes" => new[] { "adjustment", "adjustments", "ajuste", "ajustes" },
+                "return" or "returns" or "devolucion" or "devolución" or "devoluciones" => new[] { "return", "returns", "devolucion", "devolución", "devoluciones" },
+                _ => new[] { type }
+            };
+            query = query.Where(m => synonyms.Contains(m.TipoMovimiento.ToLower()));
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(m => m.Producto.Nombre.ToLower().Contains(term) ||
+                                     m.Producto.Sku.ToLower().Contains(term) ||
+                                     m.NumeroReferencia.ToLower().Contains(term) ||
+                                     m.Motivo.ToLower().Contains(term));
+        }
+
+        if (startDateUtc.HasValue)
+        {
+            query = query.Where(m => m.FechaCreacionUtc >= startDateUtc.Value);
+        }
+
+        if (endDateUtc.HasValue)
+        {
+            var effectiveEndDate = endDateUtc.Value.TimeOfDay == TimeSpan.Zero
+                ? endDateUtc.Value.Date.AddDays(1).AddTicks(-1)
+                : endDateUtc.Value;
+            query = query.Where(m => m.FechaCreacionUtc <= effectiveEndDate);
         }
 
         var movements = await query
             .OrderByDescending(m => m.FechaCreacionUtc)
-            .Take(100)
+            .Take(500)
             .ToListAsync(cancellationToken);
 
         return movements.Select(MapMovementToDto).ToList();
@@ -80,9 +117,7 @@ public class InventoryApplicationService : IInventoryApplicationService
 
     public async Task<InventoryMovementDto> RegisterMovementAsync(RegisterMovementDto request, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default)
     {
-        var location = string.IsNullOrWhiteSpace(request.Location)
-            ? InventoryDefaults.DefaultWarehouseLocation
-            : request.Location.Trim();
+        var location = InventoryDefaults.DefaultWarehouseLocation;
 
         if (location.Length > InventoryDefaults.MaxWarehouseLocationLength)
         {

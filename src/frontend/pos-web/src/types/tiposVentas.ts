@@ -31,6 +31,29 @@ export interface Venta {
   notes: string;
   createdAtUtc: string;
   items: PartidaVenta[];
+  payments?: PagoVenta[];
+}
+
+export interface PagoVenta {
+  id: string;
+  reference: string;
+  amount: number;
+  paymentMethod: string;
+  userUsername?: string;
+  isInitialPayment: boolean;
+  createdAtUtc: string;
+}
+
+export interface ResumenVentas {
+  salesCount: number;
+  totalAmount: number;
+  paidAmount: number;
+  pendingAmount: number;
+  totalPaid?: number;
+  pendingBalance?: number;
+  cashAmount: number;
+  cardAmount: number;
+  transferAmount: number;
 }
 
 export interface PeticionCrearVenta {
