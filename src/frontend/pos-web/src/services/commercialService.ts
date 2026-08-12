@@ -31,12 +31,12 @@ export const commercialService = {
       body: JSON.stringify(request)
     }),
   getPendingSales: () => apiClient.request<Venta[]>('/payments/pending-sales'),
-  registerInstallment: (saleId: string, amountPaid: number, paymentMethod: string, notes: string) =>
+  registerInstallment: (idVenta: number, amountPaid: number, paymentMethod: string, notes: string) =>
     apiClient.request<PaymentInstallment>('/payments/installment', {
       method: 'POST',
-      body: JSON.stringify({ saleId, amountPaid, paymentMethod, notes })
+      body: JSON.stringify({ idVenta, amountPaid, paymentMethod, notes })
     }),
-  getInstallments: (saleId: string) => apiClient.request<PaymentInstallment[]>(`/payments/sale/${saleId}`),
+  getInstallments: (idVenta: number) => apiClient.request<PaymentInstallment[]>(`/payments/sale/${idVenta}`),
   getInstallmentHistory: (filters: { search?: string; customerId?: string; paymentMethod?: string; startDate?: string; endDate?: string } = {}) => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
@@ -60,7 +60,7 @@ export const commercialService = {
     return apiClient.request<PaymentTransaction[]>(`/payments/transactions${params.size ? `?${params}` : ''}`);
   },
   getEligibleReturnSales: () => apiClient.request<Venta[]>('/returns/eligible-sales'),
-  getReturns: (saleId?: string) => apiClient.request<SaleReturn[]>(`/returns${saleId ? `?saleId=${encodeURIComponent(saleId)}` : ''}`),
+  getReturns: (idVenta?: number) => apiClient.request<SaleReturn[]>(`/returns${idVenta ? `?idVenta=${idVenta}` : ''}`),
   processReturn: (request: CreateReturnRequest) => apiClient.request<SaleReturn>('/returns', {
     method: 'POST',
     body: JSON.stringify(request)

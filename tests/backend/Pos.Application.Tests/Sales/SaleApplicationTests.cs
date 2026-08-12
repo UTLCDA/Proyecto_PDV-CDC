@@ -206,11 +206,21 @@ public class SaleApplicationTests
             EstaActivo = true,
             FechaCreacionUtc = DateTime.UtcNow
         };
-        context.Sales.Add(sale);
+        var legacyTextMatch = new Venta
+        {
+            IdVenta = 999,
+            NumeroFolio = "VENTA-LEGACY-CONTAINS-157",
+            TipoPago = SalePaymentTypes.FullPayment,
+            Estado = SaleStatuses.Completed,
+            EstaActivo = true,
+            FechaCreacionUtc = DateTime.UtcNow.AddMinutes(-1)
+        };
+        context.Sales.AddRange(sale, legacyTextMatch);
         await context.SaveChangesAsync();
 
         var byGuid = await service.GetSaleByIdAsync(sale.Id);
         var byOperationalFolio = await service.GetSaleByFolioAsync(sale.IdVenta);
+        var searchByOperationalFolio = await service.GetSalesAsync("157", null, null, null, null);
 
         Assert.NotNull(byGuid);
         Assert.NotNull(byOperationalFolio);
@@ -218,6 +228,7 @@ public class SaleApplicationTests
         Assert.Equal(157, byOperationalFolio.IdVenta);
         Assert.Equal(byGuid.FolioNumber, byOperationalFolio.FolioNumber);
         Assert.Equal(byGuid.TotalAmount, byOperationalFolio.TotalAmount);
+        Assert.Equal(sale.Id, Assert.Single(searchByOperationalFolio).Id);
     }
 
     private static CreateSaleDto CreateFullPaymentRequest(

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { servicioCatalogo } from '../../services/servicioCatalogo';
 import { Cliente, PeticionActualizarCliente, PeticionCrearCliente } from '../../types/tiposCatalogo';
+import { lookupPostalCode } from '../../services/servicioCodigoPostal';
 import './CustomerListPage.css';
 
 type CustomerForm = Omit<PeticionCrearCliente, 'specialDiscountPercentage'> & {
@@ -101,8 +102,19 @@ export const CustomerListPage: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const updateForm = (field: keyof CustomerForm, value: string | boolean) =>
-    setForm(current => ({ ...current, [field]: value }));
+  const updateForm = (field: keyof CustomerForm, value: string | boolean) => {
+    setForm(current => {
+      const updated = { ...current, [field]: value };
+      if (field === 'postalCode' && typeof value === 'string' && value.length === 5) {
+        void lookupPostalCode(value).then(res => {
+          if (res) {
+            setForm(prev => ({ ...prev, city: res.city, state: res.state }));
+          }
+        });
+      }
+      return updated;
+    });
+  };
 
   const saveCustomer = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -185,11 +197,11 @@ export const CustomerListPage: React.FC = () => {
             <Field label={t('companyName')}><input maxLength={200} value={form.companyName} onChange={event => updateForm('companyName', event.target.value)} /></Field>
             <Field label={t('taxIdLabel')}><input maxLength={13} value={form.taxId} onChange={event => updateForm('taxId', event.target.value.toUpperCase())} placeholder="XAXX010101000" /></Field>
             <Field label={`${t('email')} *`}><input required type="email" maxLength={256} value={form.email} onChange={event => updateForm('email', event.target.value)} /></Field>
-            <Field label={`${t('phone')} *`}><input required type="tel" maxLength={25} value={form.phone} onChange={event => updateForm('phone', event.target.value)} /></Field>
-            <Field label={t('address')} wide><input maxLength={300} value={form.address} onChange={event => updateForm('address', event.target.value)} /></Field>
-            <Field label={t('city')}><input maxLength={100} value={form.city} onChange={event => updateForm('city', event.target.value)} /></Field>
+            <Field label={`${t('phone')} *`}><input required type="tel" maxLength={25} value={form.phone} onChange={event => updateForm('phone', event.target.value.replace(/\D/g, ''))} /></Field>
+            <Field label={t('postalCode')}><input inputMode="numeric" maxLength={5} value={form.postalCode} onChange={event => updateForm('postalCode', event.target.value.replace(/\D/g, ''))} placeholder="37000" /></Field>
             <Field label={t('state')}><input maxLength={100} value={form.state} onChange={event => updateForm('state', event.target.value)} /></Field>
-            <Field label={t('postalCode')}><input inputMode="numeric" maxLength={5} value={form.postalCode} onChange={event => updateForm('postalCode', event.target.value.replace(/\D/g, ''))} /></Field>
+            <Field label={t('city')}><input maxLength={100} value={form.city} onChange={event => updateForm('city', event.target.value)} /></Field>
+            <Field label={t('address')} wide><input maxLength={300} value={form.address} onChange={event => updateForm('address', event.target.value)} placeholder="Calle, número, colonia" /></Field>
             <Field label={`${t('customerType')} *`}><select value={form.customerType} onChange={event => updateForm('customerType', event.target.value)}><option value="Particular">{t('customerTypeRetail')}</option><option value="Mayorista">{t('customerTypeWholesale')}</option><option value="Arquitecto/Constructor">{t('customerTypeProfessional')}</option></select></Field>
             <Field label={t('specialDiscountPercent')}><input type="number" min="0" max="100" step="0.01" value={form.specialDiscountPercentage} onChange={event => updateForm('specialDiscountPercentage', event.target.value)} placeholder="0.00" /></Field>
             <Field label={t('customerNotes')} wide><textarea rows={3} maxLength={500} value={form.notes} onChange={event => updateForm('notes', event.target.value)} placeholder={t('customerNotesPlaceholder')} /></Field>

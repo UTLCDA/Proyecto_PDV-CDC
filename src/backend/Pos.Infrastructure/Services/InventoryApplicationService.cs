@@ -88,7 +88,9 @@ public class InventoryApplicationService : IInventoryApplicationService
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
-            query = query.Where(m => m.Producto.Nombre.ToLower().Contains(term) ||
+            var hasOperationalId = int.TryParse(term, out var idVenta) && idVenta > 0;
+            query = query.Where(m => (hasOperationalId && m.IdVenta == idVenta) ||
+                                     m.Producto.Nombre.ToLower().Contains(term) ||
                                      m.Producto.Sku.ToLower().Contains(term) ||
                                      m.NumeroReferencia.ToLower().Contains(term) ||
                                      m.Motivo.ToLower().Contains(term));
@@ -259,6 +261,7 @@ public class InventoryApplicationService : IInventoryApplicationService
     {
         return new InventoryMovementDto(
             m.Id,
+            m.IdVenta,
             m.ProductoId,
             m.Producto?.Sku ?? string.Empty,
             m.Producto?.Nombre ?? string.Empty,

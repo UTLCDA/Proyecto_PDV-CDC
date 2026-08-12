@@ -56,6 +56,7 @@ export interface ConvertQuoteRequest {
 export interface PaymentInstallment {
   id: string;
   saleId: string;
+  idVenta: number;
   saleFolioNumber: string;
   receiptNumber: string;
   amountPaid: number;
@@ -72,6 +73,7 @@ export interface PaymentInstallment {
 export interface PaymentTransaction {
   id: string;
   saleId: string;
+  idVenta: number;
   saleFolioNumber: string;
   customerDisplayName?: string;
   transactionType: string;
@@ -95,6 +97,7 @@ export interface SaleReturn {
   id: string;
   returnNumber: string;
   saleId: string;
+  idVenta: number;
   saleFolioNumber: string;
   totalRefundAmount: number;
   appliedToPendingBalance: number;
@@ -107,7 +110,7 @@ export interface SaleReturn {
 }
 
 export interface CreateReturnRequest {
-  saleId: string;
+  idVenta: number;
   refundMethod: 'Cash' | 'Card' | 'Transfer' | 'StoreCredit';
   reason: string;
   items: Array<{ productId: string; quantity: number }>;

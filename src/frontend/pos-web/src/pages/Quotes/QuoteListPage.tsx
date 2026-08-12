@@ -70,8 +70,8 @@ export const QuoteListPage: React.FC = () => {
   const customerDiscount = Math.round(quoteSubtotal * Math.min(100, Math.max(0, selectedCustomer?.specialDiscountPercentage ?? 0)) / 100 * 100) / 100;
   const requestedDiscount = canDiscount ? Number(discount || 0) : 0;
   const appliedDiscount = Math.max(customerDiscount, Number.isFinite(requestedDiscount) ? requestedDiscount : 0);
-  const quoteTax = Math.round(Math.max(0, quoteSubtotal - appliedDiscount) * 0.16 * 100) / 100;
-  const quoteTotal = Math.max(0, quoteSubtotal - appliedDiscount) + quoteTax;
+  const quoteTax = Math.round(quoteSubtotal * 0.16 * 100) / 100;
+  const quoteTotal = Math.max(0, quoteSubtotal - appliedDiscount + quoteTax);
 
   const changeLineQuantity = (index: number, delta: number) => {
     setLines(current => current.map((line, lineIndex) => {
@@ -184,7 +184,7 @@ export const QuoteListPage: React.FC = () => {
       const sale = await commercialService.convertQuoteToSale(conversionQuote.id, request);
       setConversionQuote(null);
       await load();
-      setNotice({ type: 'success', text: t('quoteConvertedSuccess', { folio: sale.folioNumber }) });
+      setNotice({ type: 'success', text: t('quoteConvertedSuccess', { idVenta: sale.idVenta }) });
     } catch (error) {
       setNotice({ type: 'error', text: errorMessage(error, t('quoteConvertError')) });
     } finally {

@@ -13,13 +13,14 @@ public interface ICommercialOperationsService
 
     // Installment Payments (Abonos)
     Task<PaymentInstallmentDto> RegisterInstallmentPaymentAsync(CreateInstallmentDto request, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
+    Task<List<PaymentInstallmentDto>> GetInstallmentsByIdVentaAsync(int idVenta, CancellationToken cancellationToken = default);
     Task<List<PaymentInstallmentDto>> GetInstallmentsBySaleIdAsync(Guid saleId, CancellationToken cancellationToken = default);
     Task<List<PaymentInstallmentDto>> GetInstallmentHistoryAsync(string? search, string? paymentMethod, DateTime? startDate, DateTime? endDate, string? customerId = null, CancellationToken cancellationToken = default);
     Task<List<PaymentTransactionDto>> GetPaymentTransactionsAsync(string? search, string? paymentMethod, DateTime? startDate, DateTime? endDate, string? customerId = null, CancellationToken cancellationToken = default);
 
     // Returns
     Task<ReturnHeaderDto> ProcessReturnAsync(CreateReturnDto request, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
-    Task<List<ReturnHeaderDto>> GetReturnsAsync(Guid? saleId, CancellationToken cancellationToken = default);
+    Task<List<ReturnHeaderDto>> GetReturnsAsync(int? idVenta, Guid? saleId, CancellationToken cancellationToken = default);
 
     // Documents
     Task<List<DocumentTemplateDto>> GetDocumentTemplatesAsync(CancellationToken cancellationToken = default);

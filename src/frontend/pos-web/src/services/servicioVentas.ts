@@ -40,7 +40,8 @@ export const servicioVentas = {
     const query = params.toString() ? `?${params.toString()}` : '';
     return apiClient.request<ResumenVentas>(`/sales/summary${query}`);
   },
-  getSaleById: (id: string) => apiClient.request<Venta>(`/sales/${id}`),
+  getSaleByIdVenta: (idVenta: number) => apiClient.request<Venta>(`/sales/${idVenta}`),
+  getSaleByGuid: (id: string) => apiClient.request<Venta>(`/sales/by-guid/${id}`),
   processSale: (request: PeticionCrearVenta) =>
     apiClient.request<Venta>('/sales', {
       method: 'POST',

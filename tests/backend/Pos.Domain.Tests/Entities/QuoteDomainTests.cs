@@ -21,7 +21,7 @@ public class QuoteDomainTests
 
         // Assert
         Assert.Equal(900m, quote.SubTotal);
-        Assert.Equal(128m, quote.TaxAmount); // (900 - 100) * 0.16 = 128
-        Assert.Equal(928m, quote.TotalAmount); // 900 - 100 + 128 = 928
+        Assert.Equal(144m, quote.TaxAmount); // 900 * 0.16 = 144
+        Assert.Equal(944m, quote.TotalAmount); // 900 - 100 + 144 = 944
     }
 }

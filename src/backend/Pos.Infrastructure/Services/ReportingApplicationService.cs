@@ -210,10 +210,40 @@ public class ReportingApplicationService : IReportingApplicationService
         string? action,
         DateTime? startDate,
         DateTime? endDate,
+        int? idVenta = null,
         CancellationToken cancellationToken = default)
     {
         ValidateDateRange(startDate, endDate);
         var query = _dbContext.AuditLogs.Include(log => log.Usuario).AsNoTracking().AsQueryable();
+
+        if (idVenta.HasValue)
+        {
+            if (idVenta.Value <= 0)
+            {
+                throw new ArgumentException("El folio operativo IdVenta debe ser mayor a cero.");
+            }
+
+            var saleId = await _dbContext.Sales.AsNoTracking()
+                .Where(sale => sale.IdVenta == idVenta.Value)
+                .Select(sale => (Guid?)sale.Id)
+                .SingleOrDefaultAsync(cancellationToken);
+            if (!saleId.HasValue) return [];
+
+            var saleEntityId = saleId.Value.ToString();
+            var installmentEntityIds = await _dbContext.PaymentInstallments.AsNoTracking()
+                .Where(item => item.VentaId == saleId.Value)
+                .Select(item => item.Id.ToString())
+                .ToListAsync(cancellationToken);
+            var returnEntityIds = await _dbContext.ReturnHeaders.AsNoTracking()
+                .Where(item => item.VentaId == saleId.Value)
+                .Select(item => item.Id.ToString())
+                .ToListAsync(cancellationToken);
+
+            query = query.Where(log =>
+                (log.NombreEntidad == "Venta" && log.EntidadId == saleEntityId) ||
+                (log.NombreEntidad == "AbonoPago" && installmentEntityIds.Contains(log.EntidadId!)) ||
+                (log.NombreEntidad == "DevolucionCabecera" && returnEntityIds.Contains(log.EntidadId!)));
+        }
 
         if (!string.IsNullOrWhiteSpace(correlationId))
         {
@@ -244,13 +274,46 @@ public class ReportingApplicationService : IReportingApplicationService
             query = query.Where(log => log.FechaCreacionUtc <= endDate.Value);
         }
 
-        return await query
+        var logs = await query
             .OrderByDescending(log => log.FechaCreacionUtc)
             .Take(200)
-            .Select(log => new AuditLogDto(
+            .ToListAsync(cancellationToken);
+
+        var saleIds = ParseEntityIds(logs.Where(log => log.NombreEntidad == "Venta").Select(log => log.EntidadId));
+        var installmentIds = ParseEntityIds(logs.Where(log => log.NombreEntidad == "AbonoPago").Select(log => log.EntidadId));
+        var returnIds = ParseEntityIds(logs.Where(log => log.NombreEntidad == "DevolucionCabecera").Select(log => log.EntidadId));
+
+        var saleReferences = await _dbContext.Sales.AsNoTracking()
+            .Where(sale => saleIds.Contains(sale.Id))
+            .ToDictionaryAsync(sale => sale.Id, sale => sale.IdVenta, cancellationToken);
+        var installmentReferences = await _dbContext.PaymentInstallments.AsNoTracking()
+            .Where(item => installmentIds.Contains(item.Id))
+            .Select(item => new { item.Id, IdVenta = item.IdVenta ?? item.Venta.IdVenta })
+            .ToDictionaryAsync(item => item.Id, item => item.IdVenta, cancellationToken);
+        var returnReferences = await _dbContext.ReturnHeaders.AsNoTracking()
+            .Where(item => returnIds.Contains(item.Id))
+            .Select(item => new { item.Id, IdVenta = item.IdVenta ?? item.Venta.IdVenta })
+            .ToDictionaryAsync(item => item.Id, item => item.IdVenta, cancellationToken);
+
+        return logs.Select(log =>
+        {
+            int? operationalId = null;
+            if (Guid.TryParse(log.EntidadId, out var entityId))
+            {
+                operationalId = log.NombreEntidad switch
+                {
+                    "Venta" when saleReferences.TryGetValue(entityId, out var saleIdVenta) => saleIdVenta,
+                    "AbonoPago" when installmentReferences.TryGetValue(entityId, out var installmentIdVenta) => installmentIdVenta,
+                    "DevolucionCabecera" when returnReferences.TryGetValue(entityId, out var returnIdVenta) => returnIdVenta,
+                    _ => null
+                };
+            }
+
+            return new AuditLogDto(
                 log.Id,
+                operationalId,
                 log.IdCorrelacion,
-                log.Usuario != null ? log.Usuario.NombreUsuario : null,
+                log.Usuario?.NombreUsuario,
                 log.Accion,
                 log.NombreEntidad,
                 log.EntidadId,
@@ -258,9 +321,15 @@ public class ReportingApplicationService : IReportingApplicationService
                 log.ValoresNuevosJson,
                 log.DireccionIp,
                 log.Motivo ?? string.Empty,
-                log.FechaCreacionUtc))
-            .ToListAsync(cancellationToken);
+                log.FechaCreacionUtc);
+        }).ToList();
     }
+
+    private static List<Guid> ParseEntityIds(IEnumerable<string?> values) => values
+        .Select(value => Guid.TryParse(value, out var id) ? id : Guid.Empty)
+        .Where(id => id != Guid.Empty)
+        .Distinct()
+        .ToList();
 
     private IQueryable<Pos.Domain.Entidades.Venta> FilterSalesByDate(DateTime? startDate, DateTime? endDate)
     {

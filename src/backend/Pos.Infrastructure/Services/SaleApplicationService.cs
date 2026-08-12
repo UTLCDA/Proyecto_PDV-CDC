@@ -280,6 +280,19 @@ public class SaleApplicationService : ISaleApplicationService
             }
             else
             {
+                // SQL Server remains the authoritative IdVenta generator. The non-relational
+                // provider used by local development/tests does not emulate this IDENTITY,
+                // so assign its in-memory equivalent before exposing operational references.
+                if (sale.IdVenta <= 0)
+                {
+                    var currentMaximum = await _dbContext.Sales
+                        .AsNoTracking()
+                        .Where(existingSale => existingSale.Id != sale.Id)
+                        .Select(existingSale => (int?)existingSale.IdVenta)
+                        .MaxAsync(cancellationToken) ?? 0;
+                    sale.IdVenta = currentMaximum + 1;
+                }
+
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 foreach (var item in sale.Partidas)
                 {
@@ -309,6 +322,7 @@ public class SaleApplicationService : ISaleApplicationService
             null,
             JsonSerializer.Serialize(new
             {
+                sale.IdVenta,
                 sale.NumeroFolio,
                 sale.MontoTotal,
                 sale.MontoDescuento,
@@ -317,7 +331,7 @@ public class SaleApplicationService : ISaleApplicationService
                 Items = sale.Partidas.Count
             }),
             ipAddress,
-            $"Venta completada: {sale.NumeroFolio}",
+            $"Venta #{sale.IdVenta} completada.",
             cancellationToken);
 
         return (await GetSaleByIdAsync(sale.Id, cancellationToken))!;
@@ -442,11 +456,18 @@ public class SaleApplicationService : ISaleApplicationService
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
-            query = query.Where(sale => sale.NumeroFolio.ToLower().Contains(term) ||
-                sale.Id.ToString().ToLower().Contains(term) ||
-                (sale.Cliente != null &&
-                    (sale.Cliente.Nombre.ToLower().Contains(term) ||
-                     (sale.Cliente.NombreEmpresa != null && sale.Cliente.NombreEmpresa.ToLower().Contains(term)))));
+            if (int.TryParse(term, out var idVenta) && idVenta > 0)
+            {
+                query = query.Where(sale => sale.IdVenta == idVenta);
+            }
+            else
+            {
+                query = query.Where(sale => sale.NumeroFolio.ToLower().Contains(term) ||
+                    sale.Id.ToString().ToLower().Contains(term) ||
+                    (sale.Cliente != null &&
+                        (sale.Cliente.Nombre.ToLower().Contains(term) ||
+                         (sale.Cliente.NombreEmpresa != null && sale.Cliente.NombreEmpresa.ToLower().Contains(term)))));
+            }
         }
         return query;
     }
@@ -519,14 +540,40 @@ public class SaleApplicationService : ISaleApplicationService
     private static SaleDto MapSaleToDto(Venta sale)
     {
         var payments = new List<SalePaymentDto>();
-        AddInitialPayment(payments, sale, PaymentMethods.Cash, sale.MontoEfectivo);
-        AddInitialPayment(payments, sale, PaymentMethods.Card, sale.MontoTarjeta);
-        AddInitialPayment(payments, sale, PaymentMethods.Transfer, sale.MontoTransferencia);
+        if (sale.TipoPago == SalePaymentTypes.AdvanceDeposit)
+        {
+            var subsequentAbonosSum = sale.Abonos.Where(a => a.EstaActivo).Sum(a => a.MontoAbonado);
+            var totalPaid = Math.Max(0m, sale.MontoTotal - sale.SaldoPendiente);
+            var initialDepositAmount = Math.Max(0m, totalPaid - subsequentAbonosSum);
+            if (initialDepositAmount <= 0m && (sale.MontoEfectivo + sale.MontoTarjeta + sale.MontoTransferencia) > 0m)
+            {
+                initialDepositAmount = sale.MontoEfectivo + sale.MontoTarjeta + sale.MontoTransferencia;
+            }
+            if (initialDepositAmount > 0m)
+            {
+                var initialMethod = sale.MontoTarjeta > 0m ? PaymentMethods.Card : (sale.MontoTransferencia > 0m ? PaymentMethods.Transfer : PaymentMethods.Cash);
+                payments.Add(new SalePaymentDto(
+                    $"{sale.Id}:initial",
+                    ReceiptReferences.Create(sale.IdVenta),
+                    initialDepositAmount,
+                    initialMethod,
+                    sale.Usuario?.NombreUsuario,
+                    true,
+                    sale.FechaCreacionUtc));
+            }
+        }
+        else
+        {
+            AddInitialPayment(payments, sale, PaymentMethods.Cash, sale.MontoEfectivo);
+            AddInitialPayment(payments, sale, PaymentMethods.Card, sale.MontoTarjeta);
+            AddInitialPayment(payments, sale, PaymentMethods.Transfer, sale.MontoTransferencia);
+        }
+
         payments.AddRange(sale.Abonos
             .Where(payment => payment.EstaActivo)
             .Select(payment => new SalePaymentDto(
                 payment.Id.ToString(),
-                payment.NumeroRecibo,
+                ReceiptReferences.Create(sale.IdVenta),
                 payment.MontoAbonado,
                 payment.FormaPago,
                 payment.Usuario?.NombreUsuario,
@@ -556,6 +603,7 @@ public class SaleApplicationService : ISaleApplicationService
             sale.FechaCreacionUtc,
             sale.Partidas.Select(item => new SaleItemDto(
                 item.Id,
+                item.IdVenta,
                 item.ProductoId,
                 item.Producto?.Sku ?? string.Empty,
                 item.Producto?.Nombre ?? string.Empty,
@@ -572,7 +620,7 @@ public class SaleApplicationService : ISaleApplicationService
         if (amount <= 0m) return;
         payments.Add(new SalePaymentDto(
             $"{sale.Id}:{method.ToLowerInvariant()}",
-            sale.TipoPago == SalePaymentTypes.AdvanceDeposit ? $"ANTICIPO-{sale.NumeroFolio}" : $"PAGO-{sale.NumeroFolio}",
+            ReceiptReferences.Create(sale.IdVenta),
             amount,
             method,
             sale.Usuario?.NombreUsuario,

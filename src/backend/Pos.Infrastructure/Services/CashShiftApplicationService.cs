@@ -317,6 +317,7 @@ public class CashShiftApplicationService : ICashShiftApplicationService
                 item.TipoTransaccion != CashTransactionTypes.Refund)
             .Select(item => new CashGeneralMovementDto(
                 item.Id.ToString(),
+                item.IdVenta,
                 item.TipoTransaccion == CashTransactionTypes.Opening ? "Apertura" :
                 item.TipoTransaccion == CashTransactionTypes.ManualDeposit ? "Ingreso / Cambio" :
                 item.TipoTransaccion == CashTransactionTypes.ManualWithdrawal ? "Retiro / Sangría" :
@@ -336,11 +337,12 @@ public class CashShiftApplicationService : ICashShiftApplicationService
                 item.FechaCreacionUtc >= shift.FechaAperturaUtc)
             .Select(item => new CashGeneralMovementDto(
                 item.Id.ToString(),
+                item.IdVenta,
                 item.TipoPago == SalePaymentTypes.AdvanceDeposit ? "Venta / Abono" :
                 item.Notas.StartsWith("Convertida desde cotización") ? "Venta (Cotización)" : "Venta",
                 item.TipoPago == SalePaymentTypes.AdvanceDeposit || item.Notas.StartsWith("Convertida desde cotización")
                     ? "Abono a venta"
-                    : "Venta Folio " + item.NumeroFolio,
+                    : "Venta #" + item.IdVenta,
                 item.TipoPago == SalePaymentTypes.MixedPayment ? "Mixed" :
                     item.MontoTarjeta > 0 ? PaymentMethods.Card :
                     item.MontoTransferencia > 0 ? PaymentMethods.Transfer : PaymentMethods.Cash,
@@ -349,20 +351,32 @@ public class CashShiftApplicationService : ICashShiftApplicationService
                 item.FechaCreacionUtc))
             .ToListAsync(cancellationToken);
 
-        var installments = await _dbContext.PaymentInstallments
+        var installmentRows = await _dbContext.PaymentInstallments
             .AsNoTracking()
             .Include(item => item.Usuario)
             .Include(item => item.Venta)
             .Where(item => item.EstaActivo && item.FechaCreacionUtc >= shift.FechaAperturaUtc)
-            .Select(item => new CashGeneralMovementDto(
-                item.Id.ToString(),
-                "Abono",
-                "Abono Recibo " + item.NumeroRecibo + " (Venta " + item.Venta.NumeroFolio + ")",
+            .Select(item => new
+            {
+                item.Id,
+                IdVenta = item.IdVenta ?? item.Venta.IdVenta,
                 item.FormaPago,
                 item.MontoAbonado,
-                item.Usuario != null ? item.Usuario.NombreUsuario : null,
-                item.FechaCreacionUtc))
+                Usuario = item.Usuario != null ? item.Usuario.NombreUsuario : null,
+                item.FechaCreacionUtc
+            })
             .ToListAsync(cancellationToken);
+        var installments = installmentRows
+            .Select(item => new CashGeneralMovementDto(
+                item.Id.ToString(),
+                item.IdVenta,
+                "Abono",
+                $"Abono {ReceiptReferences.Create(item.IdVenta)} (Venta #{item.IdVenta})",
+                item.FormaPago,
+                item.MontoAbonado,
+                item.Usuario,
+                item.FechaCreacionUtc))
+            .ToList();
 
         var refunds = await _dbContext.ReturnHeaders
             .AsNoTracking()
@@ -371,8 +385,9 @@ public class CashShiftApplicationService : ICashShiftApplicationService
                 item.FechaCreacionUtc >= shift.FechaAperturaUtc)
             .Select(item => new CashGeneralMovementDto(
                 item.Id.ToString(),
+                item.IdVenta,
                 "Devolución",
-                "Devolución " + item.NumeroDevolucion,
+                "Devolución " + item.NumeroDevolucion + " (Venta #" + item.IdVenta + ")",
                 item.FormaReembolso,
                 -item.MontoReembolsado,
                 item.Usuario != null ? item.Usuario.NombreUsuario : null,

@@ -60,5 +60,13 @@ public class InventoryApplicationTests
         var stockDto = await inventoryService.GetStockByProductIdAsync(product.Id);
         Assert.NotNull(stockDto);
         Assert.Equal(product.ImagenUrl, stockDto.ProductImageUrl);
+
+        const int idVenta = 9054;
+        var persistedMovement = await context.InventoryMovements.SingleAsync(item => item.Id == movement.Id);
+        persistedMovement.IdVenta = idVenta;
+        await context.SaveChangesAsync();
+        var movementsByIdVenta = await inventoryService.GetMovementsAsync(null, null, idVenta.ToString(), null, null);
+
+        Assert.Equal(idVenta, Assert.Single(movementsByIdVenta).IdVenta);
     }
 }

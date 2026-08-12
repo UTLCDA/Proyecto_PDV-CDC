@@ -67,6 +67,7 @@ public class SalesController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [HttpGet("by-guid/{id:guid}")]
     [Authorize(Policy = PermissionCodes.Sales.History)]
     public async Task<ActionResult<SaleDto>> GetSaleById(Guid id, CancellationToken cancellationToken)
     {
@@ -75,9 +76,10 @@ public class SalesController : ControllerBase
         return Ok(sale);
     }
 
+    [HttpGet("{idVenta:int}")]
     [HttpGet("folio/{idVenta:int}")]
     [Authorize(Policy = PermissionCodes.Sales.History)]
-    public async Task<ActionResult<SaleDto>> GetSaleByFolio(int idVenta, CancellationToken cancellationToken)
+    public async Task<ActionResult<SaleDto>> GetSaleByOperationalId(int idVenta, CancellationToken cancellationToken)
     {
         var sale = await _saleService.GetSaleByFolioAsync(idVenta, cancellationToken);
         if (sale == null) return NotFound(new { message = "Venta no encontrada." });
@@ -98,7 +100,7 @@ public class SalesController : ControllerBase
         try
         {
             var sale = await _saleService.ProcessSaleAsync(request, currentUserId, correlationId, ipAddress, canApplyDiscount, cancellationToken);
-            return CreatedAtAction(nameof(GetSaleById), new { id = sale.Id }, sale);
+            return CreatedAtAction(nameof(GetSaleByOperationalId), new { idVenta = sale.IdVenta }, sale);
         }
         catch (InvalidOperationException ex)
         {

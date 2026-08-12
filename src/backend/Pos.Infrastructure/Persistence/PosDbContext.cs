@@ -90,8 +90,7 @@ public class PosDbContext : DbContext
             .Property(payment => payment.NumeroRecibo)
             .HasMaxLength(64);
         modelBuilder.Entity<AbonoPago>()
-            .HasIndex(payment => payment.NumeroRecibo)
-            .IsUnique();
+            .HasIndex(payment => payment.NumeroRecibo);
 
         modelBuilder.Entity<DevolucionCabecera>()
             .Property(returnHeader => returnHeader.NumeroDevolucion)

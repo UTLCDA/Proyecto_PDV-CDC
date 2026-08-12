@@ -128,4 +128,40 @@ public class ReportingApplicationTests
         Assert.Equal(0, summary.OutOfStockProducts);
         Assert.True(summary.InventoryRetailValue > 0m);
     }
+
+    [Fact]
+    public async Task GetAuditLogsAsync_ShouldResolveAndFilterSaleByIdVenta()
+    {
+        await using var context = GetInMemoryDbContext();
+        const int idVenta = 12_054;
+        var sale = new Venta
+        {
+            IdVenta = idVenta,
+            NumeroFolio = "VENTA-AUDIT-IDVENTA",
+            TipoPago = SalePaymentTypes.FullPayment,
+            Estado = SaleStatuses.Completed,
+            EstaActivo = true,
+            FechaCreacionUtc = DateTime.UtcNow
+        };
+        context.Sales.Add(sale);
+        context.AuditLogs.Add(new LogAuditoria
+        {
+            IdCorrelacion = "audit-idventa",
+            Accion = "SALE_COMPLETED",
+            NombreEntidad = "Venta",
+            EntidadId = sale.Id.ToString(),
+            DireccionIp = "127.0.0.1",
+            Motivo = $"Venta #{idVenta} completada.",
+            FechaCreacionUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var reportingService = new ReportingApplicationService(context);
+        var logs = await reportingService.GetAuditLogsAsync(null, null, null, null, null, idVenta);
+
+        var log = Assert.Single(logs);
+        Assert.Equal(idVenta, log.IdVenta);
+        Assert.Equal(sale.Id.ToString(), log.EntityId);
+        Assert.Contains($"#{idVenta}", log.Notes);
+    }
 }

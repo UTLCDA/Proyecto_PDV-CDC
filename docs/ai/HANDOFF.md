@@ -1,6 +1,42 @@
-# HANDOFF — Cierre de Mejoras del Sistema WPC Bajío y Módulos Independientes
+# HANDOFF — Liberación Oficial Versión 2.0.0 (Sistema PDV e Inventario WPC Bajío)
 
-## Corrección local pendiente de validación humana (2026-08-10)
+## Liberación Oficial Versión 2.0.0 (2026-08-12): IVA Transparente, Tabla de Amortización, Hora Local UTC-6 y Clientes
+
+- **Versión 2.0.0**: Marcado y empaquetado oficial del sistema con validación operativa aprobada.
+- **Cálculo de IVA Transparente**: `MontoIva` al 16% sobre `SubTotal` base de productos sin reducir la base gravable por descuentos (`SubTotal * 0.16`). En la Venta #48 ($899 subtotal, $100 descuento), el IVA es $143.84 y Total es $942.84.
+- **Formato UTC e Inserción Local (-06:00 CT)**: Fechas serializadas en ISO 8601 UTC (`yyyy-MM-ddTHH:mm:ss.fffZ`) y convertidas a la hora local real del cliente en Guadalajara (-06:00 CT, ej. 02:35 AM), sin alterar registros históricos en la BD.
+- **Tabla de Amortización de Abonos e Histórico Transaccional**: Inclusión de `.Include(s => s.Abonos)` en backend (`GetInstallmentHistoryAsync`, `GetInstallmentsBySaleReferenceAsync` y `GetPaymentTransactionsAsync`), permitiendo el cálculo dinámico del Anticipo Inicial ($6.00) y Saldo Pendiente resultante ($400.00).
+- **Regla `<HistoricoAbonosCorrectoComprobante>` por Auditoría**: `SaleReceiptModal` con `targetPaymentId` y rebanado por índice (`slice(0, targetIdx + 1)`), garantizando que los comprobantes muestren la foto acumulada exacta hasta el abono consultado.
+- **Directorio de Clientes**: Teléfono restringido a dígitos numéricos (`0-9`); modal reordenado solicitando CP primero y autocompletando automáticamente Ciudad y Estado mediante `servicioCodigoPostal.ts`.
+- **Validación de Código**: Backend xUnit **54/54** (Domain 19/19 y Application 35/35); Frontend Vitest **10/10**; `npm run build` Vite producción exitoso con 0 errores (90 módulos).
+
+## Iteración completada (2026-08-10): recibos `RECIBO-{IdVenta}`
+
+- Se eliminó la generación operativa `RECIBO-fecha-fragmentoGUID` y las variantes visibles `PAGO-IdVenta`/`ANTICIPO-IdVenta`.
+- `ReceiptReferences` centraliza creación y parsing; las búsquedas `47` y `RECIBO-47` son equivalentes.
+- Abonos, histórico de pagos/transacciones, movimientos generales y comprobante muestran `RECIBO-{IdVenta}`.
+- La migración `20260810131157_StandardizeReceiptReferencesByIdVenta` fue aplicada con EF Core: 11/11 recibos y 8/8 movimientos de caja normalizados; 0 huérfanos y 0 referencias antiguas operativas.
+- El índice de `NumeroRecibo` es no único porque las ventas 7, 11 y 31 tienen varios abonos legítimos con una misma referencia; cada abono conserva su GUID como identidad individual.
+- Los 11 snapshots históricos originales permanecen únicamente en `AuditLogs` por la regla de bitácora inmutable.
+- SQL Server sigue generando autoritativamente `Sales.IdVenta`; la ruta relacional validada no fue reimplementada.
+- Validación: backend 65/65, frontend 10/10, builds sin errores, comprobante de Venta #47 con `RECIBO-47`, búsquedas equivalentes y consola web sin errores.
+- Detalle y SQL de validación: `docs/ai/RECEIPT_REFERENCE_MIGRATION.md`.
+
+## Iteración completada (2026-08-10): `IdVenta` como folio operativo integral
+
+- Se recorrieron backend, API, frontend, EF Core, SQL Server, pruebas y documentación para clasificar GUID técnico versus `IdVenta` operativo.
+- Historial, comprobante, PDV, cotizaciones convertidas, abonos, transacciones, devoluciones, contratos, movimientos de caja/inventario y auditoría muestran `Venta #IdVenta`.
+- El frontend dejó de enviar GUID en abonos/devoluciones y consulta comprobantes mediante `IdVenta`.
+- La API principal es `GET /api/v1/sales/{idVenta:int}`; rutas GUID y propiedades técnicas se conservan para compatibilidad, sin cambiar PK/FK.
+- Búsquedas numéricas son exactas por `IdVenta`, evitando coincidencias parciales contra `NumeroFolio` heredado.
+- Se creó `20260810123707_BackfillOperationalSaleReferences` y se aplicó su SQL idempotente de forma acotada: 39 movimientos de venta, 1 devolución y 6 abonos; 0 relaciones recuperables pendientes.
+- En ese corte, el SQL del backfill se aplicó de forma acotada. Después se alineó `__EFMigrationsHistory`; actualmente la base operativa registra las migraciones hasta `20260810131157_StandardizeReceiptReferencesByIdVenta`. El baseline para una base vacía sigue pendiente.
+- QA real aprobado: Venta #47 en historial/ticket/búsqueda/abonos/caja/auditoría; Venta #14 en devolución; consultas por GUID e `IdVenta` equivalentes.
+- Validación automatizada de ese corte: backend **58/58**, frontend **9/9**, build Release .NET con 0 advertencias/errores y build Vite exitoso; la validación acumulada actual es 65/65 y 10/10.
+- No existe actualmente una acción de cancelación; no se inventó ese flujo durante esta migración. Reportes y Corte X/Z son agregados sin filas individuales de venta.
+- Detalle completo: `docs/ai/IDVENTA_OPERATIONAL_MIGRATION.md`.
+
+## Corrección transaccional validada por el desarrollador humano (2026-08-10)
 
 - Se diagnosticó que `ProcessSaleAsync` ejecutaba dos veces `SaveChangesAsync(acceptAllChangesOnSuccess: false)` dentro de la estrategia reintentable. Al conservar las entidades con estado `Added`, el segundo guardado intentaba reinsertar los mismos GUID y generaba errores de Primary Key.
 - Se eliminó la segunda inserción. Después del único guardado, `IdVenta` se propaga con `ExecuteUpdateAsync` a `SaleItems` e `InventoryMovements` dentro de la misma transacción.
@@ -8,8 +44,8 @@
 - Se retiró `MultipleActiveResultSets=true` de `appsettings.json`; la conexión operativa vuelve a permitir savepoints de EF Core y deja de emitir `SavepointsDisabledBecauseOfMARS` después de reiniciar el API.
 - La cantidad de filas actualizadas debe coincidir con las partidas y movimientos rastreados; cualquier diferencia revierte la venta completa.
 - La venta fallida reportada no dejó venta, partida ni movimiento parcial en SQL Server.
-- Validación técnica: build Release sin errores ni advertencias y backend **57/57**.
-- Para validar en operación se debe reiniciar el API Debug actualmente abierto, confirmar que ya no aparece la advertencia de MARS y procesar una venta controlada.
+- Validación técnica: build Release sin errores ni advertencias y backend **57/57** en esa iteración.
+- La validación operativa posterior fue aprobada explícitamente: la venta se persistió una vez y el folio fue generado correctamente.
 
 ## Iteración completada (2026-08-10): Incorporación del Folio Operativo `IdVenta` (Rama `fase-1.1`)
 

@@ -359,16 +359,17 @@ export const CashShiftPage: React.FC = () => {
         <div className="cash-card__heading"><div><h2>{t('generalMovementsTitle')}</h2><p>{t('generalMovementsSubtitle')}</p></div><strong>{generalMovements.length}</strong></div>
         <div className="cash-table-wrapper">
           <table className="cash-table">
-            <thead><tr><th>{t('date')}</th><th>Categoría</th><th>Tipo Movimiento</th><th>Descripción</th><th>{t('user')}</th><th>{t('amount')}</th></tr></thead>
+            <thead><tr><th>{t('date')}</th><th>Categoría</th><th>{t('folio')}</th><th>Tipo Movimiento</th><th>Descripción</th><th>{t('user')}</th><th>{t('amount')}</th></tr></thead>
             <tbody>{generalMovements.map(item => {
               if (!item) return null;
               const categoryBadge = formatMovementCategory(item.category);
-              const movementBadge = formatMovementType(item.movementType);
+              const movementBadge = formatMovementType(item.paymentMethod);
               const descriptionText = formatMovementDescription(item);
               return (
                 <tr key={item.id || Math.random()}>
                   <td>{safeDate(item.createdAtUtc, dateFormatter)}</td>
                   <td><span className="badge badge-info">{categoryBadge}</span></td>
+                  <td>{item.idVenta ? <strong>{t('saleNumber', { idVenta: item.idVenta })}</strong> : '—'}</td>
                   <td><span className="badge badge-success">{movementBadge}</span></td>
                   <td>{descriptionText}</td>
                   <td>{item.userUsername || '—'}</td>
@@ -524,11 +525,11 @@ const formatMovementType = (type?: string | null) => {
   return type;
 };
 
-const formatMovementDescription = (item?: { category?: string | null; description?: string | null } | null) => {
+const formatMovementDescription = (item?: { category?: string | null; reference?: string | null } | null) => {
   if (!item) return 'Movimiento de caja';
   const rawCat = (item.category || '').trim();
   const c = rawCat.toLowerCase();
-  const desc = (item.description || '').trim();
+  const desc = (item.reference || '').trim();
 
   if (c === 'ingreso / cambio' || c === 'ingreso/cambio' || c === 'manualdeposit' || c.includes('ingreso')) {
     return 'Entrada de dinero a caja';

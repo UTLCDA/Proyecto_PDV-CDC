@@ -25,11 +25,12 @@ public class AuditController : ControllerBase
         [FromQuery] string? action,
         [FromQuery] DateTime? startDate,
         [FromQuery] DateTime? endDate,
+        [FromQuery] int? idVenta,
         CancellationToken cancellationToken)
     {
         try
         {
-            var logs = await _reportingService.GetAuditLogsAsync(correlationId, user, action, startDate, endDate, cancellationToken);
+            var logs = await _reportingService.GetAuditLogsAsync(correlationId, user, action, startDate, endDate, idVenta, cancellationToken);
             return Ok(logs);
         }
         catch (ArgumentException ex)

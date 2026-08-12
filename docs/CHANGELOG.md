@@ -2,7 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2026-08-12
+
+### IVA Transparente en PDV y Cotizaciones
+- El IVA (16%) se calcula fijamente sobre el Subtotal base del producto sin verse afectado por el descuento de la venta (`MontoIva = SubTotal * 0.16`). El descuento reduce directamente el total a pagar sin alterar la base gravable del impuesto (ejemplo Venta #48: subtotal $899.00, IVA $143.84, descuento $100.00 -> total $942.84).
+
+### Zona Horaria Local y Parseo UTC (Guadalajara -06:00 CT)
+- Formateador universal `parseUtcDate` / `UtcDateTimeJsonConverter` para serializar fechas en ISO 8601 UTC (`yyyy-MM-ddTHH:mm:ss.fffZ`) y convertirlas automáticamente a la hora local real del usuario (ej. 02:35 AM), sin modificar registros existentes en la BD.
+
+### Desglose de Abonos e Histórico Global (Tabla de Amortización)
+- Se corrigió la mutación errónea de `MontoAnticipo` en la entidad `Venta` durante la posterior recepción de abonos.
+- Se incluyó `.Include(s => s.Abonos)` en `GetInstallmentHistoryAsync`, `GetInstallmentsBySaleReferenceAsync` y `GetPaymentTransactionsAsync` para calcular dinámicamente el Anticipo Inicial ($6.00) y Saldo Pendiente resultante ($400.00).
+- La tabla `commercial-global-history` refleja la amortización histórica exacta por movimiento.
+
+### Comprobantes Históricos por Corte (`<HistoricoAbonosCorrectoComprobante>`)
+- `SaleReceiptModal` incluye soporte para `targetPaymentId` y `cutoffDate` con rebanado por índice (`slice(0, targetIdx + 1)`).
+- Al abrir el comprobante desde cualquier fila de abono o transacción, el recibo muestra la foto acumulada exacta de pagos y saldo pendiente hasta el momento de dicho abono.
+
+### Formulario de Clientes y Servicio de Código Postal
+- El input de teléfono valida exclusivamente la captura de números (dígitos `0-9`).
+- Se reordenó el formulario pidiendo primero el CP y se creó `servicioCodigoPostal.ts` para autocompletar dinámicamente la Ciudad y Estado.
+
 ## [Unreleased] - 2026-08-10
+
+### Referencias operativas de recibo `RECIBO-{IdVenta}`
+
+- Se centraliza la generación y lectura de referencias mediante `ReceiptReferences`; pagos completos, anticipos y abonos muestran exclusivamente `RECIBO-{IdVenta}`.
+- Las búsquedas de abonos y transacciones aceptan tanto `47` como `RECIBO-47` y devuelven la misma venta.
+- El comprobante de venta muestra explícitamente la referencia operativa; React deja de depender de referencias GUID o variantes `PAGO-`/`ANTICIPO-`.
+- Migración transaccional `20260810131157_StandardizeReceiptReferencesByIdVenta`: normaliza 11 recibos y 8 movimientos de caja; 0 huérfanos y 0 referencias antiguas residuales en tablas operativas.
+- `IX_PaymentInstallments_NumeroRecibo` pasa de único a no único porque varias filas de abono de una misma venta comparten legítimamente `RECIBO-{IdVenta}`; el GUID del movimiento continúa siendo su identidad técnica.
+- Validación: backend **65/65**, frontend **10/10**, builds Release/Vite aprobados y QA local sin errores de consola.
+
+### `IdVenta` como folio operativo integral
+
+- `GET /api/v1/sales/{idVenta:int}` es la consulta operativa principal; se mantienen rutas GUID compatibles y se agrega el alias técnico `/by-guid/{guid}`.
+- Abonos y devoluciones resuelven `IdVenta` hacia el GUID interno y validan consistencia cuando un cliente antiguo envía ambos identificadores.
+- Historial, comprobantes, mensajes, cotizaciones convertidas, abonos, transacciones, devoluciones, contratos, caja, inventario y auditoría muestran `Venta #IdVenta`.
+- Las búsquedas numéricas son exactas por `IdVenta`; se evita que el texto de `NumeroFolio` produzca falsos positivos.
+- Auditoría permite filtrar por `IdVenta` y normaliza visualmente referencias históricas sin alterar los registros inmutables.
+- Migración no destructiva `20260810123707_BackfillOperationalSaleReferences`: completa 39 movimientos de venta, 1 devolución y 6 transacciones de abono; no modifica PK, FK, `IDENTITY` ni índices existentes.
+- Cobertura ampliada a backend **58/58** y frontend **9/9**, con builds Release/Vite aprobados.
 
 ### Corrección de persistencia de ventas con `IdVenta`
 

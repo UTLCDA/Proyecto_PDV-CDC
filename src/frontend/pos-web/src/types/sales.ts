@@ -29,6 +29,7 @@ export interface CreateSaleRequest {
 
 export interface SaleItem {
   id: string;
+  idVenta?: number;
   productId: string;
   productSku: string;
   productName: string;
@@ -41,6 +42,7 @@ export interface SaleItem {
 
 export interface Sale {
   id: string;
+  idVenta: number;
   folioNumber: string;
   customerId?: string;
   customerDisplayName?: string;

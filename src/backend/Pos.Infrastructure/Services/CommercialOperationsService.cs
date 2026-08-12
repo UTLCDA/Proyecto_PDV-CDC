@@ -270,9 +270,9 @@ public class CommercialOperationsService : ICommercialOperationsService
                     "Cotizacion",
                     quote.Id.ToString(),
                     JsonSerializer.Serialize(new { Status = QuoteStatuses.Active, quote.NumeroCotizacion }),
-                    JsonSerializer.Serialize(new { Status = quote.Estado, SaleFolio = sale.FolioNumber }),
+                    JsonSerializer.Serialize(new { Status = quote.Estado, sale.IdVenta, SaleFolio = sale.FolioNumber }),
                     ipAddress,
-                    $"Cotización convertida a venta: {quote.NumeroCotizacion}",
+                    $"Cotización {quote.NumeroCotizacion} convertida a Venta #{sale.IdVenta}",
                     cancellationToken);
                 return sale;
             }
@@ -300,10 +300,11 @@ public class CommercialOperationsService : ICommercialOperationsService
         var paymentMethod = NormalizePaymentMethod(request.PaymentMethod);
         var notes = NormalizeText(request.Notes, "Las notas", 500, required: false);
 
-        var sale = await _dbContext.Sales
-            .Include(item => item.Usuario)
-            .FirstOrDefaultAsync(item => item.Id == request.SaleId && item.EstaActivo, cancellationToken)
-            ?? throw new KeyNotFoundException($"Venta con ID '{request.SaleId}' no encontrada.");
+        var sale = await ResolveActiveSaleAsync(
+            _dbContext.Sales.Include(item => item.Usuario),
+            request.IdVenta,
+            request.SaleId,
+            cancellationToken);
         if (sale.Estado is SaleStatuses.Cancelled or SaleStatuses.Returned)
         {
             throw new InvalidOperationException("La venta no admite abonos por su estado actual.");
@@ -320,7 +321,6 @@ public class CommercialOperationsService : ICommercialOperationsService
         return await ExecuteInRetriableTransactionAsync(async _ =>
         {
             var previousBalance = sale.SaldoPendiente;
-            sale.MontoAnticipo += request.AmountPaid;
             sale.SaldoPendiente -= request.AmountPaid;
             if (sale.SaldoPendiente == 0) sale.Estado = SaleStatuses.Completed;
             sale.FechaActualizacionUtc = DateTime.UtcNow;
@@ -329,7 +329,7 @@ public class CommercialOperationsService : ICommercialOperationsService
             {
                 VentaId = sale.Id,
                 IdVenta = sale.IdVenta,
-                NumeroRecibo = GenerateFolio("RECIBO"),
+                NumeroRecibo = ReceiptReferences.Create(sale.IdVenta),
                 MontoAbonado = request.AmountPaid,
                 SaldoPendienteAnterior = previousBalance,
                 SaldoPendienteNuevo = sale.SaldoPendiente,
@@ -353,7 +353,7 @@ public class CommercialOperationsService : ICommercialOperationsService
                         IdVenta = sale.IdVenta,
                         TipoTransaccion = CashTransactionTypes.Installment,
                         Monto = request.AmountPaid,
-                        Motivo = $"Abono {installment.NumeroRecibo} de venta {sale.NumeroFolio}",
+                        Motivo = $"Abono {installment.NumeroRecibo} de Venta #{sale.IdVenta}",
                         UsuarioId = currentUserId,
                         FechaCreacionUtc = installment.FechaCreacionUtc
                     });
@@ -369,26 +369,38 @@ public class CommercialOperationsService : ICommercialOperationsService
                 "AbonoPago",
                 installment.Id.ToString(),
                 JsonSerializer.Serialize(new { PendingBalance = previousBalance }),
-                JsonSerializer.Serialize(new { installment.NumeroRecibo, installment.MontoAbonado, PendingBalance = sale.SaldoPendiente, installment.FormaPago }),
+                JsonSerializer.Serialize(new { sale.IdVenta, installment.NumeroRecibo, installment.MontoAbonado, PendingBalance = sale.SaldoPendiente, installment.FormaPago }),
                 ipAddress,
-                $"Abono registrado para {sale.NumeroFolio}",
+                $"Abono registrado para Venta #{sale.IdVenta}",
                 cancellationToken);
             return MapInstallmentToDto(installment, sale);
         }, cancellationToken);
     }
 
-    public async Task<List<PaymentInstallmentDto>> GetInstallmentsBySaleIdAsync(Guid saleId, CancellationToken cancellationToken = default)
+    public Task<List<PaymentInstallmentDto>> GetInstallmentsByIdVentaAsync(int idVenta, CancellationToken cancellationToken = default) =>
+        GetInstallmentsBySaleReferenceAsync(idVenta, null, cancellationToken);
+
+    public Task<List<PaymentInstallmentDto>> GetInstallmentsBySaleIdAsync(Guid saleId, CancellationToken cancellationToken = default) =>
+        GetInstallmentsBySaleReferenceAsync(null, saleId, cancellationToken);
+
+    private async Task<List<PaymentInstallmentDto>> GetInstallmentsBySaleReferenceAsync(
+        int? idVenta,
+        Guid? saleId,
+        CancellationToken cancellationToken)
     {
-        var sale = await _dbContext.Sales
-            .Include(item => item.Usuario)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.Id == saleId && item.EstaActivo, cancellationToken)
-            ?? throw new KeyNotFoundException("La venta seleccionada no existe.");
+        var sale = await ResolveActiveSaleAsync(
+            _dbContext.Sales
+                .Include(item => item.Usuario)
+                .Include(item => item.Abonos)
+                .AsNoTracking(),
+            idVenta,
+            saleId,
+            cancellationToken);
         var installments = await _dbContext.PaymentInstallments
             .Include(item => item.Venta)
             .Include(item => item.Usuario)
             .AsNoTracking()
-            .Where(item => item.VentaId == saleId && item.EstaActivo)
+            .Where(item => item.VentaId == sale.Id && item.EstaActivo)
             .OrderByDescending(item => item.FechaCreacionUtc)
             .ToListAsync(cancellationToken);
         var result = installments.Select(item => MapInstallmentToDto(item, item.Venta)).ToList();
@@ -417,6 +429,7 @@ public class CommercialOperationsService : ICommercialOperationsService
         var initialSaleQuery = _dbContext.Sales
             .Include(sale => sale.Cliente)
             .Include(sale => sale.Usuario)
+            .Include(sale => sale.Abonos)
             .AsNoTracking()
             .Where(sale => sale.EstaActivo && sale.TipoPago == SalePaymentTypes.AdvanceDeposit);
         if (startDate.HasValue) initialSaleQuery = initialSaleQuery.Where(sale => sale.FechaCreacionUtc >= startDate.Value);
@@ -425,9 +438,12 @@ public class CommercialOperationsService : ICommercialOperationsService
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
-            initialSaleQuery = initialSaleQuery.Where(sale => sale.NumeroFolio.ToLower().Contains(term) ||
-                (sale.Cliente != null && (sale.Cliente.Nombre.ToLower().Contains(term) ||
-                    (sale.Cliente.NombreEmpresa != null && sale.Cliente.NombreEmpresa.ToLower().Contains(term)))));
+            if (ReceiptReferences.TryParseIdVenta(term, out var idVenta))
+                initialSaleQuery = initialSaleQuery.Where(sale => sale.IdVenta == idVenta);
+            else
+                initialSaleQuery = initialSaleQuery.Where(sale => sale.NumeroFolio.ToLower().Contains(term) ||
+                    (sale.Cliente != null && (sale.Cliente.Nombre.ToLower().Contains(term) ||
+                        (sale.Cliente.NombreEmpresa != null && sale.Cliente.NombreEmpresa.ToLower().Contains(term)))));
         }
         var initialSales = await initialSaleQuery.ToListAsync(cancellationToken);
         var initialInstallments = initialSales
@@ -447,10 +463,13 @@ public class CommercialOperationsService : ICommercialOperationsService
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
-            installmentQuery = installmentQuery.Where(item => item.NumeroRecibo.ToLower().Contains(term) ||
-                item.Venta.NumeroFolio.ToLower().Contains(term) ||
-                (item.Venta.Cliente != null && (item.Venta.Cliente.Nombre.ToLower().Contains(term) ||
-                    (item.Venta.Cliente.NombreEmpresa != null && item.Venta.Cliente.NombreEmpresa.ToLower().Contains(term)))));
+            if (ReceiptReferences.TryParseIdVenta(term, out var idVenta))
+                installmentQuery = installmentQuery.Where(item => item.Venta.IdVenta == idVenta);
+            else
+                installmentQuery = installmentQuery.Where(item => item.NumeroRecibo.ToLower().Contains(term) ||
+                    item.Venta.NumeroFolio.ToLower().Contains(term) ||
+                    (item.Venta.Cliente != null && (item.Venta.Cliente.Nombre.ToLower().Contains(term) ||
+                        (item.Venta.Cliente.NombreEmpresa != null && item.Venta.Cliente.NombreEmpresa.ToLower().Contains(term)))));
         }
         var installments = (await installmentQuery.ToListAsync(cancellationToken))
             .Select(item => MapInstallmentToDto(item, item.Venta));
@@ -477,7 +496,10 @@ public class CommercialOperationsService : ICommercialOperationsService
 
         Guid? parsedCustGuid = !string.IsNullOrWhiteSpace(customerId) && Guid.TryParse(customerId, out var cGuid) ? cGuid : null;
 
-        var saleQuery = _dbContext.Sales.Include(item => item.Cliente).Include(item => item.Usuario)
+        var saleQuery = _dbContext.Sales
+            .Include(item => item.Cliente)
+            .Include(item => item.Usuario)
+            .Include(item => item.Abonos)
             .AsNoTracking().Where(item => item.EstaActivo);
         if (startDate.HasValue) saleQuery = saleQuery.Where(item => item.FechaCreacionUtc >= startDate.Value);
         if (effectiveEndDate.HasValue) saleQuery = saleQuery.Where(item => item.FechaCreacionUtc <= effectiveEndDate.Value);
@@ -485,9 +507,12 @@ public class CommercialOperationsService : ICommercialOperationsService
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
-            saleQuery = saleQuery.Where(item => item.NumeroFolio.ToLower().Contains(term) ||
-                (item.Cliente != null && (item.Cliente.Nombre.ToLower().Contains(term) ||
-                    (item.Cliente.NombreEmpresa != null && item.Cliente.NombreEmpresa.ToLower().Contains(term)))));
+            if (ReceiptReferences.TryParseIdVenta(term, out var idVenta))
+                saleQuery = saleQuery.Where(item => item.IdVenta == idVenta);
+            else
+                saleQuery = saleQuery.Where(item => item.NumeroFolio.ToLower().Contains(term) ||
+                    (item.Cliente != null && (item.Cliente.Nombre.ToLower().Contains(term) ||
+                        (item.Cliente.NombreEmpresa != null && item.Cliente.NombreEmpresa.ToLower().Contains(term)))));
         }
         var sales = await saleQuery.ToListAsync(cancellationToken);
         var initialTransactions = sales.SelectMany(MapInitialTransactions)
@@ -504,11 +529,15 @@ public class CommercialOperationsService : ICommercialOperationsService
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
-            installmentQuery = installmentQuery.Where(item => item.NumeroRecibo.ToLower().Contains(term) || item.Venta.NumeroFolio.ToLower().Contains(term));
+            if (ReceiptReferences.TryParseIdVenta(term, out var idVenta))
+                installmentQuery = installmentQuery.Where(item => item.Venta.IdVenta == idVenta);
+            else
+                installmentQuery = installmentQuery.Where(item => item.NumeroRecibo.ToLower().Contains(term) ||
+                    item.Venta.NumeroFolio.ToLower().Contains(term));
         }
         var installmentTransactions = (await installmentQuery.ToListAsync(cancellationToken)).Select(item => new PaymentTransactionDto(
-            item.Id.ToString(), item.VentaId, item.Venta.NumeroFolio, item.Venta.Cliente?.NombreMostrar,
-            "Installment", item.NumeroRecibo, item.FormaPago, item.MontoAbonado,
+            item.Id.ToString(), item.VentaId, item.Venta.IdVenta, item.Venta.NumeroFolio, item.Venta.Cliente?.NombreMostrar,
+            "Installment", ReceiptReferences.Create(item.Venta.IdVenta), item.FormaPago, item.MontoAbonado,
             item.Usuario?.NombreUsuario, item.FechaCreacionUtc));
 
         return initialTransactions.Concat(installmentTransactions)
@@ -536,11 +565,13 @@ public class CommercialOperationsService : ICommercialOperationsService
             .ToList();
         foreach (var item in requestedItems) ValidateQuantity(item.ProductId, item.Quantity);
 
-        var sale = await _dbContext.Sales
-            .Include(item => item.Partidas)
-                .ThenInclude(item => item.Producto)
-            .FirstOrDefaultAsync(item => item.Id == request.SaleId && item.EstaActivo, cancellationToken)
-            ?? throw new KeyNotFoundException($"Venta con ID '{request.SaleId}' no encontrada.");
+        var sale = await ResolveActiveSaleAsync(
+            _dbContext.Sales
+                .Include(item => item.Partidas)
+                    .ThenInclude(item => item.Producto),
+            request.IdVenta,
+            request.SaleId,
+            cancellationToken);
         if (sale.Estado == SaleStatuses.Cancelled)
         {
             throw new InvalidOperationException("No se puede devolver una venta cancelada.");
@@ -648,9 +679,10 @@ public class CommercialOperationsService : ICommercialOperationsService
                     _dbContext.CashTransactions.Add(new TransaccionCaja
                     {
                         TurnoCajaId = openShift.Id,
+                        IdVenta = sale.IdVenta,
                         TipoTransaccion = CashTransactionTypes.Refund,
                         Monto = -returnHeader.MontoReembolsado,
-                        Motivo = $"Reembolso {returnHeader.NumeroDevolucion} de venta {sale.NumeroFolio}",
+                        Motivo = $"Reembolso {returnHeader.NumeroDevolucion} de Venta #{sale.IdVenta}",
                         UsuarioId = currentUserId,
                         FechaCreacionUtc = createdAtUtc
                     });
@@ -666,19 +698,30 @@ public class CommercialOperationsService : ICommercialOperationsService
                 "DevolucionCabecera",
                 returnHeader.Id.ToString(),
                 null,
-                JsonSerializer.Serialize(new { returnHeader.NumeroDevolucion, sale.NumeroFolio, returnHeader.MontoTotalDevuelto, returnHeader.MontoAplicadoSaldoPendiente, returnHeader.MontoReembolsado, returnHeader.FormaReembolso, Items = returnHeader.Detalle.Count }),
+                JsonSerializer.Serialize(new { sale.IdVenta, returnHeader.NumeroDevolucion, sale.NumeroFolio, returnHeader.MontoTotalDevuelto, returnHeader.MontoAplicadoSaldoPendiente, returnHeader.MontoReembolsado, returnHeader.FormaReembolso, Items = returnHeader.Detalle.Count }),
                 ipAddress,
-                $"Devolución procesada: {returnHeader.NumeroDevolucion}",
+                $"Devolución {returnHeader.NumeroDevolucion} procesada para Venta #{sale.IdVenta}",
                 cancellationToken);
 
             return (await GetReturnByIdAsync(returnHeader.Id, cancellationToken))!;
         }, cancellationToken);
     }
 
-    public async Task<List<ReturnHeaderDto>> GetReturnsAsync(Guid? saleId, CancellationToken cancellationToken = default)
+    public async Task<List<ReturnHeaderDto>> GetReturnsAsync(
+        int? idVenta,
+        Guid? saleId,
+        CancellationToken cancellationToken = default)
     {
         var query = BuildReturnQuery().Where(item => item.EstaActivo);
-        if (saleId.HasValue) query = query.Where(item => item.VentaId == saleId.Value);
+        if (idVenta.HasValue)
+        {
+            if (idVenta.Value <= 0) throw new ArgumentException("El folio operativo IdVenta debe ser mayor a cero.");
+            query = query.Where(item => item.Venta.IdVenta == idVenta.Value);
+        }
+        else if (saleId.HasValue)
+        {
+            query = query.Where(item => item.VentaId == saleId.Value);
+        }
         var returns = await query.AsNoTracking()
             .OrderByDescending(item => item.FechaCreacionUtc)
             .Take(500)
@@ -765,6 +808,43 @@ public class CommercialOperationsService : ICommercialOperationsService
         {
             throw new InvalidOperationException("La sesión no corresponde a un usuario activo.");
         }
+    }
+
+    private static async Task<Venta> ResolveActiveSaleAsync(
+        IQueryable<Venta> query,
+        int? idVenta,
+        Guid? saleId,
+        CancellationToken cancellationToken)
+    {
+        Venta? sale;
+        if (idVenta.HasValue)
+        {
+            if (idVenta.Value <= 0)
+            {
+                throw new ArgumentException("El folio operativo IdVenta debe ser mayor a cero.");
+            }
+
+            sale = await query.FirstOrDefaultAsync(
+                item => item.IdVenta == idVenta.Value && item.EstaActivo,
+                cancellationToken);
+            if (sale != null && saleId.HasValue && sale.Id != saleId.Value)
+            {
+                throw new ArgumentException("IdVenta y el identificador técnico no corresponden a la misma venta.");
+            }
+        }
+        else if (saleId.HasValue && saleId.Value != Guid.Empty)
+        {
+            sale = await query.FirstOrDefaultAsync(
+                item => item.Id == saleId.Value && item.EstaActivo,
+                cancellationToken);
+        }
+        else
+        {
+            throw new ArgumentException("Capture el folio operativo IdVenta de la venta.");
+        }
+
+        return sale ?? throw new KeyNotFoundException(
+            idVenta.HasValue ? $"Venta #{idVenta.Value} no encontrada." : "La venta seleccionada no existe.");
     }
 
     private async Task<TResult> ExecuteInRetriableTransactionAsync<TResult>(
@@ -899,8 +979,9 @@ public class CommercialOperationsService : ICommercialOperationsService
     private static PaymentInstallmentDto MapInstallmentToDto(AbonoPago installment, Venta sale) => new(
         installment.Id,
         installment.VentaId,
+        installment.IdVenta ?? sale.IdVenta,
         sale.NumeroFolio,
-        installment.NumeroRecibo,
+        ReceiptReferences.Create(sale.IdVenta),
         installment.MontoAbonado,
         installment.SaldoPendienteAnterior,
         installment.SaldoPendienteNuevo,
@@ -912,14 +993,24 @@ public class CommercialOperationsService : ICommercialOperationsService
 
     private static PaymentInstallmentDto? MapInitialInstallment(Venta sale)
     {
-        var advanceAmount = sale.MontoAnticipo > 0m ? sale.MontoAnticipo : Math.Max(sale.MontoEfectivo, Math.Max(sale.MontoTarjeta, sale.MontoTransferencia));
-        if (sale.TipoPago != SalePaymentTypes.AdvanceDeposit || advanceAmount <= 0m) return null;
+        if (sale.TipoPago != SalePaymentTypes.AdvanceDeposit) return null;
+
+        var subsequentAbonosSum = sale.Abonos.Where(a => a.EstaActivo).Sum(a => a.MontoAbonado);
+        var totalPaid = Math.Max(0m, sale.MontoTotal - sale.SaldoPendiente);
+        var advanceAmount = Math.Max(0m, totalPaid - subsequentAbonosSum);
+        if (advanceAmount <= 0m && (sale.MontoEfectivo + sale.MontoTarjeta + sale.MontoTransferencia) > 0m)
+        {
+            advanceAmount = sale.MontoEfectivo + sale.MontoTarjeta + sale.MontoTransferencia;
+        }
+
+        if (advanceAmount <= 0m) return null;
         var method = sale.MontoTarjeta > 0m ? PaymentMethods.Card : (sale.MontoTransferencia > 0m ? PaymentMethods.Transfer : PaymentMethods.Cash);
         return new PaymentInstallmentDto(
             sale.Id,
             sale.Id,
+            sale.IdVenta,
             sale.NumeroFolio,
-            $"ANTICIPO-{sale.NumeroFolio}",
+            ReceiptReferences.Create(sale.IdVenta),
             advanceAmount,
             sale.MontoTotal,
             Math.Max(0m, sale.MontoTotal - advanceAmount),
@@ -932,6 +1023,23 @@ public class CommercialOperationsService : ICommercialOperationsService
 
     private static IEnumerable<PaymentTransactionDto> MapInitialTransactions(Venta sale)
     {
+        if (sale.TipoPago == SalePaymentTypes.AdvanceDeposit)
+        {
+            var subsequentAbonosSum = sale.Abonos.Where(a => a.EstaActivo).Sum(a => a.MontoAbonado);
+            var totalPaid = Math.Max(0m, sale.MontoTotal - sale.SaldoPendiente);
+            var advanceAmount = Math.Max(0m, totalPaid - subsequentAbonosSum);
+            if (advanceAmount <= 0m && (sale.MontoEfectivo + sale.MontoTarjeta + sale.MontoTransferencia) > 0m)
+            {
+                advanceAmount = sale.MontoEfectivo + sale.MontoTarjeta + sale.MontoTransferencia;
+            }
+            if (advanceAmount > 0m)
+            {
+                var method = sale.MontoTarjeta > 0m ? PaymentMethods.Card : (sale.MontoTransferencia > 0m ? PaymentMethods.Transfer : PaymentMethods.Cash);
+                yield return MapInitialTransaction(sale, method, advanceAmount);
+            }
+            yield break;
+        }
+
         var hasCash = sale.MontoEfectivo > 0m;
         var hasCard = sale.MontoTarjeta > 0m;
         var hasTransfer = sale.MontoTransferencia > 0m;
@@ -940,26 +1048,20 @@ public class CommercialOperationsService : ICommercialOperationsService
         if (hasCard) yield return MapInitialTransaction(sale, PaymentMethods.Card, sale.MontoTarjeta);
         if (hasTransfer) yield return MapInitialTransaction(sale, PaymentMethods.Transfer, sale.MontoTransferencia);
 
-        if (!hasCash && !hasCard && !hasTransfer)
+        if (!hasCash && !hasCard && !hasTransfer && sale.MontoTotal > 0m)
         {
-            if (sale.MontoAnticipo > 0m)
-            {
-                yield return MapInitialTransaction(sale, PaymentMethods.Cash, sale.MontoAnticipo);
-            }
-            else if (sale.MontoTotal > 0m)
-            {
-                yield return MapInitialTransaction(sale, PaymentMethods.Cash, sale.MontoTotal);
-            }
+            yield return MapInitialTransaction(sale, PaymentMethods.Cash, sale.MontoTotal);
         }
     }
 
     private static PaymentTransactionDto MapInitialTransaction(Venta sale, string method, decimal amount) => new(
         $"{sale.Id}:{method.ToLowerInvariant()}",
         sale.Id,
+        sale.IdVenta,
         sale.NumeroFolio,
         sale.Cliente?.NombreMostrar,
         sale.TipoPago == SalePaymentTypes.AdvanceDeposit ? "Advance" : "Sale",
-        sale.TipoPago == SalePaymentTypes.AdvanceDeposit ? $"ANTICIPO-{sale.NumeroFolio}" : $"PAGO-{sale.NumeroFolio}",
+        ReceiptReferences.Create(sale.IdVenta),
         method,
         amount,
         sale.Usuario?.NombreUsuario,
@@ -983,6 +1085,7 @@ public class CommercialOperationsService : ICommercialOperationsService
         item.Id,
         item.NumeroDevolucion,
         item.VentaId,
+        item.IdVenta ?? item.Venta?.IdVenta ?? 0,
         item.Venta?.NumeroFolio ?? string.Empty,
         item.MontoTotalDevuelto,
         item.MontoAplicadoSaldoPendiente,

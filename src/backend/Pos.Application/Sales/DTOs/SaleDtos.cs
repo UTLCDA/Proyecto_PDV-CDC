@@ -21,6 +21,7 @@ public record CreateSaleDto(
 
 public record SaleItemDto(
     Guid Id,
+    int? IdVenta,
     Guid ProductId,
     string ProductSku,
     string ProductName,

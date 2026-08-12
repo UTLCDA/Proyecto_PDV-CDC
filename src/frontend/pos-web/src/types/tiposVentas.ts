@@ -13,7 +13,7 @@ export interface PartidaVenta {
 
 export interface Venta {
   id: string;
-  idVenta?: number;
+  idVenta: number;
   folioNumber: string;
   customerId?: string;
   customerDisplayName?: string;
@@ -38,7 +38,7 @@ export interface Venta {
 
 export interface PagoVenta {
   id: string;
-  reference: string;
+  referenceNumber: string;
   amount: number;
   paymentMethod: string;
   userUsername?: string;

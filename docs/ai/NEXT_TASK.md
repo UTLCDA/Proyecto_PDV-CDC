@@ -1,30 +1,23 @@
-# NEXT TASK — Folio Operativo `IdVenta` en Rama `fase-1.1`
+# NEXT TASK — Preparación de la Fase 2 (Plataforma E-commerce y Atención al Cliente)
 
-## Estado de la Rama `fase-1.1`
+## Estado Actual (Versión 2.0.0 Liberada y Validada)
 
-La implementación del **folio consecutivo operativo `IdVenta`** se ha realizado de forma totalmente aditiva, retrocompatible y segura en la rama `fase-1.1`.
+Fase 1 completada al 100% y validada por el usuario en un 95%+ con la versión **2.0.0** oficialmente liberada.
 
-### Resumen de la Implementación `IdVenta`
-
-1. **Estructura y Relaciones**:
-   - `Sales.IdVenta`: Columna `INT IDENTITY(1,1) NOT NULL` con índice `UNIQUE`.
-   - Propagación a tablas secundarias: `SaleItems`, `PaymentInstallments`, `ReturnHeaders`, `InventoryMovements` y `CashTransactions` (`INT NULL` con índices de consulta).
-   - Identificadores GUID `Id`, Primary Keys y Foreign Keys conservados al 100%.
-
-2. **Criterios de Aceptación Cumplidos (DoD)**:
-   - ✅ Pruebas xUnit Backend: **57/57** pasadas al 100%.
-   - ✅ Pruebas Vitest Frontend: **8/8** pasadas al 100%.
-   - ✅ Compilación Backend `.NET 9`: **0 advertencias / 0 errores**.
-   - ✅ Compilación Frontend `Vite + React`: **Exitoso** sin errores.
-   - ✅ Validaciones Cruzadas e Inconsistencia: **0 errores**.
+### Criterios alcanzados en Versión 2.0.0
+- ✅ IVA transparente del 16% sobre subtotal base en PDV y Cotizaciones.
+- ✅ Zona horaria UTC formateada a hora local de Guadalajara (-06:00 CT, ej. 02:35 AM) sin alterar datos en BD.
+- ✅ Tabla de Amortización de Abonos e Histórico Transaccional reflejando dinámicamente $6.00 de anticipo inicial y $99.00 de 2do abono (Ventas #47, #48 y #49).
+- ✅ Regla `<HistoricoAbonosCorrectoComprobante>` por auditoría mostrando la foto exacta acumulada por abono.
+- ✅ Formulario de Clientes con validación de teléfono numérico y autocompletado automático por CP.
+- ✅ Pruebas backend (54/54) y frontend (10/10) pasando al 100%.
 
 ---
 
-### Siguiente Paso Recomendado
+## Siguiente única tarea recomendada
 
-- **Validar y publicar la corrección de persistencia de ventas**:
-  - Reiniciar el API Debug para cargar la corrección del doble guardado, la lectura transaccional del `IdVenta` y la conexión sin MARS.
-  - Confirmar que el arranque y la venta ya no registran `SavepointsDisabledBecauseOfMARS` ni el falso error `SQL Server no generó el folio operativo IdVenta`.
-  - Procesar una venta controlada y comprobar HTTP 201, una sola reducción de stock y propagación de `IdVenta` a partidas y movimientos.
-  - Tras aprobación humana, crear el commit correspondiente en `fase-1.1`.
-  - Después continuar con Promociones, Entregas/Envíos, Exportación PDF/XLSX o Fase 2.
+**Inicio de Planificación e Infraestructura para la Fase 2 (E-commerce & Portal de Clientes)**:
+1. Diseñar el esquema de integración del catálogo público de productos Lambrín para E-commerce.
+2. Definir endpoints de consulta pública de inventario con sincronización en tiempo real desde el PDV.
+3. Preparar la arquitectura para atención al cliente vía WhatsApp API / Notificaciones de estado de pedidos.
+

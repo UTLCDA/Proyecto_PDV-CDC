@@ -16,6 +16,7 @@ export interface Stock {
 
 export interface InventoryMovement {
   id: string;
+  idVenta?: number | null;
   productId: string;
   productSku: string;
   productName: string;

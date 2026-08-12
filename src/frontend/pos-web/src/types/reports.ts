@@ -9,11 +9,11 @@ export interface CashTransaction {
 
 export interface CashGeneralMovement {
   id: string;
+  idVenta?: number | null;
   category: string;
-  movementType: string;
-  description: string;
+  reference: string;
+  paymentMethod: string;
   amount: number;
-  paymentMethod?: string;
   userUsername?: string;
   createdAtUtc: string;
 }
@@ -89,6 +89,7 @@ export interface LowStockProductReport {
 
 export interface AuditLog {
   id: string;
+  idVenta?: number | null;
   correlationId: string;
   userUsername?: string;
   action: string;

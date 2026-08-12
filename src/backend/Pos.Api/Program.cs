@@ -28,7 +28,10 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.Converters.Add(new UtcDateTimeJsonConverter());
+});
 builder.Services.AddEndpointsApiExplorer();
 
 // Swagger with JWT Security Definition
@@ -193,3 +196,19 @@ app.MapControllers();
 app.Run();
 
 public partial class Program { }
+
+public class UtcDateTimeJsonConverter : System.Text.Json.Serialization.JsonConverter<DateTime>
+{
+    public override DateTime Read(ref System.Text.Json.Utf8JsonReader reader, Type typeToConvert, System.Text.Json.JsonSerializerOptions options)
+    {
+        var str = reader.GetString();
+        if (string.IsNullOrWhiteSpace(str)) return DateTime.MinValue;
+        return DateTime.Parse(str, null, System.Globalization.DateTimeStyles.AdjustToUniversal).ToUniversalTime();
+    }
+
+    public override void Write(System.Text.Json.Utf8JsonWriter writer, DateTime value, System.Text.Json.JsonSerializerOptions options)
+    {
+        var utc = DateTime.SpecifyKind(value, DateTimeKind.Utc);
+        writer.WriteStringValue(utc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
+    }
+}

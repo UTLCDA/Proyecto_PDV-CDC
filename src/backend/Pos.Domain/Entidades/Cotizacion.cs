@@ -23,7 +23,7 @@ public class Cotizacion : EntidadBase
     public void CalcularTotales(decimal tasaIva = 0.16m)
     {
         SubTotal = Partidas.Sum(p => p.PrecioTotal);
-        MontoIva = Math.Round((SubTotal - MontoDescuento) * tasaIva, 2);
+        MontoIva = Math.Round(SubTotal * tasaIva, 2);
         MontoTotal = Math.Max(0, SubTotal - MontoDescuento + MontoIva);
     }
 }

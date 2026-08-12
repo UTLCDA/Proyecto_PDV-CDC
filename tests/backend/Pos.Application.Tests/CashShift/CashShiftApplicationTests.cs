@@ -83,18 +83,53 @@ public class CashShiftApplicationTests
         await using var context = CreateDbContext();
         var (service, userId) = await CreateServiceAsync(context);
         var opened = await service.OpenShiftAsync(new OpenCashShiftDto(50m, string.Empty), userId, "open", "127.0.0.1");
-        context.Sales.Add(CreateSale(userId, opened.OpenedAtUtc.AddMilliseconds(1), 80m, cardAmount: 20m));
+        context.Sales.Add(CreateSale(userId, opened.OpenedAtUtc.AddMilliseconds(1), 80m, cardAmount: 20m, idVenta: 8054));
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
 
         var report = await service.GenerateXReportAsync(userId, "x-report", "127.0.0.1");
+        var movements = await service.GetGeneralMovementsAsync();
+        var saleMovement = Assert.Single(movements, item => item.Category == "Venta");
 
         Assert.Equal(CashShiftStatuses.Open, report.Status);
         Assert.Null(report.ClosedAtUtc);
         Assert.Equal(80m, report.TotalSalesCash);
         Assert.Equal(20m, report.TotalSalesCard);
         Assert.Equal(130m, report.ExpectedClosingAmount);
+        Assert.Equal(8054, saleMovement.IdVenta);
+        Assert.Equal("Venta #8054", saleMovement.Reference);
         Assert.Contains(context.AuditLogs, log => log.Accion == "CASH_X_REPORT_GENERATED");
+    }
+
+    [Fact]
+    public async Task GetGeneralMovementsAsync_ShouldExposeOperationalReceiptReference()
+    {
+        await using var context = CreateDbContext();
+        var (service, userId) = await CreateServiceAsync(context);
+        var opened = await service.OpenShiftAsync(new OpenCashShiftDto(50m, string.Empty), userId, "open", "127.0.0.1");
+        var sale = CreateSale(userId, opened.OpenedAtUtc.AddMilliseconds(1), 100m, idVenta: 8055);
+        context.Sales.Add(sale);
+        context.PaymentInstallments.Add(new AbonoPago
+        {
+            VentaId = sale.Id,
+            IdVenta = sale.IdVenta,
+            NumeroRecibo = "RECIBO-20260810-LEGACYGUID",
+            MontoAbonado = 25m,
+            SaldoPendienteAnterior = 75m,
+            SaldoPendienteNuevo = 50m,
+            FormaPago = PaymentMethods.Cash,
+            UsuarioId = userId,
+            FechaCreacionUtc = opened.OpenedAtUtc.AddMilliseconds(2)
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var movements = await service.GetGeneralMovementsAsync();
+        var installmentMovement = Assert.Single(movements, item => item.Category == "Abono");
+
+        Assert.Equal(sale.IdVenta, installmentMovement.IdVenta);
+        Assert.Contains(ReceiptReferences.Create(sale.IdVenta), installmentMovement.Reference);
+        Assert.DoesNotContain("LEGACYGUID", installmentMovement.Reference);
     }
 
     private static async Task<(CashShiftApplicationService Service, Guid UserId)> CreateServiceAsync(PosDbContext context)
@@ -112,8 +147,10 @@ public class CashShiftApplicationTests
         decimal cashAmount,
         decimal cardAmount = 0m,
         bool isActive = true,
-        string status = "Completada") => new()
+        string status = "Completada",
+        int idVenta = 0) => new()
     {
+        IdVenta = idVenta,
         NumeroFolio = $"TEST-{Guid.NewGuid():N}",
         UsuarioId = userId,
         MontoEfectivo = cashAmount,

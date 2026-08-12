@@ -23,7 +23,7 @@ public class Quote : BaseEntity
     public void CalculateTotals(decimal taxRate = 0.16m)
     {
         SubTotal = Items.Sum(i => i.TotalPrice);
-        TaxAmount = Math.Round((SubTotal - DiscountAmount) * taxRate, 2);
+        TaxAmount = Math.Round(SubTotal * taxRate, 2);
         TotalAmount = Math.Max(0, SubTotal - DiscountAmount + TaxAmount);
     }
 }

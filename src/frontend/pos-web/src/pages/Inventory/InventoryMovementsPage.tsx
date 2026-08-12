@@ -103,7 +103,7 @@ export const InventoryMovementsPage: React.FC = () => {
                 <td><span className={`badge ${movementBadge(movement.movementType)}`}>{labelKey ? t(labelKey) : movement.movementType}</span></td>
                 <td>{movement.quantity}</td><td>{movement.previousQuantity}</td><td><strong>{movement.newQuantity}</strong></td>
                 <td>{movement.evidenceImageUrl ? <button className="inventory-evidence-thumbnail-button" type="button" onClick={() => setEvidenceImage(movement.evidenceImageUrl ?? null)} aria-label={t('viewPhysicalEvidence')}><img className="inventory-evidence-thumbnail" src={movement.evidenceImageUrl} alt={t('physicalEvidence')} /></button> : '—'}</td>
-                <td>{movement.reason}</td><td>{movement.referenceNumber || '—'}</td><td>{movement.userUsername || '—'}</td>
+                <td>{movement.reason}</td><td>{movement.idVenta ? <strong>{t('saleNumber', { idVenta: movement.idVenta })}</strong> : movement.referenceNumber || '—'}</td><td>{movement.userUsername || '—'}</td>
               </tr>;
             })}
           </tbody>

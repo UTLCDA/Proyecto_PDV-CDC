@@ -15,6 +15,7 @@ export const AuditLogPage: React.FC = () => {
   const [user, setUser] = useState('');
   const [action, setAction] = useState('');
   const [correlationId, setCorrelationId] = useState('');
+  const [idVenta, setIdVenta] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
@@ -30,7 +31,8 @@ export const AuditLogPage: React.FC = () => {
       setLogs(await reportsService.getAuditLogs({
         startDate: utcBoundary(startDate), endDate: utcBoundary(endDate, true),
         user: user.trim() || undefined, action: action.trim() || undefined,
-        correlationId: correlationId.trim() || undefined
+        correlationId: correlationId.trim() || undefined,
+        idVenta: idVenta.trim() || undefined
       }));
     } catch (loadError) {
       setLogs([]);
@@ -38,7 +40,7 @@ export const AuditLogPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [action, correlationId, endDate, startDate, t, user]);
+  }, [action, correlationId, endDate, idVenta, startDate, t, user]);
 
   useEffect(() => { void loadLogs(); }, [loadLogs]);
 
@@ -50,6 +52,7 @@ export const AuditLogPage: React.FC = () => {
         <label><span>{t('endDate')}</span><input className="input-field" type="date" value={endDate} onChange={event => setEndDate(event.target.value)} /></label>
         <input className="input-field" value={user} onChange={event => setUser(event.target.value)} placeholder={t('filterByUser')} />
         <input className="input-field" value={action} onChange={event => setAction(event.target.value)} placeholder={t('filterByAction')} />
+        <input className="input-field" type="number" min="1" step="1" value={idVenta} onChange={event => setIdVenta(event.target.value)} placeholder={t('filterBySaleFolio')} />
         <input className="input-field" value={correlationId} onChange={event => setCorrelationId(event.target.value)} placeholder="Correlation ID" />
         <button className="action-btn">🔎 {t('search')}</button>
       </form>
@@ -60,7 +63,7 @@ export const AuditLogPage: React.FC = () => {
         <table className="reports-table reports-audit-table"><thead><tr><th>{t('date')}</th><th>Correlation ID</th><th>{t('user')}</th><th>{t('action')}</th><th>{t('entity')}</th><th>{t('reason')}</th><th>{t('details')}</th></tr></thead>
           <tbody>{logs.map(log => <tr key={log.id}>
             <td>{new Date(log.createdAtUtc).toLocaleString()}</td><td><code>{log.correlationId}</code></td><td>{log.userUsername || t('systemUser')}</td>
-            <td><span className="badge badge-info">{log.action}</span></td><td>{log.entityName}{log.entityId ? ` · ${log.entityId}` : ''}</td><td>{log.notes || '—'}</td>
+            <td><span className="badge badge-info">{log.action}</span></td><td>{log.entityName}{log.idVenta ? ` · ${t('saleNumber', { idVenta: log.idVenta })}` : log.entityId ? ` · ${log.entityId}` : ''}</td><td>{formatAuditNotes(log, t('saleNumber', { idVenta: log.idVenta }))}</td>
             <td><button type="button" className="pos-link-btn" onClick={() => setSelectedLog(log)}>👁️ {t('view')}</button></td>
           </tr>)}</tbody>
         </table>
@@ -68,10 +71,15 @@ export const AuditLogPage: React.FC = () => {
     </article>
     {selectedLog && <div className="customers-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setSelectedLog(null)}>
       <div className="customers-modal" role="dialog" aria-modal="true"><header><h2>{t('auditDetail')}</h2><button onClick={() => setSelectedLog(null)}>×</button></header>
-        <div className="audit-detail-grid"><strong>{t('previousValues')}</strong><pre>{selectedLog.oldValues || '—'}</pre><strong>{t('newValues')}</strong><pre>{selectedLog.newValues || '—'}</pre><strong>IP</strong><code>{selectedLog.ipAddress}</code></div>
+        <div className="audit-detail-grid">{selectedLog.idVenta && <><strong>{t('folio')}</strong><span>{t('saleNumber', { idVenta: selectedLog.idVenta })}</span></>}<strong>{t('previousValues')}</strong><pre>{selectedLog.oldValues || '—'}</pre><strong>{t('newValues')}</strong><pre>{selectedLog.newValues || '—'}</pre><strong>IP</strong><code>{selectedLog.ipAddress}</code></div>
       </div>
     </div>}
   </section>;
+};
+
+const formatAuditNotes = (log: AuditLog, saleLabel: string) => {
+  if (!log.notes) return '—';
+  return log.idVenta ? log.notes.replace(/VENTA-[A-Z0-9-]+/gi, saleLabel) : log.notes;
 };
 
 export default AuditLogPage;

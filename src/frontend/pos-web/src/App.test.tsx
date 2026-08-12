@@ -132,4 +132,26 @@ describe('WPC Bajío Frontend Tests', () => {
 
     await i18n.changeLanguage('es');
   });
+
+  it('should present IdVenta as the operational sale folio in ES and ZH', async () => {
+    await i18n.changeLanguage('es');
+    expect(i18n.t('saleNumber', { idVenta: 1054 })).toBe('Venta #1054');
+    expect(i18n.t('saleCompleted', { idVenta: 1054 })).toContain('1054');
+
+    await i18n.changeLanguage('zh');
+    expect(i18n.t('saleNumber', { idVenta: 1054 })).toContain('1054');
+    expect(i18n.t('saleCompleted', { idVenta: 1054 })).toContain('1054');
+
+    await i18n.changeLanguage('es');
+  });
+
+  it('should guide payment searches to the operational receipt reference', async () => {
+    await i18n.changeLanguage('es');
+    expect(i18n.t('searchInstallments')).toContain('RECIBO-{IdVenta}');
+
+    await i18n.changeLanguage('zh');
+    expect(i18n.t('searchInstallments')).toContain('RECIBO-{IdVenta}');
+
+    await i18n.changeLanguage('es');
+  });
 });

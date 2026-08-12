@@ -91,9 +91,8 @@ export const PaginaPuntoVenta: React.FC = () => {
   const customerDiscount = Math.round(subtotal * Math.min(100, Math.max(0, selectedCustomer?.specialDiscountPercentage ?? 0)) / 100 * 100) / 100;
   const requestedDiscount = canDiscount ? Number(manualDiscount || 0) : 0;
   const appliedDiscount = Math.max(customerDiscount, Number.isFinite(requestedDiscount) ? requestedDiscount : 0);
-  const taxableBase = Math.max(0, subtotal - appliedDiscount);
-  const taxAmount = Math.round(taxableBase * 0.16 * 100) / 100;
-  const totalAmount = taxableBase + taxAmount;
+  const taxAmount = Math.round(subtotal * 0.16 * 100) / 100;
+  const totalAmount = Math.max(0, subtotal - appliedDiscount + taxAmount);
   const coverage = cart.reduce((total, item) => total + item.quantity * (item.product.coveragePerUnitSqM || 0), 0);
 
   const findAndAddProduct = (code: string) => {
@@ -224,7 +223,7 @@ export const PaginaPuntoVenta: React.FC = () => {
       setTransferAmount('');
       setManualDiscount('');
       setNotes('');
-      setNotice({ type: 'success', text: t('saleCompleted', { folio: sale.folioNumber }) });
+      setNotice({ type: 'success', text: t('saleCompleted', { idVenta: sale.idVenta }) });
       await loadData();
     } catch (error) {
       setNotice({ type: 'error', text: errorMessage(error, t('saleProcessError')) });

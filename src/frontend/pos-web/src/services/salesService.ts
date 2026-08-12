@@ -7,7 +7,8 @@ export const salesService = {
     if (search) url += `?search=${encodeURIComponent(search)}`;
     return apiClient.request<Sale[]>(url);
   },
-  getSaleById: (id: string) => apiClient.request<Sale>(`/sales/${id}`),
+  getSaleByIdVenta: (idVenta: number) => apiClient.request<Sale>(`/sales/${idVenta}`),
+  getSaleByGuid: (id: string) => apiClient.request<Sale>(`/sales/by-guid/${id}`),
   processSale: (data: CreateSaleRequest) =>
     apiClient.request<Sale>('/sales', {
       method: 'POST',

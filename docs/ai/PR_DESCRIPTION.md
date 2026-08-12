@@ -1,5 +1,24 @@
 # Completar módulos operativos de Fase 1 y aplicar identidad visual WPC Bajío
 
+## Actualización: referencias de recibo por `IdVenta`
+
+- Estandariza pagos completos, anticipos, abonos, históricos y comprobantes con `RECIBO-{IdVenta}`.
+- Centraliza creación y parsing en `ReceiptReferences`; `47` y `RECIBO-47` producen resultados equivalentes.
+- Migra transaccionalmente 11 recibos y 8 movimientos de caja, sin huérfanos ni formatos antiguos residuales en tablas operativas.
+- Convierte el índice de `PaymentInstallments.NumeroRecibo` a no único para soportar varios abonos de una venta; los GUID permanecen como PK/FK e identidad individual.
+- Conserva intacta la bitácora histórica y la generación SQL Server `IDENTITY` de `IdVenta`.
+- Validación: backend 65/65, frontend 10/10, builds aprobados y QA local del histórico/comprobante sin errores de consola.
+
+## Actualización: `IdVenta` como identificador operativo
+
+- Adopta la convención uniforme `Venta #IdVenta` en historial, ticket, PDV, cotizaciones, abonos, transacciones, devoluciones, contratos, caja, inventario y auditoría.
+- Expone rutas operativas por entero y conserva GUID como PK/FK y contrato técnico compatible.
+- Resuelve `IdVenta -> GUID` dentro de servicios de abonos/devoluciones sin reemplazar relaciones existentes.
+- Hace exactas las búsquedas numéricas por el índice único `Sales.IdVenta`.
+- Completa referencias históricas verificables mediante una migración de datos idempotente y no destructiva.
+- Validación acumulada: backend 65/65, frontend 10/10, ambos builds aprobados y QA con SQL Server real.
+- No modifica el mecanismo validado que genera/persiste `IdVenta`; no crea un flujo de cancelación inexistente.
+
 ## Resumen
 
 Completa y conecta con datos reales los módulos existentes de seguridad, caja, ventas, clientes, catálogo, inventario, cotizaciones, abonos, devoluciones, contratos, reportes y auditoría. Elimina respaldos ficticios y refuerza permisos, transacciones, validaciones e índices SQL.
@@ -37,9 +56,9 @@ Además, migra todo el frontend al Design System claro aprobado por WPC Bajío s
 
 ## Pruebas
 
-- Backend: 57/57; build con 0 advertencias y 0 errores.
+- Backend: 65/65; build con 0 advertencias y 0 errores.
 - Integración SQL Server real: venta creada correctamente con partida, movimiento de inventario y auditoría consistentes.
-- Frontend: 8/8; build de producción exitoso.
+- Frontend: 10/10; build de producción exitoso.
 - QA visual ES/ZH y móvil 390×844 con datos reales de AAM y sin crear operaciones ficticias.
 - Revalidación del tema: frontend 8/8, build web exitoso, build .NET con 0 advertencias/errores, dominio/aplicación 44/44 y revisión visual de todos los módulos en cuatro viewports.
 

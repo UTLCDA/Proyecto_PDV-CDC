@@ -18,6 +18,7 @@ public record StockDto(
 
 public record InventoryMovementDto(
     Guid Id,
+    int? IdVenta,
     Guid ProductId,
     string ProductSku,
     string ProductName,

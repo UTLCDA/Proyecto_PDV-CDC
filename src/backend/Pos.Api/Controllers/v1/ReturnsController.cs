@@ -32,9 +32,12 @@ public class ReturnsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<ReturnHeaderDto>>> GetReturns([FromQuery] Guid? saleId, CancellationToken cancellationToken)
+    public async Task<ActionResult<List<ReturnHeaderDto>>> GetReturns(
+        [FromQuery] int? idVenta,
+        [FromQuery] Guid? saleId,
+        CancellationToken cancellationToken)
     {
-        return Ok(await _commercialService.GetReturnsAsync(saleId, cancellationToken));
+        return Ok(await _commercialService.GetReturnsAsync(idVenta, saleId, cancellationToken));
     }
 
     [HttpPost]

@@ -10,6 +10,7 @@ interface AuditFilters extends ReportFilters {
   correlationId?: string;
   user?: string;
   action?: string;
+  idVenta?: string;
 }
 
 const appendFilters = <T extends object>(url: string, filters: T) => {

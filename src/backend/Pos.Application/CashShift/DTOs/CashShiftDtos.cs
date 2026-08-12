@@ -31,6 +31,7 @@ public record CashTransactionDto(
 
 public record CashGeneralMovementDto(
     string Id,
+    int? IdVenta,
     string Category,
     string Reference,
     string PaymentMethod,

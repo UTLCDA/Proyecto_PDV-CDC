@@ -63,15 +63,17 @@ public record QuoteDto(
 );
 
 public record CreateInstallmentDto(
-    Guid SaleId,
+    Guid? SaleId,
     decimal AmountPaid,
     string PaymentMethod,
-    string Notes
+    string Notes,
+    int? IdVenta = null
 );
 
 public record PaymentInstallmentDto(
     Guid Id,
     Guid SaleId,
+    int IdVenta,
     string SaleFolioNumber,
     string ReceiptNumber,
     decimal AmountPaid,
@@ -87,6 +89,7 @@ public record PaymentInstallmentDto(
 public record PaymentTransactionDto(
     string Id,
     Guid SaleId,
+    int IdVenta,
     string SaleFolioNumber,
     string? CustomerDisplayName,
     string TransactionType,
@@ -103,10 +106,11 @@ public record CreateReturnItemDto(
 );
 
 public record CreateReturnDto(
-    Guid SaleId,
+    Guid? SaleId,
     string RefundMethod,
     string Reason,
-    List<CreateReturnItemDto> Items
+    List<CreateReturnItemDto> Items,
+    int? IdVenta = null
 );
 
 public record ReturnItemDto(
@@ -122,6 +126,7 @@ public record ReturnHeaderDto(
     Guid Id,
     string ReturnNumber,
     Guid SaleId,
+    int IdVenta,
     string SaleFolioNumber,
     decimal TotalRefundAmount,
     decimal AppliedToPendingBalance,

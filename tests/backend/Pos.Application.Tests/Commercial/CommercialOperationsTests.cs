@@ -131,21 +131,49 @@ public class CommercialOperationsTests
             userId,
             "sale",
             "127.0.0.1");
+        const int idVenta = 501;
+        var persistedSale = await context.Sales.SingleAsync(item => item.Id == sale.Id);
+        persistedSale.IdVenta = idVenta;
+        await context.SaveChangesAsync();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.RegisterInstallmentPaymentAsync(
-            new CreateInstallmentDto(sale.Id, sale.PendingBalance + 0.01m, PaymentMethods.Cash, string.Empty),
+            new CreateInstallmentDto(null, sale.PendingBalance + 0.01m, PaymentMethods.Cash, string.Empty, idVenta),
             userId,
             "overpayment",
             "127.0.0.1"));
         var installment = await service.RegisterInstallmentPaymentAsync(
-            new CreateInstallmentDto(sale.Id, 50m, PaymentMethods.Card, "Segundo abono"),
+            new CreateInstallmentDto(null, 50m, PaymentMethods.Cash, "Segundo abono", idVenta),
             userId,
             "installment",
             "127.0.0.1");
 
+        var installmentsByIdVenta = await service.GetInstallmentsByIdVentaAsync(idVenta);
+        var receiptReference = ReceiptReferences.Create(idVenta);
+        var historyByIdVenta = await service.GetInstallmentHistoryAsync(idVenta.ToString(), null, null, null);
+        var historyByReceipt = await service.GetInstallmentHistoryAsync(receiptReference, null, null, null);
+        var transactionsByIdVenta = await service.GetPaymentTransactionsAsync(idVenta.ToString(), null, null, null);
+        var transactionsByReceipt = await service.GetPaymentTransactionsAsync(receiptReference, null, null, null);
+        var saleDetail = await saleService.GetSaleByFolioAsync(idVenta);
         Assert.Equal(sale.PendingBalance - 50m, installment.NewPendingBalance);
-        Assert.Equal(PaymentMethods.Card, installment.PaymentMethod);
-        Assert.Single(context.PaymentInstallments);
+        Assert.Equal(idVenta, installment.IdVenta);
+        Assert.Equal(receiptReference, installment.ReceiptNumber);
+        Assert.Equal(PaymentMethods.Cash, installment.PaymentMethod);
+        Assert.Equal(2, installmentsByIdVenta.Count);
+        Assert.All(installmentsByIdVenta, item => Assert.Equal(idVenta, item.IdVenta));
+        Assert.All(installmentsByIdVenta, item => Assert.Equal(receiptReference, item.ReceiptNumber));
+        Assert.Equal(historyByIdVenta.Select(item => item.Id), historyByReceipt.Select(item => item.Id));
+        Assert.All(historyByReceipt, item => Assert.Equal(receiptReference, item.ReceiptNumber));
+        Assert.Equal(transactionsByIdVenta.Select(item => item.Id), transactionsByReceipt.Select(item => item.Id));
+        Assert.All(transactionsByReceipt, item => Assert.Equal(receiptReference, item.ReferenceNumber));
+        Assert.NotNull(saleDetail);
+        Assert.All(saleDetail.Payments, payment => Assert.Equal(receiptReference, payment.ReferenceNumber));
+
+        var persistedInstallment = await context.PaymentInstallments.SingleAsync();
+        Assert.Equal(idVenta, persistedInstallment.IdVenta);
+        Assert.Equal(receiptReference, persistedInstallment.NumeroRecibo);
+        var cashMovement = await context.CashTransactions.SingleAsync(item => item.TipoTransaccion == "Abono");
+        Assert.Equal(idVenta, cashMovement.IdVenta);
+        Assert.Contains(receiptReference, cashMovement.Motivo);
     }
 
     [Fact]
@@ -167,18 +195,24 @@ public class CommercialOperationsTests
             userId,
             "sale-return",
             "127.0.0.1");
+        const int idVenta = 502;
+        var persistedSale = await context.Sales.SingleAsync(item => item.Id == sale.Id);
+        persistedSale.IdVenta = idVenta;
+        await context.SaveChangesAsync();
 
         var processedReturn = await service.ProcessReturnAsync(
-            new CreateReturnDto(sale.Id, RefundMethods.StoreCredit, "Cambio de acabado", [new CreateReturnItemDto(product.Id, 1m)]),
+            new CreateReturnDto(null, RefundMethods.StoreCredit, "Cambio de acabado", [new CreateReturnItemDto(product.Id, 1m)], idVenta),
             userId,
             "return",
             "127.0.0.1");
 
         Assert.Equal(product.PrecioUnitario * 1.16m, processedReturn.TotalRefundAmount);
+        Assert.Equal(idVenta, processedReturn.IdVenta);
         Assert.Equal(originalStock - 1m, (await context.Stocks.SingleAsync(stock => stock.ProductoId == product.Id)).CantidadDisponible);
         Assert.Equal(SaleStatuses.PartiallyReturned, (await context.Sales.SingleAsync(item => item.Id == sale.Id)).Estado);
+        Assert.Equal(idVenta, (await context.InventoryMovements.OrderByDescending(item => item.FechaCreacionUtc).FirstAsync()).IdVenta);
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.ProcessReturnAsync(
-            new CreateReturnDto(sale.Id, RefundMethods.StoreCredit, "Intento excedente", [new CreateReturnItemDto(product.Id, 2m)]),
+            new CreateReturnDto(null, RefundMethods.StoreCredit, "Intento excedente", [new CreateReturnItemDto(product.Id, 2m)], idVenta),
             userId,
             "return-excess",
             "127.0.0.1"));

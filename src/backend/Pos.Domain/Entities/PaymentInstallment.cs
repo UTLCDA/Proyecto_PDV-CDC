@@ -5,7 +5,7 @@ namespace Pos.Domain.Entities;
 public class PaymentInstallment : BaseEntity
 {
     public Guid SaleId { get; set; }
-    public string ReceiptNumber { get; set; } = string.Empty; // e.g. RECIBO-2026-0001
+    public string ReceiptNumber { get; set; } = string.Empty; // RECIBO-{IdVenta}
     public decimal AmountPaid { get; set; }
     public decimal PreviousPendingBalance { get; set; }
     public decimal NewPendingBalance { get; set; }

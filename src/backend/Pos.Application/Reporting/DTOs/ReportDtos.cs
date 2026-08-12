@@ -49,6 +49,7 @@ public record LowStockProductReportDto(
 
 public record AuditLogDto(
     Guid Id,
+    int? IdVenta,
     string CorrelationId,
     string? UserUsername,
     string Action,

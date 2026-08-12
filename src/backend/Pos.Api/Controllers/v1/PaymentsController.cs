@@ -58,7 +58,15 @@ public class PaymentsController : ControllerBase
         }
     }
 
+    [HttpGet("sale/{idVenta:int}")]
+    public async Task<ActionResult<List<PaymentInstallmentDto>>> GetInstallmentsByIdVenta(int idVenta, CancellationToken cancellationToken)
+    {
+        var installments = await _commercialService.GetInstallmentsByIdVentaAsync(idVenta, cancellationToken);
+        return Ok(installments);
+    }
+
     [HttpGet("sale/{saleId:guid}")]
+    [HttpGet("sale/by-guid/{saleId:guid}")]
     public async Task<ActionResult<List<PaymentInstallmentDto>>> GetInstallmentsBySaleId(Guid saleId, CancellationToken cancellationToken)
     {
         var installments = await _commercialService.GetInstallmentsBySaleIdAsync(saleId, cancellationToken);
