@@ -21,13 +21,15 @@ export const SaleReceiptModal: React.FC<{ sale: Venta; targetPaymentId?: string;
     });
 
     if (targetPaymentId) {
-      const idx = sorted.findIndex(p => p.id === targetPaymentId || p.id.includes(targetPaymentId) || targetPaymentId.includes(p.id));
+      let idx = sorted.findIndex(p => p.id === targetPaymentId || p.id.includes(targetPaymentId) || targetPaymentId.includes(p.id));
+      if (idx === -1) {
+        const lowerId = targetPaymentId.toLowerCase();
+        if (lowerId.includes('initial') || lowerId.includes('advance') || lowerId.includes('cash') || lowerId.includes('card') || lowerId.includes('transfer') || targetPaymentId === sale.id) {
+          idx = sorted.findIndex(p => p.isInitialPayment);
+        }
+      }
       if (idx !== -1) {
         return sorted.slice(0, idx + 1);
-      }
-      if (targetPaymentId.toLowerCase().includes('initial')) {
-        const init = sorted.filter(p => p.isInitialPayment);
-        if (init.length > 0) return init;
       }
     }
 

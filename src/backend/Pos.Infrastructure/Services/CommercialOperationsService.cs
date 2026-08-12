@@ -1055,7 +1055,7 @@ public class CommercialOperationsService : ICommercialOperationsService
     }
 
     private static PaymentTransactionDto MapInitialTransaction(Venta sale, string method, decimal amount) => new(
-        $"{sale.Id}:{method.ToLowerInvariant()}",
+        sale.TipoPago == SalePaymentTypes.AdvanceDeposit ? $"{sale.Id}:initial" : $"{sale.Id}:{method.ToLowerInvariant()}",
         sale.Id,
         sale.IdVenta,
         sale.NumeroFolio,
