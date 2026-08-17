@@ -3,7 +3,7 @@
 ## Liberación Oficial — Versión 2.0.0 (Fase 1 Comprobada y Validada)
 
 - **Versión**: `2.0.0`
-- **Línea Base Git**: `fase-1.1`, commit `e89ea8d` + versión 2.0.0.
+- **Línea Base Git**: `fase-1.1`, commit `2aceefa` (sincronizado en `origin/fase-1.1`).
 - **Cálculo Transparente de IVA**: El IVA del 16% en ventas y cotizaciones se calcula sobre el Subtotal base de productos sin ser reducido por descuentos de venta/cliente (`MontoIva = SubTotal * 0.16`). El descuento se aplica directamente al Total a Pagar.
 - **Hora de Inserción y Zona Horaria Local**: Las propiedades `DateTime` se expresan en ISO 8601 UTC con sufijo `'Z'` (`UtcDateTimeJsonConverter`) y la aplicación frontend convierte automáticamente la fecha/hora a la hora local del usuario en Guadalajara (−06:00 CT, ej. 02:35 AM), sin alterar registros existentes en la BD.
 - **Tabla de Amortización de Abonos e Histórico Transaccional (`commercial-global-history`)**:
@@ -22,7 +22,7 @@
 
 ## Estado de la aplicación
 
-- **Línea base Git**: rama `fase-1.1`, commit `e89ea8d`; cambios de adopción operativa de `IdVenta` preparados localmente.
+- **Línea base Git**: rama `fase-1.1`, commit `2aceefa` (sincronizado con `origin/fase-1.1`).
 - **Módulos operativos independientes en navegación principal**:
   - 🛒 **Punto de Venta (PDV)** (validación estricta de caja aperturada antes de procesar ventas, selector de cliente obligatorio en apartado/anticipo, botones `+`/`-` con incremento entero).
   - 🧾 **Histórico de Ventas** (búsqueda, filtros por fecha/estado/cliente y reimpresión de comprobante).
