@@ -3,7 +3,7 @@
 ## Liberación Oficial — Versión 2.0.0 (Fase 1 Comprobada y Validada)
 
 - **Versión**: `2.0.0`
-- **Línea Base Git**: `fase-1.1`, commit `2aceefa` (sincronizado en `origin/fase-1.1`).
+- **Línea Base Git**: rama `fase-1.1`; la iteración incorpora la corrección del comprobante histórico de transacciones sobre la base previa `6c68549`.
 - **Cálculo Transparente de IVA**: El IVA del 16% en ventas y cotizaciones se calcula sobre el Subtotal base de productos sin ser reducido por descuentos de venta/cliente (`MontoIva = SubTotal * 0.16`). El descuento se aplica directamente al Total a Pagar.
 - **Hora de Inserción y Zona Horaria Local**: Las propiedades `DateTime` se expresan en ISO 8601 UTC con sufijo `'Z'` (`UtcDateTimeJsonConverter`) y la aplicación frontend convierte automáticamente la fecha/hora a la hora local del usuario en Guadalajara (−06:00 CT, ej. 02:35 AM), sin alterar registros existentes en la BD.
 - **Tabla de Amortización de Abonos e Histórico Transaccional (`commercial-global-history`)**:
@@ -15,14 +15,15 @@
   - `SaleReceiptModal` realiza un filtrado por `targetPaymentId` y slicing de arreglo (`sorted.slice(0, targetIdx + 1)`).
   - Al abrir "👁️ Comprobante" en la fila del 1° abono (Anticipo Inicial), el recibo muestra únicamente los **$6.00** del anticipo inicial y saldo pendiente de **$400.00**.
   - Al abrir "👁️ Comprobante" en la fila del 2° abono ($99.00), muestra el desglose del Anticipo ($6.00) + Abono ($99.00) y saldo pendiente de **$301.00**.
+  - La tabla dedicada de **Histórico de Transacciones y Movimientos de Pago** propaga ahora el identificador y la fecha del movimiento seleccionado mediante `paymentReceiptArguments`; la Venta #49 a las 02:14 muestra sólo el anticipo de **$42.83** y saldo histórico de **$1,000.01**, mientras que la fila de las 02:42 incluye además el abono posterior de **$10.00** y saldo de **$990.01**.
 - **Directorio de Clientes**:
   - Campo de teléfono validado estrictamente a sólo números.
   - Formulario de dirección reordenado solicitando primero el CP y autocompletando Ciudad y Estado mediante `servicioCodigoPostal.ts` (catálogo estandarizado de municipios de Guanajuato y México).
-- **Validación**: backend Domain tests **19/19**; Application tests **35/35**; frontend build Vite exitoso (90 módulos); Vitest **10/10**.
+- **Validación actual (2026-08-17)**: backend **66/66** (Domain 19, Application 35, Integration 12); build Release .NET **0 advertencias / 0 errores**; frontend build Vite exitoso (91 módulos); Vitest **11/11**.
 
 ## Estado de la aplicación
 
-- **Línea base Git**: rama `fase-1.1`, commit `2aceefa` (sincronizado con `origin/fase-1.1`).
+- **Línea base Git**: rama `fase-1.1`, con la corrección del comprobante histórico integrada sobre la base previa `6c68549`.
 - **Módulos operativos independientes en navegación principal**:
   - 🛒 **Punto de Venta (PDV)** (validación estricta de caja aperturada antes de procesar ventas, selector de cliente obligatorio en apartado/anticipo, botones `+`/`-` con incremento entero).
   - 🧾 **Histórico de Ventas** (búsqueda, filtros por fecha/estado/cliente y reimpresión de comprobante).

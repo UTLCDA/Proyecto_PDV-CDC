@@ -1,5 +1,13 @@
 # HANDOFF — Liberación Oficial Versión 2.0.0 (Sistema PDV e Inventario WPC Bajío)
 
+## Corrección completada (2026-08-17): comprobante histórico por movimiento seleccionado
+
+- Causa raíz: la tabla dedicada de **Histórico de Transacciones y Movimientos de Pago** abría el comprobante enviando únicamente `IdVenta`, aunque las demás tablas ya enviaban también el identificador y la fecha del pago. Por ello el modal mostraba el estado final de la venta en vez de la fotografía del movimiento seleccionado.
+- `paymentReceiptArguments` centraliza los tres argumentos requeridos (`idVenta`, `targetPaymentId`, `cutoffDate`) y se utiliza en todas las acciones de recibo de abonos y transacciones.
+- QA real en Venta #49: la fila del 12-ago-2026 02:14 muestra sólo **$42.83** y saldo **$1,000.01**; la fila de las 02:42 muestra **$42.83 + $10.00** y saldo **$990.01**.
+- Validación: frontend Vitest **11/11**, build Vite exitoso (91 módulos), backend xUnit **66/66** y build Release .NET con **0 advertencias / 0 errores**.
+- Sin cambios de API, backend, base de datos, relaciones GUID ni generación de `IdVenta`.
+
 ## Liberación Oficial Versión 2.0.0 (2026-08-12): IVA Transparente, Tabla de Amortización, Hora Local UTC-6 y Clientes
 
 - **Versión 2.0.0**: Marcado y empaquetado oficial del sistema con validación operativa aprobada.

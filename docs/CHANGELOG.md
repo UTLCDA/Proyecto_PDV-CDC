@@ -18,6 +18,8 @@ All notable changes to this project will be documented in this file.
 ### Comprobantes Históricos por Corte (`<HistoricoAbonosCorrectoComprobante>`)
 - `SaleReceiptModal` incluye soporte para `targetPaymentId` y `cutoffDate` con rebanado por índice (`slice(0, targetIdx + 1)`).
 - Al abrir el comprobante desde cualquier fila de abono o transacción, el recibo muestra la foto acumulada exacta de pagos y saldo pendiente hasta el momento de dicho abono.
+- Corregida la tabla dedicada de Histórico de Transacciones, que omitía `targetPaymentId` y `cutoffDate` al abrir el comprobante. Las acciones de abonos y transacciones comparten ahora `paymentReceiptArguments`, evitando que un movimiento anterior muestre pagos posteriores.
+- Caso validado: Venta #49 a las 02:14 muestra únicamente $42.83 y saldo $1,000.01; el movimiento posterior de las 02:42 conserva el acumulado de $52.83 y saldo $990.01.
 
 ### Formulario de Clientes y Servicio de Código Postal
 - El input de teléfono valida exclusivamente la captura de números (dígitos `0-9`).

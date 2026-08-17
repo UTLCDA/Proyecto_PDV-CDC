@@ -7,6 +7,7 @@ import { servicioVentas } from '../../services/servicioVentas';
 import { DocumentTemplate, PaymentInstallment, PaymentTransaction, QuoteOptions, SaleReturn, SaveDocumentTemplateRequest } from '../../types/commercial';
 import { Venta } from '../../types/tiposVentas';
 import { parseUtcDate } from '../../utils/dateUtils';
+import { paymentReceiptArguments } from '../../utils/receiptUtils';
 import SaleReceiptModal from '../Sales/SaleReceiptModal';
 import './CommercialOpsPage.css';
 
@@ -358,7 +359,7 @@ El comprador declara estar conforme con las cantidades, colores y especificacion
                     <td><small>{item.customerDisplayName || 'Público General'}</small></td>
                     <td><small>{item.userUsername || '—'}</small></td>
                     <td>
-                      <button type="button" className="pos-link-btn" onClick={() => void viewReceiptForSale(item.idVenta)}>
+                      <button type="button" className="pos-link-btn" onClick={() => void viewReceiptForSale(...paymentReceiptArguments(item))}>
                         👁️ Comprobante
                       </button>
                     </td>
@@ -400,7 +401,7 @@ El comprador declara estar conforme con las cantidades, colores y especificacion
                 <strong style={{ color: '#2b8a3e', display: 'block' }}>{money.format(item.amountPaid)}</strong>
                 <small style={{ color: 'var(--text-secondary)' }}>{t('remainingBalance', { balance: money.format(item.newPendingBalance) })}</small>
               </div>
-              <button type="button" className="pos-link-btn" onClick={() => void viewReceiptForSale(item.idVenta, item.id, item.createdAtUtc)}>👁️ Recibo</button>
+              <button type="button" className="pos-link-btn" onClick={() => void viewReceiptForSale(...paymentReceiptArguments(item))}>👁️ Recibo</button>
             </div>
           ))}
         </div>}
@@ -460,7 +461,7 @@ El comprador declara estar conforme con las cantidades, colores y especificacion
                         <td><small>{item.customerDisplayName || 'Público General'}</small></td>
                         <td><small>{item.userUsername || '—'}</small></td>
                         <td>
-                          <button type="button" className="pos-link-btn" onClick={() => void viewReceiptForSale(item.idVenta, item.id, item.createdAtUtc)}>
+                          <button type="button" className="pos-link-btn" onClick={() => void viewReceiptForSale(...paymentReceiptArguments(item))}>
                             👁️ Comprobante
                           </button>
                         </td>
@@ -499,7 +500,7 @@ El comprador declara estar conforme con las cantidades, colores y especificacion
                         <td>{money.format(item.newPendingBalance)}</td>
                         <td><small>{item.userUsername || '—'}</small></td>
                         <td>
-                          <button type="button" className="pos-link-btn" onClick={() => void viewReceiptForSale(item.idVenta, item.id, item.createdAtUtc)}>
+                          <button type="button" className="pos-link-btn" onClick={() => void viewReceiptForSale(...paymentReceiptArguments(item))}>
                             👁️ Comprobante
                           </button>
                         </td>

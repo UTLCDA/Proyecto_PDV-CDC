@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import i18n from './i18n';
 import { AppTab, canAccessTab, permissionCodes, systemRoleNames } from './security/accessControl';
+import { paymentReceiptArguments } from './utils/receiptUtils';
 
 describe('WPC Bajío Frontend Tests', () => {
   it('i18n should translate Cash Shift and Reports in ES and ZH', () => {
@@ -153,5 +154,13 @@ describe('WPC Bajío Frontend Tests', () => {
     expect(i18n.t('searchInstallments')).toContain('RECIBO-{IdVenta}');
 
     await i18n.changeLanguage('es');
+  });
+
+  it('should preserve the selected payment when opening a historical receipt', () => {
+    expect(paymentReceiptArguments({
+      idVenta: 49,
+      id: 'sale-guid:initial',
+      createdAtUtc: '2026-08-12T08:14:00Z'
+    })).toEqual([49, 'sale-guid:initial', '2026-08-12T08:14:00Z']);
   });
 });
