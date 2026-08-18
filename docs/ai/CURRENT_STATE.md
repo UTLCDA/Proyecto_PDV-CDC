@@ -1,5 +1,22 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
+## Iteración aprobada — Bitácora Central de Auditoría y Base de Datos Limpia de Producción (2026-08-18)
+
+- **Rediseño del Módulo de Auditoría / Bitácora Central del Sistema**:
+  - Transformación integral del módulo de auditoría de una vista técnica hacia un **Historial de Actividades Ejecutivas / Auditoría Central** (QUIÉN + QUÉ HIZO + DÓNDE + CUÁNDO + SOBRE QUÉ + RESULTADO).
+  - Enriquecimiento JSON estructurado (`schemaVersion: 1`, `module`, `eventType`, `resultStatus`) y desinfección en backend de campos sensibles (`password`, `token`, `secret`, `cvv`) mediante expresiones regulares.
+  - Filtro preventivo en `AuditMiddleware`: se omiten registros masivos HTTP `GET 200 OK` en la tabla `AuditLogs`, reservando la tabla de auditoría para eventos de dominio y errores HTTP (`StatusCode >= 400`).
+  - Interfaz ejecutiva con íconos por módulo (🛒 Ventas, 📦 Productos, 👥 Clientes, 🏭 Inventario, 💵 Caja, 💰 Pagos, 📑 Cotizaciones, ↩️ Devoluciones, 👤 Usuarios, 🛡️ Roles, 🔒 Seguridad, ⚙️ Sistema), badges de resultado (Correcto, Advertencia, Error) y modal/drawer con acordeón técnico contraído por defecto.
+  - Eliminación del botón redundante `📜 Bitácora del Sistema` del navbar en `App.tsx` y desactivación del sink `InMemory` de Serilog.
+  - Pruebas unitarias de frontend (`auditMapper.test.ts`) agregadas y 100% aprobadas en Vitest (24/24).
+
+- **Generación de Base de Datos Limpia para Cierre de Fase 1 (`PosLambrinDb`)**:
+  - Recreación estandarizada y limpia de la base de datos `PosLambrinDb` en SQL Server `AAM`.
+  - Aplicación completa del DDL con 26 tablas, claves primarias, claves foráneas e índices mediante `clean_init.sql`.
+  - Registro de las 10 migraciones de EF Core en la tabla `__EFMigrationsHistory`.
+  - Población automática autoritativa mediante `DbInitializer`: 2 Roles (`Administrador`, `Cajero`), 27 Permisos, 30 Asignaciones `RolPermiso`, 1 Empleado y Usuario `admin` (`admin@lambrin.com` / `Admin123!`), y 1 Cliente (`Público en General`).
+  - Todas las tablas transaccionales y de catálogo (`Sales`, `Products`, `Stocks`, `AuditLogs`, `CashShifts`, `CashTransactions`, `Quotes`, `ReturnHeaders`, `PaymentInstallments`) quedan limpias en 0 registros.
+
 ## Iteración aprobada — Exportación administrativa PDF/Excel e Integración a Main (2026-08-17)
 
 - **Ajustes visuales posteriores a validación humana**:

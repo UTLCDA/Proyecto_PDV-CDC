@@ -2,10 +2,10 @@
 
 ## Estado actual
 
-- La exportación administrativa PDF/XLSX está implementada y aprobada en la rama `codex/exportacion-pdf-excel`, lista para integrarse a `fase-1.1`.
-- La infraestructura es reutilizable, conserva permisos y filtros, recupera todas las páginas autorizadas y no modifica el esquema SQL.
-- Los refinamientos visuales solicitados para Ventas, Transacciones, Clientes, contraseña de Usuarios y periodo de Movimientos de Inventario están incorporados y aprobados.
-- Validación automatizada del corte: backend **67/67**, frontend **21/21**, builds Release/Vite aprobados.
+- El rediseño de Bitácora y Auditoría Central del Sistema está completado y probado.
+- La base de datos limpia `PosLambrinDb` fue generada con 26 tablas, 10 migraciones aplicadas y poblada exclusivamente con Roles, Permisos, Usuario `admin` y Cliente Público en General (sin datos demo de ventas/productos).
+- El botón `📜 Bitácora del Sistema` del navbar fue removido y Serilog InMemory sink fue desactivado.
+- Pruebas automatizadas: backend **67/67**, Vitest frontend **24/24**, build Release / Vite aprobados.
 
 ## Siguiente única tarea recomendada
 
