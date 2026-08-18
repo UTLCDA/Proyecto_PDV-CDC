@@ -7,11 +7,11 @@ using Xunit;
 
 namespace Pos.Api.IntegrationTests.Controllers;
 
-public class CashShiftControllerIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class CashShiftControllerIntegrationTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
 
-    public CashShiftControllerIntegrationTests(WebApplicationFactory<Program> factory)
+    public CashShiftControllerIntegrationTests(CustomWebApplicationFactory factory)
     {
         _client = factory.CreateClient();
     }

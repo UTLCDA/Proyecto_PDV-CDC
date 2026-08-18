@@ -10,11 +10,11 @@ using Xunit;
 
 namespace Pos.Api.IntegrationTests.Controllers;
 
-public class AuthorizationControllerIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class AuthorizationControllerIntegrationTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
 
-    public AuthorizationControllerIntegrationTests(WebApplicationFactory<Program> factory)
+    public AuthorizationControllerIntegrationTests(CustomWebApplicationFactory factory)
     {
         _client = factory.CreateClient();
     }
