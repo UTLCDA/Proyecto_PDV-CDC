@@ -211,7 +211,9 @@ public class ReportingApplicationService : IReportingApplicationService
         DateTime? startDate,
         DateTime? endDate,
         int? idVenta = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int page = 1,
+        int pageSize = 200)
     {
         ValidateDateRange(startDate, endDate);
         var query = _dbContext.AuditLogs.Include(log => log.Usuario).AsNoTracking().AsQueryable();
@@ -274,9 +276,12 @@ public class ReportingApplicationService : IReportingApplicationService
             query = query.Where(log => log.FechaCreacionUtc <= endDate.Value);
         }
 
+        var (skip, take) = QueryPaging.Normalize(page, pageSize, 200);
         var logs = await query
             .OrderByDescending(log => log.FechaCreacionUtc)
-            .Take(200)
+            .ThenByDescending(log => log.Id)
+            .Skip(skip)
+            .Take(take)
             .ToListAsync(cancellationToken);
 
         var saleIds = ParseEntityIds(logs.Where(log => log.NombreEntidad == "Venta").Select(log => log.EntidadId));

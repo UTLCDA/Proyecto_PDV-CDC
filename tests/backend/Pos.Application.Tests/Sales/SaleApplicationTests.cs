@@ -231,6 +231,35 @@ public class SaleApplicationTests
         Assert.Equal(sale.Id, Assert.Single(searchByOperationalFolio).Id);
     }
 
+    [Fact]
+    public async Task GetSalesAsync_ShouldReturnStableNonOverlappingPagesForExport()
+    {
+        await using var context = GetInMemoryDbContext();
+        var service = new SaleApplicationService(
+            context,
+            new AuditLogService(context, NullLogger<AuditLogService>.Instance));
+        var createdAt = new DateTime(2026, 8, 17, 12, 0, 0, DateTimeKind.Utc);
+        context.Sales.AddRange(Enumerable.Range(1, 5).Select(idVenta => new Venta
+        {
+            IdVenta = idVenta,
+            NumeroFolio = $"VENTA-{idVenta}",
+            TipoPago = SalePaymentTypes.FullPayment,
+            Estado = SaleStatuses.Completed,
+            EstaActivo = true,
+            FechaCreacionUtc = createdAt
+        }));
+        await context.SaveChangesAsync();
+
+        var firstPage = await service.GetSalesAsync(null, null, null, null, null, CancellationToken.None, page: 1, pageSize: 2);
+        var secondPage = await service.GetSalesAsync(null, null, null, null, null, CancellationToken.None, page: 2, pageSize: 2);
+        var thirdPage = await service.GetSalesAsync(null, null, null, null, null, CancellationToken.None, page: 3, pageSize: 2);
+
+        Assert.Equal([5, 4], firstPage.Select(sale => sale.IdVenta));
+        Assert.Equal([3, 2], secondPage.Select(sale => sale.IdVenta));
+        Assert.Equal([1], thirdPage.Select(sale => sale.IdVenta));
+        Assert.Equal(5, firstPage.Concat(secondPage).Concat(thirdPage).Select(sale => sale.Id).Distinct().Count());
+    }
+
     private static CreateSaleDto CreateFullPaymentRequest(
         Guid productId,
         decimal quantity,

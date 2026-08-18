@@ -21,10 +21,10 @@ public class CustomersController : ControllerBase
 
     [HttpGet]
     [Authorize(Policy = PermissionCodes.Customers.View)]
-    public async Task<ActionResult<List<CustomerDto>>> GetCustomers([FromQuery] string? search, [FromQuery] string? type, [FromQuery] bool includeInactive, CancellationToken cancellationToken)
+    public async Task<ActionResult<List<CustomerDto>>> GetCustomers([FromQuery] string? search, [FromQuery] string? type, [FromQuery] bool includeInactive, [FromQuery] int page = 1, [FromQuery] int pageSize = 500, CancellationToken cancellationToken = default)
     {
         var canAdministerUsers = User.HasClaim(PermissionCodes.ClaimType, PermissionCodes.Users.Administer);
-        var customers = await _catalogService.GetCustomersAsync(search, type, includeInactive && canAdministerUsers, cancellationToken);
+        var customers = await _catalogService.GetCustomersAsync(search, type, includeInactive && canAdministerUsers, cancellationToken, page, pageSize);
         return Ok(customers);
     }
 

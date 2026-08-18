@@ -1,5 +1,10 @@
 import { apiClient } from './apiClient';
 import { CashGeneralMovement, CashShift } from '../types/reports';
+import { PagingRequest } from '../utils/pagedExport';
+
+const withPaging = (path: string, paging?: PagingRequest) => paging
+  ? `${path}?page=${paging.page}&pageSize=${paging.pageSize}`
+  : path;
 
 export const cashShiftService = {
   getCurrentShift: () => apiClient.request<CashShift | null>('/cashshifts/current'),
@@ -24,6 +29,6 @@ export const cashShiftService = {
       method: 'POST',
       body: JSON.stringify({ actualClosingAmount, notes })
     }),
-  getShiftHistory: () => apiClient.request<CashShift[]>('/cashshifts/history'),
-  getGeneralMovements: () => apiClient.request<CashGeneralMovement[]>('/cashshifts/general-movements')
+  getShiftHistory: (paging?: PagingRequest) => apiClient.request<CashShift[]>(withPaging('/cashshifts/history', paging)),
+  getGeneralMovements: (paging?: PagingRequest) => apiClient.request<CashGeneralMovement[]>(withPaging('/cashshifts/general-movements', paging))
 };

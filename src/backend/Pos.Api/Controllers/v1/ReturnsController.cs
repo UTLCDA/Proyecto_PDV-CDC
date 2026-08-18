@@ -35,9 +35,11 @@ public class ReturnsController : ControllerBase
     public async Task<ActionResult<List<ReturnHeaderDto>>> GetReturns(
         [FromQuery] int? idVenta,
         [FromQuery] Guid? saleId,
-        CancellationToken cancellationToken)
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 500,
+        CancellationToken cancellationToken = default)
     {
-        return Ok(await _commercialService.GetReturnsAsync(idVenta, saleId, cancellationToken));
+        return Ok(await _commercialService.GetReturnsAsync(idVenta, saleId, cancellationToken, page, pageSize));
     }
 
     [HttpPost]

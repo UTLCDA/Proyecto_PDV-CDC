@@ -2,7 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { cashShiftService } from '../../services/cashShiftService';
-import { CashGeneralMovement, CashShift } from '../../types/reports';
+import { CashGeneralMovement, CashShift, CashTransaction } from '../../types/reports';
+import ExportButtons from '../../components/export/ExportButtons';
+import { ExportReportConfig } from '../../components/export/exportTypes';
+import { loadAllPagesForExport } from '../../utils/pagedExport';
 import './CashShiftPage.css';
 
 type Notice = { type: 'success' | 'error'; text: string } | null;
@@ -43,6 +46,67 @@ export const CashShiftPage: React.FC = () => {
     dateStyle: 'medium',
     timeStyle: 'short'
   }), [locale]);
+  const directTransactions = useMemo(() => {
+    const allowedTypes = ['Apertura', 'EntradaManual', 'RetiroManual', 'Cierre', 'Opening', 'ManualDeposit', 'ManualWithdrawal', 'Closing'];
+    return (Array.isArray(currentShift?.transactions) ? currentShift.transactions : [])
+      .filter(transaction => transaction && allowedTypes.includes(transaction.transactionType));
+  }, [currentShift]);
+
+  const currentMovementsExportConfig = useMemo<ExportReportConfig<CashTransaction>>(() => ({
+    moduleName: t('cashShiftTitle'),
+    title: `Movimientos del turno ${currentShift?.shiftNumber || ''}`.trim(),
+    fileName: 'Movimientos_Caja',
+    sheetName: 'MovimientosCaja',
+    orientation: 'landscape',
+    filters: [
+      { label: 'Turno', value: currentShift?.shiftNumber || '—' },
+      { label: 'Cajero', value: currentShift?.userUsername || '—' },
+      { label: 'Estado', value: currentShift?.status || '—' }
+    ],
+    columns: [
+      { key: 'date', label: 'Fecha', type: 'datetime', width: 1.15, value: item => item.createdAtUtc },
+      { key: 'type', label: 'Tipo', width: 1, value: item => t(transactionTypeKey(item.transactionType)) },
+      { key: 'reason', label: 'Motivo', width: 1.6, value: item => item.reason || '—' },
+      { key: 'user', label: 'Usuario', width: 0.9, value: item => item.userUsername || currentShift?.userUsername || '—' },
+      { key: 'amount', label: 'Monto', type: 'currency', width: 0.85, value: item => item.amount }
+    ]
+  }), [currentShift, t]);
+
+  const generalMovementsExportConfig = useMemo<ExportReportConfig<CashGeneralMovement>>(() => ({
+    moduleName: t('generalMovementsTitle'),
+    title: 'Movimientos Generales de Caja',
+    fileName: 'Movimientos_Generales_Caja',
+    sheetName: 'Movimientos',
+    orientation: 'landscape',
+    columns: [
+      { key: 'date', label: 'Fecha', type: 'datetime', width: 1.1, value: item => item.createdAtUtc },
+      { key: 'category', label: 'Categoría', width: 1, value: item => formatMovementCategory(item.category) },
+      { key: 'idVenta', label: 'Id Venta', type: 'number', width: 0.7, value: item => item.idVenta },
+      { key: 'movement', label: 'Tipo de movimiento', width: 1, value: item => formatMovementType(item.paymentMethod).replace(/^\S+\s/, '') },
+      { key: 'description', label: 'Descripción', width: 1.5, value: item => formatMovementDescription(item) },
+      { key: 'user', label: 'Usuario', width: 0.85, value: item => item.userUsername || '—' },
+      { key: 'amount', label: 'Monto', type: 'currency', width: 0.85, value: item => item.amount }
+    ]
+  }), [t]);
+
+  const historyExportConfig = useMemo<ExportReportConfig<CashShift>>(() => ({
+    moduleName: t('cashShiftHistory'),
+    title: 'Histórico de Cortes de Caja',
+    fileName: 'Cortes_Caja',
+    sheetName: 'CortesCaja',
+    orientation: 'landscape',
+    columns: [
+      { key: 'shift', label: 'Núm. Turno', width: 0.85, value: shift => shift.shiftNumber },
+      { key: 'user', label: 'Usuario', width: 0.8, value: shift => shift.userUsername || '—' },
+      { key: 'opened', label: 'Apertura', type: 'datetime', width: 1.1, value: shift => shift.openedAtUtc },
+      { key: 'closed', label: 'Cierre', type: 'datetime', width: 1.1, value: shift => shift.closedAtUtc },
+      { key: 'openingAmount', label: 'Fondo inicial', type: 'currency', width: 0.8, value: shift => shift.openingAmount },
+      { key: 'expected', label: 'Cierre esperado', type: 'currency', width: 0.9, value: shift => shift.expectedClosingAmount },
+      { key: 'actual', label: 'Cierre real', type: 'currency', width: 0.85, value: shift => shift.status === 'Cerrado' ? shift.actualClosingAmount : null },
+      { key: 'difference', label: 'Diferencia', type: 'currency', width: 0.8, value: shift => shift.status === 'Cerrado' ? shift.differenceAmount : null },
+      { key: 'status', label: 'Estado', width: 0.7, value: shift => shift.status }
+    ]
+  }), [t]);
 
   const loadData = async (showLoading = true) => {
     try {
@@ -330,13 +394,8 @@ export const CashShiftPage: React.FC = () => {
             </article>}
           </div>
 
-          {(() => {
-            const allowedTypes = ['Apertura', 'EntradaManual', 'RetiroManual', 'Cierre', 'Opening', 'ManualDeposit', 'ManualWithdrawal', 'Closing'];
-            const transactionsList = Array.isArray(currentShift.transactions) ? currentShift.transactions : [];
-            const directTransactions = transactionsList.filter(t => t && allowedTypes.includes(t.transactionType));
-            return (
-              <article className="cash-card">
-                <div className="cash-card__heading"><div><h2>📋 {t('cashMovements')} ({t('shiftStatusOpen')})</h2><p>{t('cashMovementsHint')}</p></div><strong>{directTransactions.length}</strong></div>
+          <article className="cash-card">
+                <div className="cash-card__heading"><div><h2>📋 {t('cashMovements')} ({t('shiftStatusOpen')})</h2><p>{t('cashMovementsHint')}</p></div><div className="cash-export-heading"><strong>{directTransactions.length}</strong><ExportButtons data={directTransactions} config={currentMovementsExportConfig} /></div></div>
                 <div className="cash-table-wrapper">
                   <table className="cash-table">
                     <thead><tr><th>{t('date')}</th><th>{t('type')}</th><th>{t('reason')}</th><th>{t('user')}</th><th>{t('amount')}</th></tr></thead>
@@ -350,13 +409,11 @@ export const CashShiftPage: React.FC = () => {
                   </table>
                 </div>
               </article>
-            );
-          })()}
         </>
       )}
 
       {Array.isArray(generalMovements) && generalMovements.length > 0 && <article className="cash-card">
-        <div className="cash-card__heading"><div><h2>{t('generalMovementsTitle')}</h2><p>{t('generalMovementsSubtitle')}</p></div><strong>{generalMovements.length}</strong></div>
+        <div className="cash-card__heading"><div><h2>{t('generalMovementsTitle')}</h2><p>{t('generalMovementsSubtitle')}</p></div><div className="cash-export-heading"><strong>{generalMovements.length}</strong><ExportButtons data={generalMovements} config={generalMovementsExportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => cashShiftService.getGeneralMovements(paging))} /></div></div>
         <div className="cash-table-wrapper">
           <table className="cash-table">
             <thead><tr><th>{t('date')}</th><th>Categoría</th><th>{t('folio')}</th><th>Tipo Movimiento</th><th>Descripción</th><th>{t('user')}</th><th>{t('amount')}</th></tr></thead>
@@ -382,7 +439,7 @@ export const CashShiftPage: React.FC = () => {
       </article>}
 
       {canReport && <article className="cash-card">
-        <div className="cash-card__heading"><div><h2>{t('cashShiftHistory')}</h2><p>{t('cashShiftHistoryHint')}</p></div><strong>{Array.isArray(history) ? history.length : 0}</strong></div>
+        <div className="cash-card__heading"><div><h2>{t('cashShiftHistory')}</h2><p>{t('cashShiftHistoryHint')}</p></div><div className="cash-export-heading"><strong>{Array.isArray(history) ? history.length : 0}</strong><ExportButtons data={history} config={historyExportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => cashShiftService.getShiftHistory(paging))} /></div></div>
         <div className="cash-table-wrapper">
           <table className="cash-table cash-table--history">
             <thead><tr><th>{t('shiftNumber')}</th><th>{t('user')}</th><th>{t('openedAt')}</th><th>{t('closedAt')}</th><th>{t('expectedClosingAmount')}</th><th>{t('actualClosingAmount')}</th><th>{t('difference')}</th><th>{t('status')}</th></tr></thead>

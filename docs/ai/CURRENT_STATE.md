@@ -1,9 +1,28 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
+## Iteración aprobada — Exportación administrativa PDF/Excel (2026-08-17)
+
+- **Ajustes visuales posteriores a validación humana**:
+  - Histórico de Ventas separa encabezado/exportación de la fila de filtros y adapta sus controles sin compresión.
+  - Histórico de Transacciones elimina el número aislado de registros que resultaba ambiguo junto a las exportaciones.
+  - Directorio de Clientes utiliza todo el ancho disponible y distribuye buscador, estado, alta y exportación mediante grid responsive.
+  - Alta/edición de Usuarios muestra errores dentro del modal y una lista dinámica de requisitos de contraseña; cada requisito cambia a verde al cumplirse y el guardado permanece deshabilitado mientras falte alguno.
+  - Movimientos de Inventario agrupa las fechas bajo “Periodo del movimiento” y muestra etiquetas visibles para Fecha inicial/Fecha final, con disposición responsive.
+- **Rama de trabajo**: `codex/exportacion-pdf-excel`, creada desde `fase-1.1` en `5299f93` antes de modificar código.
+- **Infraestructura reutilizable**: `ExportButtons`, generador PDF con `@react-pdf/renderer`, generador XLSX con `ExcelJS`, contrato tipado de columnas/filtros y carga paginada común.
+- **Cobertura funcional**: ventas, clientes, productos, existencias, movimientos de inventario, cotizaciones, abonos, transacciones/pagos, devoluciones, caja, reportes, usuarios, roles y auditoría.
+- **Archivos profesionales**: logo oficial, identidad WPC Bajío, filtros realmente aplicados, tabla multipágina en PDF, valores tipados/autofiltro/freeze en Excel y nombres derivados del periodo activo.
+- **Conjunto completo**: los listados paginados se recuperan en lotes de 500; no se limita la exportación a la página visible. Los límites preventivos son 10,000 filas para PDF y 50,000 para Excel, con solicitud explícita de acotar filtros al excederlos.
+- **Compatibilidad**: los parámetros API `page` y `pageSize` son opcionales; no se cambiaron rutas, permisos, esquema SQL, PK/FK, GUID técnicos ni la generación de `IdVenta`.
+- **Fecha operativa**: los filtros de periodo inician con el día actual de `America/Mexico_City` y los reportes usan los últimos filtros consultados.
+- **Aprobación humana**: los ajustes finales fueron aceptados por el desarrollador responsable y se autorizó su publicación en GitHub.
+- **Validación automatizada final**: backend **67/67**, frontend **21/21**, build Release .NET con **0 advertencias / 0 errores**, build Vite exitoso y auditoría de dependencias de producción con **0 vulnerabilidades**.
+- **Documentación técnica**: `docs/ai/EXPORTACION_PDF_EXCEL.md` y borrador de PR `docs/ai/PR_EXPORTACION_PDF_EXCEL.md`.
+
 ## Liberación Oficial — Versión 2.0.0 (Fase 1 Comprobada y Validada)
 
 - **Versión**: `2.0.0`
-- **Línea Base Git**: rama `fase-1.1`; la iteración incorpora la corrección del comprobante histórico de transacciones sobre la base previa `6c68549`.
+- **Línea Base Git**: rama validada `fase-1.1`; la exportación se desarrolla de forma aislada en `codex/exportacion-pdf-excel`.
 - **Cálculo Transparente de IVA**: El IVA del 16% en ventas y cotizaciones se calcula sobre el Subtotal base de productos sin ser reducido por descuentos de venta/cliente (`MontoIva = SubTotal * 0.16`). El descuento se aplica directamente al Total a Pagar.
 - **Hora de Inserción y Zona Horaria Local**: Las propiedades `DateTime` se expresan en ISO 8601 UTC con sufijo `'Z'` (`UtcDateTimeJsonConverter`) y la aplicación frontend convierte automáticamente la fecha/hora a la hora local del usuario en Guadalajara (−06:00 CT, ej. 02:35 AM), sin alterar registros existentes en la BD.
 - **Tabla de Amortización de Abonos e Histórico Transaccional (`commercial-global-history`)**:
@@ -19,7 +38,7 @@
 - **Directorio de Clientes**:
   - Campo de teléfono validado estrictamente a sólo números.
   - Formulario de dirección reordenado solicitando primero el CP y autocompletando Ciudad y Estado mediante `servicioCodigoPostal.ts` (catálogo estandarizado de municipios de Guanajuato y México).
-- **Validación actual (2026-08-17)**: backend **66/66** (Domain 19, Application 35, Integration 12); build Release .NET **0 advertencias / 0 errores**; frontend build Vite exitoso (91 módulos); Vitest **11/11**.
+- **Validación actual (2026-08-17)**: backend **67/67** (Domain 19, Application 36, Integration 12); build Release .NET **0 advertencias / 0 errores**; frontend build Vite exitoso; Vitest **21/21**.
 
 ## Estado de la aplicación
 
@@ -99,4 +118,3 @@
 - Incorporar una **migración inicial/baseline reproducible** para construir `PosLambrinDb` desde una base SQL Server completamente vacía.
 - Diseñar e implementar **Promociones** con reglas de acumulación/prioridad.
 - Diseñar **Entregas/Envíos** y su flujo de estados.
-- Exportación formal de Reportes a **PDF/XLSX**.

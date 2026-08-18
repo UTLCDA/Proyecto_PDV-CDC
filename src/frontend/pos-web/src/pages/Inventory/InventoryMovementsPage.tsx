@@ -1,10 +1,14 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { inventoryService } from '../../services/inventoryService';
 import { InventoryMovement } from '../../types/inventory';
+import ExportButtons from '../../components/export/ExportButtons';
+import { ExportReportConfig } from '../../components/export/exportTypes';
+import { getOperationalDateInputValue, toOperationalUtcBoundary } from '../../utils/operationalDate';
+import { loadAllPagesForExport } from '../../utils/pagedExport';
 import './InventoryListPage.css';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = getOperationalDateInputValue;
 
 const movementLabelKey = (movementType: string) => {
   switch (movementType.trim().toLowerCase()) {
@@ -32,22 +36,28 @@ export const InventoryMovementsPage: React.FC = () => {
   const [movementType, setMovementType] = useState('');
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
+  const [appliedFilters, setAppliedFilters] = useState(() => ({ search: '', movementType: '', startDate: today(), endDate: today() }));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [evidenceImage, setEvidenceImage] = useState<string | null>(null);
 
   const loadMovements = useCallback(async () => {
+    if (startDate && endDate && startDate > endDate) {
+      setError(t('invalidReportDateRange'));
+      return;
+    }
     setLoading(true);
     setError('');
     try {
-      const startUtc = startDate ? `${startDate}T00:00:00.000` : undefined;
-      const endUtc = endDate ? `${endDate}T23:59:59.999` : undefined;
+      const startUtc = toOperationalUtcBoundary(startDate);
+      const endUtc = toOperationalUtcBoundary(endDate, true);
       setMovements(await inventoryService.getMovements({
         search: search.trim() || undefined,
         movementType: movementType || undefined,
         startDateUtc: startUtc,
         endDateUtc: endUtc
       }));
+      setAppliedFilters({ search: search.trim(), movementType, startDate, endDate });
     } catch (loadError) {
       setMovements([]);
       setError(loadError instanceof Error ? loadError.message : t('inventoryLoadError'));
@@ -65,10 +75,44 @@ export const InventoryMovementsPage: React.FC = () => {
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [evidenceImage]);
 
+  const exportConfig = useMemo<ExportReportConfig<InventoryMovement>>(() => ({
+    moduleName: t('inventoryMovementsTitle'),
+    title: 'Movimientos de Inventario',
+    fileName: 'Movimientos_Inventario',
+    sheetName: 'Movimientos',
+    orientation: 'landscape',
+    dateRange: { startDate: appliedFilters.startDate, endDate: appliedFilters.endDate },
+    filters: [
+      { label: 'Periodo', value: appliedFilters.startDate && appliedFilters.endDate ? `${appliedFilters.startDate} al ${appliedFilters.endDate}` : appliedFilters.startDate || appliedFilters.endDate },
+      { label: 'Búsqueda', value: appliedFilters.search },
+      { label: 'Tipo de movimiento', value: appliedFilters.movementType ? t(movementLabelKey(appliedFilters.movementType)) : 'Todos' }
+    ],
+    columns: [
+      { key: 'date', label: 'Fecha', type: 'datetime', width: 1.15, value: movement => movement.createdAtUtc },
+      { key: 'sku', label: 'SKU', width: 0.8, value: movement => movement.productSku },
+      { key: 'product', label: 'Producto', width: 1.6, value: movement => movement.productName },
+      { key: 'type', label: 'Tipo', width: 0.9, value: movement => { const key = movementLabelKey(movement.movementType); return key ? t(key) : movement.movementType; } },
+      { key: 'quantity', label: 'Cantidad', type: 'number', width: 0.7, value: movement => movement.quantity },
+      { key: 'previous', label: 'Cantidad Anterior', type: 'number', width: 0.9, value: movement => movement.previousQuantity },
+      { key: 'new', label: 'Cantidad Nueva', type: 'number', width: 0.9, value: movement => movement.newQuantity },
+      { key: 'reason', label: 'Motivo', width: 1.7, value: movement => movement.reason },
+      { key: 'reference', label: 'Referencia', width: 1.1, value: movement => movement.idVenta ? `Venta #${movement.idVenta}` : movement.referenceNumber || '—' },
+      { key: 'user', label: 'Usuario', width: 0.9, value: movement => movement.userUsername || '—' }
+    ]
+  }), [appliedFilters, t]);
+
   return <section className="inventory-page-container">
     <article className="card">
       <header className="inventory-history-header">
-        <div><h2>📋 {t('inventoryMovementsTitle')}</h2><p>{t('inventoryMovementsSubtitle')}</p></div>
+        <div className="inventory-history-header__top">
+          <div><h2>📋 {t('inventoryMovementsTitle')}</h2><p>{t('inventoryMovementsSubtitle')}</p></div>
+          <ExportButtons data={movements} config={exportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => inventoryService.getMovements({
+            search: appliedFilters.search || undefined,
+            movementType: appliedFilters.movementType || undefined,
+            startDateUtc: toOperationalUtcBoundary(appliedFilters.startDate),
+            endDateUtc: toOperationalUtcBoundary(appliedFilters.endDate, true)
+          }, paging))} />
+        </div>
         <form className="inventory-history-filters" onSubmit={event => { event.preventDefault(); void loadMovements(); }}>
           <input className="form-control" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('searchInventoryMovements')} />
           <select className="form-control" value={movementType} onChange={event => setMovementType(event.target.value)} aria-label={t('movementType')}>
@@ -79,10 +123,13 @@ export const InventoryMovementsPage: React.FC = () => {
             <option value="Sale">{t('movementSale')}</option>
             <option value="Return">{t('movementReturn')}</option>
           </select>
-          <input className="form-control" type="date" value={startDate} onChange={event => setStartDate(event.target.value)} aria-label={t('startDate')} />
-          <input className="form-control" type="date" value={endDate} onChange={event => setEndDate(event.target.value)} aria-label={t('endDate')} />
+          <div className="inventory-date-range" role="group" aria-labelledby="inventory-date-range-title">
+            <span id="inventory-date-range-title" className="inventory-date-range__title">📅 {t('movementDateRange')}</span>
+            <label><span>{t('startDate')}</span><input className="form-control" type="date" max={endDate || undefined} value={startDate} onChange={event => setStartDate(event.target.value)} /></label>
+            <label><span>{t('endDate')}</span><input className="form-control" type="date" min={startDate || undefined} value={endDate} onChange={event => setEndDate(event.target.value)} /></label>
+          </div>
           <button className="action-btn">🔎 {t('search')}</button>
-          <button type="button" className="lang-btn" onClick={() => { setSearch(''); setMovementType(''); setStartDate(''); setEndDate(''); }}>{t('clearFilters')}</button>
+          <button type="button" className="lang-btn" onClick={() => { const operationalToday = today(); setSearch(''); setMovementType(''); setStartDate(operationalToday); setEndDate(operationalToday); }}>{t('clearFilters')}</button>
         </form>
       </header>
 

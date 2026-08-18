@@ -32,9 +32,9 @@ public class QuotesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<QuoteDto>>> GetQuotes([FromQuery] string? search, [FromQuery] string? status, CancellationToken cancellationToken)
+    public async Task<ActionResult<List<QuoteDto>>> GetQuotes([FromQuery] string? search, [FromQuery] string? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 500, CancellationToken cancellationToken = default)
     {
-        var quotes = await _commercialService.GetQuotesAsync(search, status, cancellationToken);
+        var quotes = await _commercialService.GetQuotesAsync(search, status, cancellationToken, page, pageSize);
         return Ok(quotes);
     }
 

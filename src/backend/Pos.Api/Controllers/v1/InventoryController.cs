@@ -23,7 +23,7 @@ public class InventoryController : ControllerBase
     public async Task<ActionResult<List<StockDto>>> GetStockLevels(
         [FromQuery] string? search,
         [FromQuery] bool? isLowStockOnly,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         var stocks = await _inventoryService.GetStockLevelsAsync(search, isLowStockOnly, cancellationToken);
         return Ok(stocks);
@@ -45,11 +45,13 @@ public class InventoryController : ControllerBase
         [FromQuery] string? search,
         [FromQuery] DateTime? startDateUtc,
         [FromQuery] DateTime? endDateUtc,
-        CancellationToken cancellationToken)
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 500,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            var movements = await _inventoryService.GetMovementsAsync(productId, movementType, search, startDateUtc, endDateUtc, cancellationToken);
+            var movements = await _inventoryService.GetMovementsAsync(productId, movementType, search, startDateUtc, endDateUtc, cancellationToken, page, pageSize);
             return Ok(movements);
         }
         catch (ArgumentException ex)

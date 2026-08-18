@@ -28,6 +28,20 @@
   flex-wrap: wrap;
 }
 
+.reports-export-row,
+.reports-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.reports-export-row { margin-top: -0.75rem; }
+.reports-section-heading { justify-content: space-between; }
+.reports-section-heading h3,
+.reports-section-heading h4 { margin: 0; }
+
 .reports-filter-form label {
   display: flex;
   flex-direction: column;
@@ -175,4 +189,6 @@
   .reports-audit-filters button {
     width: 100%;
   }
+
+  .reports-section-heading { align-items: flex-start; flex-direction: column; }
 }

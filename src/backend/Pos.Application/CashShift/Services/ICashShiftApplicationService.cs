@@ -10,6 +10,6 @@ public interface ICashShiftApplicationService
     Task<CashShiftDto> RegisterWithdrawalAsync(CashWithdrawalDto request, Guid userId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
     Task<CashShiftDto> GenerateXReportAsync(Guid userId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
     Task<CashShiftDto> CloseShiftAsync(CloseCashShiftDto request, Guid userId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
-    Task<List<CashShiftDto>> GetShiftHistoryAsync(CancellationToken cancellationToken = default);
-    Task<List<CashGeneralMovementDto>> GetGeneralMovementsAsync(CancellationToken cancellationToken = default);
+    Task<List<CashShiftDto>> GetShiftHistoryAsync(CancellationToken cancellationToken = default, int page = 1, int pageSize = 100);
+    Task<List<CashGeneralMovementDto>> GetGeneralMovementsAsync(CancellationToken cancellationToken = default, int page = 1, int pageSize = 250);
 }

@@ -4,6 +4,7 @@
 .cash-page h1, .cash-page h2, .cash-modal h2 { margin: 0; }
 .cash-page__header p, .cash-card__heading p, .cash-muted, .cash-modal__header p { color: var(--text-muted); margin: 0.25rem 0 0; }
 .cash-page__header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+.cash-export-heading { display: flex; align-items: center; justify-content: flex-end; gap: .75rem; flex-wrap: wrap; }
 .cash-card { background: var(--glass-bg); border: var(--glass-border); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-glow); }
 .cash-open-card { max-width: 680px; width: 100%; margin: 0 auto; }
 .cash-notice { padding: 0.75rem 1rem; border-radius: var(--radius-md); border: 1px solid; }
@@ -50,6 +51,7 @@
 .cash-modal__actions { justify-content: flex-end; margin-top: .25rem; }
 @media (max-width: 760px) {
   .cash-page__header, .cash-card__heading { flex-direction: column; }
+  .cash-export-heading { width: 100%; justify-content: space-between; }
   .cash-page__header-actions, .cash-page__header-actions button { width: 100%; }
   .cash-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .cash-actions-grid { grid-template-columns: 1fr; }

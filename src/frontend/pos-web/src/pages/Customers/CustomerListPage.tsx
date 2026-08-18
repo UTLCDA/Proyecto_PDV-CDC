@@ -1,9 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { servicioCatalogo } from '../../services/servicioCatalogo';
 import { Cliente, PeticionActualizarCliente, PeticionCrearCliente } from '../../types/tiposCatalogo';
 import { lookupPostalCode } from '../../services/servicioCodigoPostal';
+import ExportButtons from '../../components/export/ExportButtons';
+import { ExportReportConfig } from '../../components/export/exportTypes';
+import { loadAllPagesForExport } from '../../utils/pagedExport';
 import './CustomerListPage.css';
 
 type CustomerForm = Omit<PeticionCrearCliente, 'specialDiscountPercentage'> & {
@@ -34,6 +37,7 @@ export const CustomerListPage: React.FC = () => {
   const [customers, setCustomers] = useState<Cliente[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [appliedFilters, setAppliedFilters] = useState<{ search: string; status: 'all' | 'active' | 'inactive' }>({ search: '', status: 'all' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -45,11 +49,34 @@ export const CustomerListPage: React.FC = () => {
   const canEdit = hasPermission('clientes', 'editar');
   const canAdminister = hasPermission('usuarios', 'administrar');
 
+  const exportConfig = useMemo<ExportReportConfig<Cliente>>(() => ({
+    moduleName: t('customersPageTitle'),
+    title: 'Directorio de Clientes',
+    fileName: 'Clientes',
+    sheetName: 'Clientes',
+    orientation: 'landscape',
+    filters: [
+      { label: 'Búsqueda', value: appliedFilters.search },
+      { label: 'Estado', value: appliedFilters.status === 'all' ? 'Todos' : appliedFilters.status === 'active' ? t('activeStatus') : t('inactiveStatus') }
+    ],
+    columns: [
+      { key: 'name', label: 'Cliente / Empresa', width: 1.6, value: customer => customer.displayName },
+      { key: 'taxId', label: 'RFC', width: 1, value: customer => customer.taxId || '—' },
+      { key: 'email', label: 'Correo', width: 1.4, value: customer => customer.email },
+      { key: 'phone', label: 'Teléfono', width: 1, value: customer => customer.phone },
+      { key: 'location', label: 'Ubicación', width: 1.5, value: customer => [customer.city, customer.state, customer.postalCode].filter(Boolean).join(', ') },
+      { key: 'type', label: 'Tipo', width: 1, value: customer => t(customerTypeKey(customer.customerType)) },
+      { key: 'discount', label: 'Descuento', type: 'percentage', width: 0.8, value: customer => customer.specialDiscountPercentage / 100 },
+      { key: 'status', label: 'Estado', width: 0.8, value: customer => t(customer.isActive ? 'activeStatus' : 'inactiveStatus') }
+    ]
+  }), [appliedFilters, t]);
+
   const loadCustomers = async (term = search) => {
     try {
       setLoading(true);
       const result = await servicioCatalogo.getCustomers(term.trim() || undefined, undefined, canAdminister);
       setCustomers(result.filter(customer => statusFilter === 'all' || customer.isActive === (statusFilter === 'active')));
+      setAppliedFilters({ search: term.trim(), status: statusFilter });
     } catch (error) {
       setNotice({ type: 'error', text: errorMessage(error, t('customerLoadError')) });
     } finally {
@@ -159,13 +186,17 @@ export const CustomerListPage: React.FC = () => {
     <header className="customers-header">
       <div><h1>👥 {t('customersPageTitle')}</h1><p>{t('customersPageSubtitle')}</p></div>
       <div className="customers-actions">
-        <input className="form-control" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('searchCustomerAdmin')} />
+        <input className="form-control customers-search" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('searchCustomerAdmin')} aria-label={t('searchCustomerAdmin')} />
         {canAdminister && <select className="form-control" value={statusFilter} onChange={event => setStatusFilter(event.target.value as typeof statusFilter)} aria-label={t('customerStatus')}>
           <option value="all">{t('allStatuses')}</option>
           <option value="active">{t('activeStatus')}</option>
           <option value="inactive">{t('inactiveStatus')}</option>
         </select>}
         {canCreate && <button className="action-btn" onClick={openCreate}>➕ {t('newCustomer')}</button>}
+        <ExportButtons data={customers} config={exportConfig} onLoadAllData={async kind => {
+          const allCustomers = await loadAllPagesForExport(kind, paging => servicioCatalogo.getCustomers(appliedFilters.search || undefined, undefined, canAdminister, paging));
+          return allCustomers.filter(customer => appliedFilters.status === 'all' || customer.isActive === (appliedFilters.status === 'active'));
+        }} />
       </div>
     </header>
 

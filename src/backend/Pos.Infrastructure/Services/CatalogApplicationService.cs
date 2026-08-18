@@ -357,7 +357,7 @@ public class CatalogApplicationService : ICatalogApplicationService
     }
 
     // Customers CRUD
-    public async Task<List<CustomerDto>> GetCustomersAsync(string? search, string? type, bool includeInactive, CancellationToken cancellationToken = default)
+    public async Task<List<CustomerDto>> GetCustomersAsync(string? search, string? type, bool includeInactive, CancellationToken cancellationToken = default, int page = 1, int pageSize = 500)
     {
         var query = _dbContext.Customers.AsQueryable();
 
@@ -380,10 +380,13 @@ public class CatalogApplicationService : ICatalogApplicationService
                                      (c.Rfc != null && c.Rfc.ToLower().Contains(term)));
         }
 
+        var (skip, take) = QueryPaging.Normalize(page, pageSize, 500);
         var customers = await query
             .AsNoTracking()
             .OrderBy(c => c.NombreEmpresa ?? c.Nombre)
-            .Take(500)
+            .ThenBy(c => c.Id)
+            .Skip(skip)
+            .Take(take)
             .ToListAsync(cancellationToken);
         return customers.Select(MapCustomerToDto).ToList();
     }

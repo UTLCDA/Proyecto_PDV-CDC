@@ -4,6 +4,9 @@ import { useAuth } from '../../context/AuthContext';
 import { cashShiftService } from '../../services/cashShiftService';
 import { commercialService } from '../../services/commercialService';
 import { ConvertQuoteRequest, CreateQuoteRequest, Quote, QuoteOptions } from '../../types/commercial';
+import ExportButtons from '../../components/export/ExportButtons';
+import { ExportReportConfig } from '../../components/export/exportTypes';
+import { loadAllPagesForExport } from '../../utils/pagedExport';
 import './QuoteListPage.css';
 
 type QuoteLine = { productId: string; quantity: string };
@@ -16,6 +19,7 @@ export const QuoteListPage: React.FC = () => {
   const [options, setOptions] = useState<QuoteOptions>({ products: [], customers: [] });
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState({ search: '', status: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -38,6 +42,31 @@ export const QuoteListPage: React.FC = () => {
   const money = useMemo(() => new Intl.NumberFormat(locale, { style: 'currency', currency: 'MXN' }), [locale]);
   const date = useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }), [locale]);
 
+  const exportConfig = useMemo<ExportReportConfig<Quote>>(() => ({
+    moduleName: t('quotesManagement'),
+    title: 'Histórico de Cotizaciones',
+    fileName: 'Cotizaciones',
+    sheetName: 'Cotizaciones',
+    orientation: 'landscape',
+    filters: [
+      { label: 'Búsqueda', value: appliedFilters.search },
+      { label: 'Estado', value: appliedFilters.status || 'Todos' }
+    ],
+    columns: [
+      { key: 'folio', label: 'Cotización', width: 0.9, value: quote => quote.quoteNumber },
+      { key: 'customer', label: 'Cliente', width: 1.5, value: quote => quote.customerDisplayName || t('generalPublic') },
+      { key: 'products', label: 'Productos', type: 'number', width: 0.7, value: quote => quote.items.length },
+      { key: 'created', label: 'Fecha de creación', type: 'datetime', width: 1.15, value: quote => quote.createdAtUtc },
+      { key: 'expiration', label: 'Vencimiento', type: 'date', width: 1, value: quote => quote.expirationDateUtc },
+      { key: 'subtotal', label: 'Subtotal', type: 'currency', width: 0.9, value: quote => quote.subTotal },
+      { key: 'discount', label: 'Descuento', type: 'currency', width: 0.9, value: quote => quote.discountAmount },
+      { key: 'tax', label: 'IVA', type: 'currency', width: 0.8, value: quote => quote.taxAmount },
+      { key: 'total', label: 'Total', type: 'currency', width: 0.9, value: quote => quote.totalAmount },
+      { key: 'status', label: 'Estado', width: 0.8, value: quote => t(quoteStatusKey(quote.status)) },
+      { key: 'user', label: 'Usuario', width: 0.9, value: quote => quote.userUsername || '—' }
+    ]
+  }), [appliedFilters, t]);
+
   const load = async () => {
     try {
       setLoading(true);
@@ -47,6 +76,7 @@ export const QuoteListPage: React.FC = () => {
       ]);
       setQuotes(quoteData);
       setOptions(optionData);
+      setAppliedFilters({ search: search.trim(), status });
     } catch (error) {
       setNotice({ type: 'error', text: errorMessage(error, t('quoteLoadError')) });
     } finally {
@@ -193,7 +223,7 @@ export const QuoteListPage: React.FC = () => {
   };
 
   return <section className="quotes-page">
-    <header className="quotes-header"><div><h1>📑 {t('quotesManagement')}</h1><p>{t('quotesSubtitle')}</p></div><button className="action-btn" onClick={openCreate}>➕ {t('newQuote')}</button></header>
+    <header className="quotes-header"><div><h1>📑 {t('quotesManagement')}</h1><p>{t('quotesSubtitle')}</p></div><div className="quotes-header-actions"><ExportButtons data={quotes} config={exportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => commercialService.getQuotes(appliedFilters.search || undefined, appliedFilters.status || undefined, paging))} /><button className="action-btn" onClick={openCreate}>➕ {t('newQuote')}</button></div></header>
     <form className="quotes-filters" onSubmit={event => { event.preventDefault(); void load(); }}>
       <input className="form-control" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('searchQuotesPlaceholder')} />
       <select className="form-control" value={status} onChange={event => setStatus(event.target.value)}><option value="">{t('allStatuses')}</option><option value="Activa">{t('statusActive')}</option><option value="Convertida">{t('statusConverted')}</option><option value="Expirada">{t('statusExpired')}</option><option value="Cancelada">{t('statusCancelled')}</option></select>

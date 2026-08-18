@@ -343,16 +343,21 @@ public class SaleApplicationService : ISaleApplicationService
         string? status,
         DateTime? startDate,
         DateTime? endDate,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int page = 1,
+        int pageSize = 500)
     {
         ValidateDateRange(startDate, endDate);
         var query = ApplySaleFilters(BuildSaleQuery(), search, status, startDate, endDate);
         if (customerId.HasValue) query = query.Where(sale => sale.ClienteId == customerId.Value);
 
+        var (skip, take) = QueryPaging.Normalize(page, pageSize, 500);
         var sales = await query
             .AsNoTracking()
             .OrderByDescending(sale => sale.FechaCreacionUtc)
-            .Take(500)
+            .ThenByDescending(sale => sale.IdVenta)
+            .Skip(skip)
+            .Take(take)
             .ToListAsync(cancellationToken);
         return sales.Select(MapSaleToDto).ToList();
     }

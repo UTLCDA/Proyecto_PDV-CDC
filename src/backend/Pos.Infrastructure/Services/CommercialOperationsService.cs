@@ -29,7 +29,7 @@ public class CommercialOperationsService : ICommercialOperationsService
         _auditLogService = auditLogService;
     }
 
-    public async Task<List<QuoteDto>> GetQuotesAsync(string? search, string? status, CancellationToken cancellationToken = default)
+    public async Task<List<QuoteDto>> GetQuotesAsync(string? search, string? status, CancellationToken cancellationToken = default, int page = 1, int pageSize = 500)
     {
         var query = BuildQuoteQuery().Where(quote => quote.EstaActivo);
         if (!string.IsNullOrWhiteSpace(status))
@@ -59,9 +59,12 @@ public class CommercialOperationsService : ICommercialOperationsService
                      (quote.Cliente.NombreEmpresa != null && quote.Cliente.NombreEmpresa.ToLower().Contains(term)))));
         }
 
+        var (skip, take) = QueryPaging.Normalize(page, pageSize, 500);
         var quotes = await query.AsNoTracking()
             .OrderByDescending(quote => quote.FechaCreacionUtc)
-            .Take(500)
+            .ThenByDescending(quote => quote.Id)
+            .Skip(skip)
+            .Take(take)
             .ToListAsync(cancellationToken);
         return quotes.Select(MapQuoteToDto).ToList();
     }
@@ -415,7 +418,9 @@ public class CommercialOperationsService : ICommercialOperationsService
         DateTime? startDate,
         DateTime? endDate,
         string? customerId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int page = 1,
+        int pageSize = 500)
     {
         ValidateDateRange(startDate, endDate);
         var normalizedMethod = NormalizeOptionalPaymentMethod(paymentMethod);
@@ -474,9 +479,12 @@ public class CommercialOperationsService : ICommercialOperationsService
         var installments = (await installmentQuery.ToListAsync(cancellationToken))
             .Select(item => MapInstallmentToDto(item, item.Venta));
 
+        var (skip, take) = QueryPaging.Normalize(page, pageSize, 500);
         return initialInstallments.Concat(installments)
             .OrderByDescending(item => item.CreatedAtUtc)
-            .Take(500)
+            .ThenByDescending(item => item.Id)
+            .Skip(skip)
+            .Take(take)
             .ToList();
     }
 
@@ -486,7 +494,9 @@ public class CommercialOperationsService : ICommercialOperationsService
         DateTime? startDate,
         DateTime? endDate,
         string? customerId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int page = 1,
+        int pageSize = 1000)
     {
         ValidateDateRange(startDate, endDate);
         var normalizedMethod = NormalizeOptionalPaymentMethod(paymentMethod);
@@ -540,8 +550,13 @@ public class CommercialOperationsService : ICommercialOperationsService
             "Installment", ReceiptReferences.Create(item.Venta.IdVenta), item.FormaPago, item.MontoAbonado,
             item.Usuario?.NombreUsuario, item.FechaCreacionUtc));
 
+        var (skip, take) = QueryPaging.Normalize(page, pageSize, 1000);
         return initialTransactions.Concat(installmentTransactions)
-            .OrderByDescending(item => item.CreatedAtUtc).Take(1000).ToList();
+            .OrderByDescending(item => item.CreatedAtUtc)
+            .ThenByDescending(item => item.Id)
+            .Skip(skip)
+            .Take(take)
+            .ToList();
     }
 
     public async Task<ReturnHeaderDto> ProcessReturnAsync(
@@ -710,7 +725,9 @@ public class CommercialOperationsService : ICommercialOperationsService
     public async Task<List<ReturnHeaderDto>> GetReturnsAsync(
         int? idVenta,
         Guid? saleId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int page = 1,
+        int pageSize = 500)
     {
         var query = BuildReturnQuery().Where(item => item.EstaActivo);
         if (idVenta.HasValue)
@@ -722,9 +739,12 @@ public class CommercialOperationsService : ICommercialOperationsService
         {
             query = query.Where(item => item.VentaId == saleId.Value);
         }
+        var (skip, take) = QueryPaging.Normalize(page, pageSize, 500);
         var returns = await query.AsNoTracking()
             .OrderByDescending(item => item.FechaCreacionUtc)
-            .Take(500)
+            .ThenByDescending(item => item.Id)
+            .Skip(skip)
+            .Take(take)
             .ToListAsync(cancellationToken);
         return returns.Select(MapReturnToDto).ToList();
     }

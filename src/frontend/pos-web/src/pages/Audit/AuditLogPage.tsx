@@ -1,11 +1,14 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { reportsService } from '../../services/reportsService';
 import { AuditLog } from '../../types/reports';
+import ExportButtons from '../../components/export/ExportButtons';
+import { ExportReportConfig } from '../../components/export/exportTypes';
+import { getOperationalDateInputValue, toOperationalUtcBoundary } from '../../utils/operationalDate';
+import { loadAllPagesForExport } from '../../utils/pagedExport';
 import '../Reports/ReportsDashboardPage.css';
 
-const today = () => new Date().toISOString().slice(0, 10);
-const utcBoundary = (date: string, end = false) => date ? new Date(`${date}T${end ? '23:59:59.999' : '00:00:00'}`).toISOString() : undefined;
+const today = getOperationalDateInputValue;
 
 export const AuditLogPage: React.FC = () => {
   const { t } = useTranslation();
@@ -16,6 +19,7 @@ export const AuditLogPage: React.FC = () => {
   const [action, setAction] = useState('');
   const [correlationId, setCorrelationId] = useState('');
   const [idVenta, setIdVenta] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState(() => ({ startDate: today(), endDate: today(), user: '', action: '', correlationId: '', idVenta: '' }));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
@@ -29,11 +33,12 @@ export const AuditLogPage: React.FC = () => {
     setError('');
     try {
       setLogs(await reportsService.getAuditLogs({
-        startDate: utcBoundary(startDate), endDate: utcBoundary(endDate, true),
+        startDate: toOperationalUtcBoundary(startDate), endDate: toOperationalUtcBoundary(endDate, true),
         user: user.trim() || undefined, action: action.trim() || undefined,
         correlationId: correlationId.trim() || undefined,
         idVenta: idVenta.trim() || undefined
       }));
+      setAppliedFilters({ startDate, endDate, user: user.trim(), action: action.trim(), correlationId: correlationId.trim(), idVenta: idVenta.trim() });
     } catch (loadError) {
       setLogs([]);
       setError(loadError instanceof Error ? loadError.message : t('reportsLoadError'));
@@ -44,18 +49,47 @@ export const AuditLogPage: React.FC = () => {
 
   useEffect(() => { void loadLogs(); }, [loadLogs]);
 
+  const exportConfig = useMemo<ExportReportConfig<AuditLog>>(() => ({
+    moduleName: t('auditTrailExplorer'),
+    title: 'Bitácora Funcional',
+    fileName: 'Bitacora',
+    sheetName: 'Bitacora',
+    orientation: 'landscape',
+    dateRange: { startDate: appliedFilters.startDate, endDate: appliedFilters.endDate },
+    filters: [
+      { label: 'Periodo', value: appliedFilters.startDate && appliedFilters.endDate ? `${appliedFilters.startDate} al ${appliedFilters.endDate}` : appliedFilters.startDate || appliedFilters.endDate },
+      { label: 'Usuario', value: appliedFilters.user },
+      { label: 'Acción', value: appliedFilters.action },
+      { label: 'IdVenta', value: appliedFilters.idVenta },
+      { label: 'Filtro de correlación', value: appliedFilters.correlationId ? 'Aplicado' : '' }
+    ],
+    columns: [
+      { key: 'date', label: 'Fecha', type: 'datetime', width: 1.1, value: log => log.createdAtUtc },
+      { key: 'folio', label: 'Venta', width: 0.8, value: log => log.idVenta ? `Venta #${log.idVenta}` : '—' },
+      { key: 'user', label: 'Usuario', width: 1, value: log => log.userUsername || t('systemUser') },
+      { key: 'action', label: 'Acción', width: 1, value: log => log.action },
+      { key: 'entity', label: 'Entidad', width: 1, value: log => log.entityName },
+      { key: 'reason', label: 'Motivo / Detalle', width: 2.5, value: log => formatAuditNotes(log, `Venta #${log.idVenta}`) }
+    ]
+  }), [appliedFilters, t]);
+
   return <section className="reports-page">
     <article className="card reports-header-card">
       <div><h2>🔍 {t('auditTrailExplorer')}</h2><p>{t('auditExplorerHint')}</p></div>
       <form className="reports-filter-form" onSubmit={event => { event.preventDefault(); void loadLogs(); }}>
-        <label><span>{t('startDate')}</span><input className="input-field" type="date" value={startDate} onChange={event => setStartDate(event.target.value)} /></label>
-        <label><span>{t('endDate')}</span><input className="input-field" type="date" value={endDate} onChange={event => setEndDate(event.target.value)} /></label>
+        <label><span>{t('startDate')}</span><input className="input-field" type="date" max={endDate || undefined} value={startDate} onChange={event => setStartDate(event.target.value)} /></label>
+        <label><span>{t('endDate')}</span><input className="input-field" type="date" min={startDate || undefined} value={endDate} onChange={event => setEndDate(event.target.value)} /></label>
         <input className="input-field" value={user} onChange={event => setUser(event.target.value)} placeholder={t('filterByUser')} />
         <input className="input-field" value={action} onChange={event => setAction(event.target.value)} placeholder={t('filterByAction')} />
         <input className="input-field" type="number" min="1" step="1" value={idVenta} onChange={event => setIdVenta(event.target.value)} placeholder={t('filterBySaleFolio')} />
         <input className="input-field" value={correlationId} onChange={event => setCorrelationId(event.target.value)} placeholder="Correlation ID" />
         <button className="action-btn">🔎 {t('search')}</button>
       </form>
+      <ExportButtons data={logs} config={exportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => reportsService.getAuditLogs({
+        startDate: toOperationalUtcBoundary(appliedFilters.startDate), endDate: toOperationalUtcBoundary(appliedFilters.endDate, true),
+        user: appliedFilters.user || undefined, action: appliedFilters.action || undefined,
+        correlationId: appliedFilters.correlationId || undefined, idVenta: appliedFilters.idVenta || undefined
+      }, paging))} />
     </article>
     {error && <div className="reports-notice reports-notice-error" role="alert">{error}</div>}
     <article className="card">

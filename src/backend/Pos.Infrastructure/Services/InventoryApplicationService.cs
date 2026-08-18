@@ -53,7 +53,7 @@ public class InventoryApplicationService : IInventoryApplicationService
         return stock == null ? null : MapStockToDto(stock);
     }
 
-    public async Task<List<InventoryMovementDto>> GetMovementsAsync(Guid? productId, string? movementType, string? search, DateTime? startDateUtc, DateTime? endDateUtc, CancellationToken cancellationToken = default)
+    public async Task<List<InventoryMovementDto>> GetMovementsAsync(Guid? productId, string? movementType, string? search, DateTime? startDateUtc, DateTime? endDateUtc, CancellationToken cancellationToken = default, int page = 1, int pageSize = 500)
     {
         if (startDateUtc.HasValue && endDateUtc.HasValue && startDateUtc.Value > endDateUtc.Value)
         {
@@ -109,9 +109,12 @@ public class InventoryApplicationService : IInventoryApplicationService
             query = query.Where(m => m.FechaCreacionUtc <= effectiveEndDate);
         }
 
+        var (skip, take) = QueryPaging.Normalize(page, pageSize, 500);
         var movements = await query
             .OrderByDescending(m => m.FechaCreacionUtc)
-            .Take(500)
+            .ThenByDescending(m => m.Id)
+            .Skip(skip)
+            .Take(take)
             .ToListAsync(cancellationToken);
 
         return movements.Select(MapMovementToDto).ToList();

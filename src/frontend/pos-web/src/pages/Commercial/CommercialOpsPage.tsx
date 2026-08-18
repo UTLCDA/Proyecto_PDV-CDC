@@ -8,10 +8,14 @@ import { DocumentTemplate, PaymentInstallment, PaymentTransaction, QuoteOptions,
 import { Venta } from '../../types/tiposVentas';
 import { parseUtcDate } from '../../utils/dateUtils';
 import { paymentReceiptArguments } from '../../utils/receiptUtils';
+import ExportButtons from '../../components/export/ExportButtons';
+import { ExportReportConfig } from '../../components/export/exportTypes';
+import { getOperationalDateInputValue, toOperationalUtcBoundary } from '../../utils/operationalDate';
+import { loadAllPagesForExport } from '../../utils/pagedExport';
 import SaleReceiptModal from '../Sales/SaleReceiptModal';
 import './CommercialOpsPage.css';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = getOperationalDateInputValue;
 type ReturnQuantity = Record<string, string>;
 type CommercialMode = 'installments' | 'returns' | 'contracts' | 'transactions';
 
@@ -36,8 +40,9 @@ export const CommercialOpsPage: React.FC<{ mode?: CommercialMode }> = ({ mode = 
   const [historySearch, setHistorySearch] = useState('');
   const [historyCustomerId, setHistoryCustomerId] = useState('');
   const [historyPaymentMethod, setHistoryPaymentMethod] = useState('');
-  const [historyStartDate, setHistoryStartDate] = useState('');
-  const [historyEndDate, setHistoryEndDate] = useState('');
+  const [historyStartDate, setHistoryStartDate] = useState(today);
+  const [historyEndDate, setHistoryEndDate] = useState(today);
+  const [appliedHistoryFilters, setAppliedHistoryFilters] = useState(() => ({ search: '', customerId: '', paymentMethod: '', startDate: today(), endDate: today() }));
   const [receiptSale, setReceiptSale] = useState<Venta | null>(null);
   const [receiptTargetPaymentId, setReceiptTargetPaymentId] = useState<string | undefined>(undefined);
   const [receiptCutoffDate, setReceiptCutoffDate] = useState<string | undefined>(undefined);
@@ -63,6 +68,73 @@ export const CommercialOpsPage: React.FC<{ mode?: CommercialMode }> = ({ mode = 
   const locale = i18n.language.startsWith('zh') ? 'zh-CN' : 'es-MX';
   const money = useMemo(() => new Intl.NumberFormat(locale, { style: 'currency', currency: 'MXN' }), [locale]);
   const dateTime = useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }), [locale]);
+  const selectedHistoryCustomer = options.customers.find(customer => customer.id === appliedHistoryFilters.customerId)?.displayName;
+  const historyExportFilters = useMemo(() => [
+    { label: 'Periodo', value: appliedHistoryFilters.startDate && appliedHistoryFilters.endDate ? `${appliedHistoryFilters.startDate} al ${appliedHistoryFilters.endDate}` : appliedHistoryFilters.startDate || appliedHistoryFilters.endDate },
+    { label: 'Búsqueda', value: appliedHistoryFilters.search },
+    { label: 'Cliente', value: selectedHistoryCustomer || 'Todos' },
+    { label: 'Método de pago', value: appliedHistoryFilters.paymentMethod ? paymentMethodLabel(appliedHistoryFilters.paymentMethod) : 'Todos' }
+  ], [appliedHistoryFilters, selectedHistoryCustomer]);
+
+  const transactionExportConfig = useMemo<ExportReportConfig<PaymentTransaction>>(() => ({
+    moduleName: t('transactionsModuleTitle'),
+    title: 'Histórico de Transacciones y Movimientos de Pago',
+    fileName: 'Transacciones_Pagos',
+    sheetName: 'Transacciones',
+    orientation: 'landscape',
+    dateRange: { startDate: appliedHistoryFilters.startDate, endDate: appliedHistoryFilters.endDate },
+    filters: historyExportFilters,
+    columns: [
+      { key: 'idVenta', label: 'Id Venta', type: 'number', width: 0.7, value: item => item.idVenta },
+      { key: 'reference', label: 'Recibo / Referencia', width: 1.05, value: item => item.referenceNumber },
+      { key: 'date', label: 'Fecha', type: 'datetime', width: 1.1, value: item => item.createdAtUtc },
+      { key: 'movement', label: 'Movimiento', width: 1.05, value: item => transactionTypeLabel(item.transactionType) },
+      { key: 'paymentMethod', label: 'Método de pago', width: 0.9, value: item => paymentMethodLabel(item.paymentMethod) },
+      { key: 'amount', label: 'Monto pagado', type: 'currency', width: 0.85, value: item => item.amount },
+      { key: 'customer', label: 'Cliente', width: 1.25, value: item => item.customerDisplayName || 'Público General' },
+      { key: 'user', label: 'Usuario', width: 0.85, value: item => item.userUsername || '—' }
+    ]
+  }), [appliedHistoryFilters.endDate, appliedHistoryFilters.startDate, historyExportFilters, t]);
+
+  const installmentExportConfig = useMemo<ExportReportConfig<PaymentInstallment>>(() => ({
+    moduleName: t('installmentsManager'),
+    title: 'Histórico de Abonos a Saldos Pendientes',
+    fileName: 'Abonos',
+    sheetName: 'Abonos',
+    orientation: 'landscape',
+    dateRange: { startDate: appliedHistoryFilters.startDate, endDate: appliedHistoryFilters.endDate },
+    filters: historyExportFilters,
+    columns: [
+      { key: 'idVenta', label: 'Id Venta', type: 'number', width: 0.7, value: item => item.idVenta },
+      { key: 'receipt', label: 'Núm. Recibo', width: 1, value: item => item.receiptNumber },
+      { key: 'date', label: 'Fecha', type: 'datetime', width: 1.1, value: item => item.createdAtUtc },
+      { key: 'paymentMethod', label: 'Método de pago', width: 0.9, value: item => paymentMethodLabel(item.paymentMethod) },
+      { key: 'amount', label: 'Monto pagado', type: 'currency', width: 0.85, value: item => item.amountPaid },
+      { key: 'previousBalance', label: 'Saldo anterior', type: 'currency', width: 0.9, value: item => item.previousPendingBalance },
+      { key: 'newBalance', label: 'Saldo pendiente', type: 'currency', width: 0.9, value: item => item.newPendingBalance },
+      { key: 'user', label: 'Usuario', width: 0.85, value: item => item.userUsername || '—' },
+      { key: 'notes', label: 'Observaciones', width: 1.3, value: item => item.notes || '—' }
+    ]
+  }), [appliedHistoryFilters.endDate, appliedHistoryFilters.startDate, historyExportFilters, t]);
+
+  const returnExportConfig = useMemo<ExportReportConfig<SaleReturn>>(() => ({
+    moduleName: t('returnsModuleTitle'),
+    title: 'Histórico de Devoluciones',
+    fileName: 'Devoluciones',
+    sheetName: 'Devoluciones',
+    orientation: 'landscape',
+    columns: [
+      { key: 'returnNumber', label: 'Núm. Devolución', width: 1, value: item => item.returnNumber },
+      { key: 'idVenta', label: 'Id Venta', type: 'number', width: 0.7, value: item => item.idVenta },
+      { key: 'date', label: 'Fecha', type: 'datetime', width: 1.1, value: item => item.createdAtUtc },
+      { key: 'refundMethod', label: 'Método de reembolso', width: 1, value: item => t(refundMethodKey(item.refundMethod)) },
+      { key: 'total', label: 'Total devolución', type: 'currency', width: 0.9, value: item => item.totalRefundAmount },
+      { key: 'appliedBalance', label: 'Aplicado a saldo', type: 'currency', width: 0.9, value: item => item.appliedToPendingBalance },
+      { key: 'refunded', label: 'Monto reembolsado', type: 'currency', width: 0.9, value: item => item.refundedAmount },
+      { key: 'status', label: 'Estado', width: 0.75, value: item => item.status },
+      { key: 'reason', label: 'Motivo', width: 1.4, value: item => item.reason }
+    ]
+  }), [t]);
 
   const load = async () => {
     try {
@@ -81,15 +153,18 @@ export const CommercialOpsPage: React.FC<{ mode?: CommercialMode }> = ({ mode = 
       setOptions(quoteOptions);
       if (showInstallments) {
         setInstallmentHistory(await commercialService.getInstallmentHistory({
-          startDate: historyStartDate ? `${historyStartDate}T00:00:00.000` : undefined,
-          endDate: historyEndDate ? `${historyEndDate}T23:59:59.999` : undefined
+          startDate: toOperationalUtcBoundary(historyStartDate),
+          endDate: toOperationalUtcBoundary(historyEndDate, true)
         }));
       }
       if (showTransactions) {
         setTransactionHistory(await commercialService.getPaymentTransactions({
-          startDate: historyStartDate ? `${historyStartDate}T00:00:00.000` : undefined,
-          endDate: historyEndDate ? `${historyEndDate}T23:59:59.999` : undefined
+          startDate: toOperationalUtcBoundary(historyStartDate),
+          endDate: toOperationalUtcBoundary(historyEndDate, true)
         }));
+      }
+      if (showInstallments || showTransactions) {
+        setAppliedHistoryFilters({ search: '', customerId: '', paymentMethod: '', startDate: historyStartDate, endDate: historyEndDate });
       }
       if (selectedTemplateId) {
         const refreshed = documentTemplates.find(template => template.id === selectedTemplateId);
@@ -168,41 +243,47 @@ export const CommercialOpsPage: React.FC<{ mode?: CommercialMode }> = ({ mode = 
 
   const filterInstallmentHistory = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (historyStartDate && historyEndDate && historyStartDate > historyEndDate) {
+      setNotice({ type: 'error', text: t('invalidReportDateRange') });
+      return;
+    }
     try {
+      const filters = {
+        search: historySearch.trim() || undefined,
+        customerId: historyCustomerId || undefined,
+        paymentMethod: historyPaymentMethod || undefined,
+        startDate: toOperationalUtcBoundary(historyStartDate),
+        endDate: toOperationalUtcBoundary(historyEndDate, true)
+      };
       if (showTransactions) {
-        setTransactionHistory(await commercialService.getPaymentTransactions({
-          search: historySearch.trim() || undefined,
-          customerId: historyCustomerId || undefined,
-          paymentMethod: historyPaymentMethod || undefined,
-          startDate: historyStartDate ? `${historyStartDate}T00:00:00.000` : undefined,
-          endDate: historyEndDate ? `${historyEndDate}T23:59:59.999` : undefined
-        }));
+        setTransactionHistory(await commercialService.getPaymentTransactions(filters));
       } else {
-        setInstallmentHistory(await commercialService.getInstallmentHistory({
-          search: historySearch.trim() || undefined,
-          customerId: historyCustomerId || undefined,
-          paymentMethod: historyPaymentMethod || undefined,
-          startDate: historyStartDate ? `${historyStartDate}T00:00:00.000` : undefined,
-          endDate: historyEndDate ? `${historyEndDate}T23:59:59.999` : undefined
-        }));
+        setInstallmentHistory(await commercialService.getInstallmentHistory(filters));
       }
+      setAppliedHistoryFilters({ search: historySearch.trim(), customerId: historyCustomerId, paymentMethod: historyPaymentMethod, startDate: historyStartDate, endDate: historyEndDate });
     } catch (error) {
       setNotice({ type: 'error', text: errorMessage(error, t('installmentLoadError')) });
     }
   };
 
   const clearHistoryFilters = async () => {
+    const operationalToday = today();
     setHistorySearch('');
     setHistoryCustomerId('');
     setHistoryPaymentMethod('');
-    setHistoryStartDate('');
-    setHistoryEndDate('');
+    setHistoryStartDate(operationalToday);
+    setHistoryEndDate(operationalToday);
+    const currentDayFilter = {
+      startDate: toOperationalUtcBoundary(operationalToday),
+      endDate: toOperationalUtcBoundary(operationalToday, true)
+    };
     try {
       if (showTransactions) {
-        setTransactionHistory(await commercialService.getPaymentTransactions());
+        setTransactionHistory(await commercialService.getPaymentTransactions(currentDayFilter));
       } else {
-        setInstallmentHistory(await commercialService.getInstallmentHistory());
+        setInstallmentHistory(await commercialService.getInstallmentHistory(currentDayFilter));
       }
+      setAppliedHistoryFilters({ search: '', customerId: '', paymentMethod: '', startDate: operationalToday, endDate: operationalToday });
     } catch (error) {
       setNotice({ type: 'error', text: errorMessage(error, t('installmentLoadError')) });
     }
@@ -305,7 +386,13 @@ El comprador declara estar conforme con las cantidades, colores y especificacion
 
     <div className="commercial-grid">
       {showTransactions && <article className="commercial-card commercial-contracts" style={{ gridColumn: '1 / -1' }}>
-        <header><div><h2>💳 {t('transactionsModuleTitle')}</h2><p>{t('transactionsModuleSubtitle')}</p></div><strong>{transactionHistory.length}</strong></header>
+        <header><div><h2>💳 {t('transactionsModuleTitle')}</h2><p>{t('transactionsModuleSubtitle')}</p></div><div className="commercial-section-actions"><ExportButtons data={transactionHistory} config={transactionExportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => commercialService.getPaymentTransactions({
+          search: appliedHistoryFilters.search || undefined,
+          customerId: appliedHistoryFilters.customerId || undefined,
+          paymentMethod: appliedHistoryFilters.paymentMethod || undefined,
+          startDate: toOperationalUtcBoundary(appliedHistoryFilters.startDate),
+          endDate: toOperationalUtcBoundary(appliedHistoryFilters.endDate, true)
+        }, paging))} /></div></header>
         <form className="commercial-history-filters" onSubmit={filterInstallmentHistory} style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <input value={historySearch} onChange={event => setHistorySearch(event.target.value)} placeholder={t('searchInstallments')} />
           <select value={historyCustomerId} onChange={event => setHistoryCustomerId(event.target.value)}>
@@ -318,8 +405,8 @@ El comprador declara estar conforme con las cantidades, colores y especificacion
             <option value="Card">💳 {t('card')}</option>
             <option value="Transfer">🏦 {t('transfer')}</option>
           </select>
-          <label style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem', fontWeight: 600 }}><span>{t('startDate')}</span><input type="date" value={historyStartDate} onChange={event => setHistoryStartDate(event.target.value)} /></label>
-          <label style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem', fontWeight: 600 }}><span>{t('endDate')}</span><input type="date" value={historyEndDate} onChange={event => setHistoryEndDate(event.target.value)} /></label>
+          <label style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem', fontWeight: 600 }}><span>{t('startDate')}</span><input type="date" max={historyEndDate || undefined} value={historyStartDate} onChange={event => setHistoryStartDate(event.target.value)} /></label>
+          <label style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem', fontWeight: 600 }}><span>{t('endDate')}</span><input type="date" min={historyStartDate || undefined} value={historyEndDate} onChange={event => setHistoryEndDate(event.target.value)} /></label>
           <button className="lang-btn">🔎 {t('search')}</button>
           <button type="button" className="lang-btn" onClick={() => void clearHistoryFilters()}>{t('clearFilters')}</button>
         </form>
@@ -406,7 +493,13 @@ El comprador declara estar conforme con las cantidades, colores y especificacion
           ))}
         </div>}
         <div className="commercial-global-history">
-          <h3>{showTransactions ? '💳 Histórico de Transacciones y Movimientos de Pago' : t('globalInstallmentHistory')}</h3>
+          <div className="commercial-section-heading"><h3>{showTransactions ? '💳 Histórico de Transacciones y Movimientos de Pago' : t('globalInstallmentHistory')}</h3><ExportButtons data={installmentHistory} config={installmentExportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => commercialService.getInstallmentHistory({
+            search: appliedHistoryFilters.search || undefined,
+            customerId: appliedHistoryFilters.customerId || undefined,
+            paymentMethod: appliedHistoryFilters.paymentMethod || undefined,
+            startDate: toOperationalUtcBoundary(appliedHistoryFilters.startDate),
+            endDate: toOperationalUtcBoundary(appliedHistoryFilters.endDate, true)
+          }, paging))} /></div>
           <form className="commercial-history-filters" onSubmit={filterInstallmentHistory} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <input value={historySearch} onChange={event => setHistorySearch(event.target.value)} placeholder={t('searchInstallments')} />
             <select value={historyCustomerId} onChange={event => setHistoryCustomerId(event.target.value)}>
@@ -419,8 +512,8 @@ El comprador declara estar conforme con las cantidades, colores y especificacion
               <option value="Card">💳 {t('card')}</option>
               <option value="Transfer">🏦 {t('transfer')}</option>
             </select>
-            <label style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem', fontWeight: 600 }}><span>{t('startDate')}</span><input type="date" value={historyStartDate} onChange={event => setHistoryStartDate(event.target.value)} /></label>
-            <label style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem', fontWeight: 600 }}><span>{t('endDate')}</span><input type="date" value={historyEndDate} onChange={event => setHistoryEndDate(event.target.value)} /></label>
+            <label style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem', fontWeight: 600 }}><span>{t('startDate')}</span><input type="date" max={historyEndDate || undefined} value={historyStartDate} onChange={event => setHistoryStartDate(event.target.value)} /></label>
+            <label style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem', fontWeight: 600 }}><span>{t('endDate')}</span><input type="date" min={historyStartDate || undefined} value={historyEndDate} onChange={event => setHistoryEndDate(event.target.value)} /></label>
             <button className="lang-btn">🔎 {t('search')}</button>
             <button type="button" className="lang-btn" onClick={() => void clearHistoryFilters()}>{t('clearFilters')}</button>
           </form>
@@ -514,7 +607,7 @@ El comprador declara estar conforme con las cantidades, colores y especificacion
         </div>
       </article>}
 
-      {showReturns && <article className="commercial-card"><header><div><h2>↩️ {t('returnHistory')}</h2><p>{t('returnHistoryHint')}</p></div><strong>{returns.length}</strong></header>{returns.length === 0 ? <div className="commercial-empty">{t('noReturns')}</div> : <div className="commercial-history-table-wrap" style={{ overflowX: 'auto', marginTop: '12px' }}>
+      {showReturns && <article className="commercial-card"><header><div><h2>↩️ {t('returnHistory')}</h2><p>{t('returnHistoryHint')}</p></div><div className="commercial-section-actions"><strong>{returns.length}</strong><ExportButtons data={returns} config={returnExportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => commercialService.getReturns(undefined, paging))} /></div></header>{returns.length === 0 ? <div className="commercial-empty">{t('noReturns')}</div> : <div className="commercial-history-table-wrap" style={{ overflowX: 'auto', marginTop: '12px' }}>
         <table className="customers-table" style={{ width: '100%' }}>
           <thead>
             <tr>
@@ -597,7 +690,8 @@ El comprador declara estar conforme con las cantidades, colores y especificacion
 const Modal: React.FC<{ title: string; onClose: () => void; children: React.ReactNode }> = ({ title, onClose, children }) => <div className="commercial-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}><div className="commercial-modal" role="dialog" aria-modal="true"><header><h2>{title}</h2><button aria-label="Cerrar" onClick={onClose}>×</button></header>{children}</div></div>;
 const errorMessage = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
 const refundMethodKey = (method: string) => ({ Cash: 'cash', Card: 'card', Transfer: 'transfer', StoreCredit: 'storeCredit' } as Record<string, string>)[method] ?? method;
-const paymentMethodKey = (method: string) => ({ Cash: 'cash', Card: 'card', Transfer: 'transfer' } as Record<string, string>)[method] ?? method;
+const paymentMethodLabel = (method: string) => ({ Cash: 'Efectivo', Card: 'Tarjeta', Transfer: 'SPEI', StoreCredit: 'Crédito en tienda' } as Record<string, string>)[method] ?? method;
+const transactionTypeLabel = (type: string) => ({ Advance: 'Anticipo inicial', Sale: 'Pago de venta', Installment: 'Abono a saldo' } as Record<string, string>)[type] ?? type;
 const templateCategoryKey = (category: string) => ({ ContratoVenta: 'saleContract', ContratoApartado: 'depositContract', ReciboAbono: 'installmentReceipt' } as Record<string, string>)[category] ?? category;
 const renderTemplate = (content: string, sale?: Venta) => {
   const currency = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });

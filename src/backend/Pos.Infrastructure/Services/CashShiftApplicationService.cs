@@ -286,11 +286,14 @@ public class CashShiftApplicationService : ICashShiftApplicationService
         return MapShiftToDto(await ReloadShiftAsync(shift.Id, cancellationToken));
     }
 
-    public async Task<List<CashShiftDto>> GetShiftHistoryAsync(CancellationToken cancellationToken = default)
+    public async Task<List<CashShiftDto>> GetShiftHistoryAsync(CancellationToken cancellationToken = default, int page = 1, int pageSize = 100)
     {
+        var (skip, take) = QueryPaging.Normalize(page, pageSize, 100);
         var shifts = await BuildShiftQuery(asNoTracking: false)
             .OrderByDescending(shift => shift.FechaAperturaUtc)
-            .Take(100)
+            .ThenByDescending(shift => shift.Id)
+            .Skip(skip)
+            .Take(take)
             .ToListAsync(cancellationToken);
 
         foreach (var shift in shifts.Where(s => s.Estado == CashShiftStatuses.Open))
@@ -301,7 +304,7 @@ public class CashShiftApplicationService : ICashShiftApplicationService
         return shifts.Select(MapShiftToDto).ToList();
     }
 
-    public async Task<List<CashGeneralMovementDto>> GetGeneralMovementsAsync(CancellationToken cancellationToken = default)
+    public async Task<List<CashGeneralMovementDto>> GetGeneralMovementsAsync(CancellationToken cancellationToken = default, int page = 1, int pageSize = 250)
     {
         var shift = await _dbContext.CashShifts
             .AsNoTracking()
@@ -394,12 +397,15 @@ public class CashShiftApplicationService : ICashShiftApplicationService
                 item.FechaCreacionUtc))
             .ToListAsync(cancellationToken);
 
+        var (skip, take) = QueryPaging.Normalize(page, pageSize, 250);
         return cashTransactions
             .Concat(sales)
             .Concat(installments)
             .Concat(refunds)
             .OrderByDescending(item => item.CreatedAtUtc)
-            .Take(250)
+            .ThenByDescending(item => item.Id)
+            .Skip(skip)
+            .Take(take)
             .ToList();
     }
 

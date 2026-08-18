@@ -3,21 +3,19 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { permissionCodes } from '../../security/accessControl';
 import { reportsService } from '../../services/reportsService';
-import { InventorySummaryReport, SalesSummaryReport, TopProductReport } from '../../types/reports';
+import { InventorySummaryReport, LowStockProductReport, SalesSummaryReport, TopProductReport } from '../../types/reports';
+import ExportButtons from '../../components/export/ExportButtons';
+import { ExportReportConfig } from '../../components/export/exportTypes';
+import { getOperationalDateInputValue, toOperationalUtcBoundary } from '../../utils/operationalDate';
 import './ReportsDashboardPage.css';
 
 const hasPermission = (permissions: readonly string[], permission: string) =>
   permissions.some(item => item.toLowerCase() === permission.toLowerCase());
 
-const toUtcBoundary = (date: string, endOfDay = false) => {
-  if (!date) return undefined;
-  return `${date}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}`;
-};
-
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
 
-const currentDate = () => new Date().toISOString().slice(0, 10);
+const currentDate = getOperationalDateInputValue;
 
 export const ReportsDashboardPage: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -30,6 +28,8 @@ export const ReportsDashboardPage: React.FC = () => {
   const [inventorySummary, setInventorySummary] = useState<InventorySummaryReport | null>(null);
   const [startDate, setStartDate] = useState(currentDate);
   const [endDate, setEndDate] = useState(currentDate);
+  const [appliedStartDate, setAppliedStartDate] = useState(currentDate);
+  const [appliedEndDate, setAppliedEndDate] = useState(currentDate);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -43,6 +43,87 @@ export const ReportsDashboardPage: React.FC = () => {
     { maximumFractionDigits: 2 }
   ), [i18n.language]);
 
+  const reportDateRange = useMemo(() => ({ startDate: appliedStartDate, endDate: appliedEndDate }), [appliedEndDate, appliedStartDate]);
+  const reportFilters = useMemo(() => [{ label: 'Periodo', value: `${appliedStartDate} al ${appliedEndDate}` }], [appliedEndDate, appliedStartDate]);
+  const summaryRows = useMemo(() => summary ? [summary] : [], [summary]);
+  const inventoryRows = useMemo(() => inventorySummary ? [inventorySummary] : [], [inventorySummary]);
+
+  const summaryExportConfig = useMemo<ExportReportConfig<SalesSummaryReport>>(() => ({
+    moduleName: t('reportsDashboardTitle'),
+    title: 'Resumen de Ventas',
+    fileName: 'Resumen_Ventas',
+    sheetName: 'ResumenVentas',
+    orientation: 'landscape',
+    dateRange: reportDateRange,
+    filters: reportFilters,
+    columns: [
+      { key: 'count', label: 'Ventas', type: 'number', width: 0.65, value: row => row.totalSalesCount },
+      { key: 'gross', label: 'Venta bruta', type: 'currency', width: 0.9, value: row => row.totalSalesAmount },
+      { key: 'returns', label: 'Devoluciones', type: 'currency', width: 0.9, value: row => row.totalReturnedAmount },
+      { key: 'net', label: 'Venta neta', type: 'currency', width: 0.9, value: row => row.netSalesAmount },
+      { key: 'tax', label: 'Impuestos', type: 'currency', width: 0.85, value: row => row.totalTaxAmount },
+      { key: 'discount', label: 'Descuentos', type: 'currency', width: 0.85, value: row => row.totalDiscountAmount },
+      { key: 'ticket', label: 'Ticket promedio', type: 'currency', width: 0.9, value: row => row.averageTicketAmount },
+      { key: 'cash', label: 'Efectivo', type: 'currency', width: 0.8, value: row => row.totalCashIncome },
+      { key: 'card', label: 'Tarjeta', type: 'currency', width: 0.8, value: row => row.totalCardIncome },
+      { key: 'transfer', label: 'Transferencia', type: 'currency', width: 0.85, value: row => row.totalTransferIncome }
+    ]
+  }), [reportDateRange, reportFilters, t]);
+
+  const productsExportConfig = useMemo<ExportReportConfig<TopProductReport>>(() => ({
+    moduleName: t('reportsDashboardTitle'),
+    title: 'Productos Más Vendidos',
+    fileName: 'Productos_Mas_Vendidos',
+    sheetName: 'ProductosVendidos',
+    orientation: 'landscape',
+    dateRange: reportDateRange,
+    filters: reportFilters,
+    columns: [
+      { key: 'sku', label: 'SKU', width: 0.8, value: row => row.sku },
+      { key: 'product', label: 'Producto', width: 1.5, value: row => row.productName },
+      { key: 'category', label: 'Categoría', width: 1, value: row => row.categoryName },
+      { key: 'sold', label: 'Cantidad vendida', type: 'number', width: 0.8, value: row => row.totalQuantitySold },
+      { key: 'returned', label: 'Cantidad devuelta', type: 'number', width: 0.8, value: row => row.totalQuantityReturned },
+      { key: 'netQuantity', label: 'Cantidad neta', type: 'number', width: 0.75, value: row => row.netQuantitySold },
+      { key: 'revenue', label: 'Ingreso bruto', type: 'currency', width: 0.85, value: row => row.totalRevenue },
+      { key: 'returnedAmount', label: 'Monto devuelto', type: 'currency', width: 0.85, value: row => row.totalReturnedAmount },
+      { key: 'netRevenue', label: 'Ingreso neto', type: 'currency', width: 0.85, value: row => row.netRevenue }
+    ]
+  }), [reportDateRange, reportFilters, t]);
+
+  const inventorySummaryExportConfig = useMemo<ExportReportConfig<InventorySummaryReport>>(() => ({
+    moduleName: t('inventoryReportTitle'),
+    title: 'Resumen de Inventario',
+    fileName: 'Resumen_Inventario',
+    sheetName: 'ResumenInventario',
+    orientation: 'landscape',
+    columns: [
+      { key: 'products', label: 'Productos activos', type: 'number', width: 0.9, value: row => row.totalProducts },
+      { key: 'units', label: 'Unidades existentes', type: 'number', width: 0.95, value: row => row.totalUnitsOnHand },
+      { key: 'lowStock', label: 'Stock bajo', type: 'number', width: 0.75, value: row => row.lowStockProducts },
+      { key: 'outOfStock', label: 'Sin existencia', type: 'number', width: 0.8, value: row => row.outOfStockProducts },
+      { key: 'value', label: 'Valor de inventario', type: 'currency', width: 1, value: row => row.inventoryRetailValue },
+      { key: 'reorder', label: 'Reorden sugerido', type: 'number', width: 0.9, value: row => row.suggestedReorderUnits }
+    ]
+  }), [t]);
+
+  const lowStockExportConfig = useMemo<ExportReportConfig<LowStockProductReport>>(() => ({
+    moduleName: t('inventoryReportTitle'),
+    title: 'Productos con Existencia Baja',
+    fileName: 'Inventario_Stock_Bajo',
+    sheetName: 'StockBajo',
+    orientation: 'landscape',
+    columns: [
+      { key: 'sku', label: 'SKU', width: 0.8, value: row => row.sku },
+      { key: 'product', label: 'Producto', width: 1.6, value: row => row.productName },
+      { key: 'stock', label: 'Existencia', type: 'number', width: 0.75, value: row => row.quantityOnHand },
+      { key: 'threshold', label: 'Mínimo', type: 'number', width: 0.7, value: row => row.minimumAlertThreshold },
+      { key: 'reorder', label: 'Reorden sugerido', type: 'number', width: 0.85, value: row => row.suggestedReorderQuantity },
+      { key: 'unit', label: 'Unidad', width: 0.7, value: row => row.unitOfMeasure },
+      { key: 'status', label: 'Estado', width: 0.8, value: row => row.isOutOfStock ? 'Sin existencia' : 'Stock bajo' }
+    ]
+  }), [t]);
+
   const loadDashboard = async () => {
     if (startDate && endDate && startDate > endDate) {
       setError(t('invalidReportDateRange'));
@@ -52,8 +133,8 @@ export const ReportsDashboardPage: React.FC = () => {
     setLoading(true);
     setError('');
     const dateFilters = {
-      startDate: toUtcBoundary(startDate),
-      endDate: toUtcBoundary(endDate, true)
+      startDate: toOperationalUtcBoundary(startDate),
+      endDate: toOperationalUtcBoundary(endDate, true)
     };
 
     try {
@@ -65,6 +146,8 @@ export const ReportsDashboardPage: React.FC = () => {
       setSummary(salesData);
       setTopProducts(productsData);
       setInventorySummary(stockData);
+      setAppliedStartDate(startDate);
+      setAppliedEndDate(endDate);
     } catch (loadError) {
       setSummary(null);
       setTopProducts([]);
@@ -98,11 +181,11 @@ export const ReportsDashboardPage: React.FC = () => {
         <form className="reports-filter-form" onSubmit={(event) => { event.preventDefault(); void loadDashboard(); }}>
           <label>
             <span>{t('startDate')}</span>
-            <input className="input-field" type="date" value={startDate} onChange={event => setStartDate(event.target.value)} />
+            <input className="input-field" type="date" max={endDate || undefined} value={startDate} onChange={event => setStartDate(event.target.value)} />
           </label>
           <label>
             <span>{t('endDate')}</span>
-            <input className="input-field" type="date" value={endDate} onChange={event => setEndDate(event.target.value)} />
+            <input className="input-field" type="date" min={startDate || undefined} value={endDate} onChange={event => setEndDate(event.target.value)} />
           </label>
           <button type="submit" className="action-btn">🔎 {t('applyFilters')}</button>
           <button type="button" className="lang-btn" onClick={clearFilters}>{t('clearFilters')}</button>
@@ -140,6 +223,8 @@ export const ReportsDashboardPage: React.FC = () => {
             </article>
           </section>
 
+          <div className="reports-export-row"><ExportButtons data={summaryRows} config={summaryExportConfig} /></div>
+
           <section className="card">
             <h3>💳 {t('collectionsByMethod')}</h3>
             <div className="reports-payment-grid">
@@ -151,7 +236,7 @@ export const ReportsDashboardPage: React.FC = () => {
           </section>
 
           <section className="card">
-            <h3>🏆 {t('topSellingProducts')}</h3>
+            <div className="reports-section-heading"><h3>🏆 {t('topSellingProducts')}</h3><ExportButtons data={topProducts} config={productsExportConfig} /></div>
             {topProducts.length === 0 ? (
               <p className="reports-empty">{t('noSalesInPeriod')}</p>
             ) : (
@@ -188,7 +273,7 @@ export const ReportsDashboardPage: React.FC = () => {
 
       {canViewInventory && inventorySummary && (
         <section className="card">
-          <h3>🏭 {t('inventoryReportTitle')}</h3>
+          <div className="reports-section-heading"><h3>🏭 {t('inventoryReportTitle')}</h3><ExportButtons data={inventoryRows} config={inventorySummaryExportConfig} /></div>
           <div className="reports-inventory-grid">
             <div><span>{t('activeProducts')}</span><strong>{inventorySummary.totalProducts}</strong></div>
             <div><span>{t('totalUnitsOnHand')}</span><strong>{numberFormatter.format(inventorySummary.totalUnitsOnHand)}</strong></div>
@@ -197,7 +282,7 @@ export const ReportsDashboardPage: React.FC = () => {
             <div><span>{t('inventoryRetailValue')}</span><strong>{currencyFormatter.format(inventorySummary.inventoryRetailValue)}</strong></div>
             <div><span>{t('suggestedReorderUnits')}</span><strong>{numberFormatter.format(inventorySummary.suggestedReorderUnits)}</strong></div>
           </div>
-          <h4 className="reports-low-stock-title">⚠️ {t('lowStockProductDetail')}</h4>
+          <div className="reports-section-heading reports-low-stock-title"><h4>⚠️ {t('lowStockProductDetail')}</h4><ExportButtons data={inventorySummary.lowStockProductList} config={lowStockExportConfig} /></div>
           {inventorySummary.lowStockProductList.length === 0 ? <p className="reports-empty">{t('noLowStockProducts')}</p> : <div className="reports-table-wrap">
             <table className="reports-table"><thead><tr><th>SKU / {t('productCatalog')}</th><th>{t('stockOnHand')}</th><th>{t('minThreshold')}</th><th>{t('suggestedReorderUnits')}</th><th>{t('stockStatus')}</th></tr></thead>
               <tbody>{inventorySummary.lowStockProductList.map(product => <tr key={product.productId}>

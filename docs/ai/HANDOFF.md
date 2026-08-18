@@ -1,5 +1,31 @@
 # HANDOFF — Liberación Oficial Versión 2.0.0 (Sistema PDV e Inventario WPC Bajío)
 
+## Refinamiento visual posterior a exportaciones (2026-08-17)
+
+- El filtro de Movimientos de Inventario ya no presenta dos fechas anónimas: incorpora un bloque visual de periodo con etiquetas explícitas, límites cruzados y apilado móvil.
+- Histórico de Ventas ahora presenta título/exportaciones en una fila estable y filtros en una segunda fila responsive.
+- Se retiró el contador numérico aislado del encabezado de Histórico de Transacciones porque no explicaba su significado.
+- Directorio de Clientes dejó de comprimir cuatro grupos de acciones en 520 px; buscador, estado, alta y exportaciones usan un grid adaptable.
+- Los errores al crear/editar usuarios se muestran dentro del modal, no detrás del overlay.
+- La contraseña cuenta con indicadores en tiempo real para longitud, mayúscula, minúscula, número y símbolo; requisitos cumplidos aparecen en verde y el guardado se habilita sólo cuando la política coincide con backend.
+- Nueva prueba `passwordValidation.test.ts`, incluyendo caracteres Unicode conforme a `char.IsUpper`/`char.IsLower` del servicio .NET.
+- Validación: frontend Vitest **21/21**, build Vite correcto (260 módulos); backend xUnit **67/67** y build Release **0 advertencias / 0 errores**.
+- La entrega y sus refinamientos visuales fueron aprobados por el desarrollador responsable, quien autorizó su publicación en GitHub.
+
+## Iteración completada en código (2026-08-17): exportación administrativa PDF/XLSX
+
+- Rama aislada `codex/exportacion-pdf-excel`, creada desde `fase-1.1` (`5299f93`) antes de implementar.
+- `ExportButtons` concentra los estados de PDF/Excel, bloqueo sin datos, carga, errores y descarga; cada módulo aporta solamente configuración tipada y acceso al conjunto filtrado.
+- PDF mediante `@react-pdf/renderer`: logo oficial, encabezado, módulo, fecha, filtros aplicados, tabla administrativa con encabezados repetidos, orientación configurable y páginas numeradas.
+- XLSX mediante `ExcelJS`: valores numéricos/fechas reales, moneda/porcentaje, autofiltro, encabezado congelado, anchos, wrapping, bordes y paleta WPC Bajío.
+- Integrado en ventas, clientes, productos, existencias, movimientos de inventario, cotizaciones, abonos, pagos/transacciones, devoluciones, caja, reportes, usuarios, roles y auditoría.
+- Los endpoints existentes aceptan opcionalmente `page` y `pageSize`. La SPA recupera lotes de 500 con los filtros y permisos vigentes; no exporta sólo la página visible ni realiza una petición gigante.
+- Día operativo calculado con `America/Mexico_City`; los archivos reflejan los últimos filtros realmente consultados.
+- Se excluyen acciones UI, GUID técnicos, claims, códigos de permisos, tokens, imágenes Base64 y demás datos no funcionales.
+- Sin cambios de esquema/migraciones SQL, PK/FK, generación de `IdVenta` ni reglas comerciales.
+- Validación acumulada previa al cierre: xUnit **67/67**, Vitest **21/21**, builds Release/Vite correctos y dependencias de producción sin vulnerabilidades.
+- Diseño y matriz de módulos: `docs/ai/EXPORTACION_PDF_EXCEL.md`. Descripción de entrega: `docs/ai/PR_EXPORTACION_PDF_EXCEL.md`.
+
 ## Corrección completada (2026-08-17): comprobante histórico por movimiento seleccionado
 
 - Causa raíz: la tabla dedicada de **Histórico de Transacciones y Movimientos de Pago** abría el comprobante enviando únicamente `IdVenta`, aunque las demás tablas ya enviaban también el identificador y la fecha del pago. Por ello el modal mostraba el estado final de la venta en vez de la fotografía del movimiento seleccionado.

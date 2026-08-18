@@ -83,13 +83,15 @@ public class PaymentsController : ControllerBase
         [FromQuery] DateTime? startDateUtc,
         [FromQuery] DateTime? endDateUtc,
         [FromQuery] string? customerId,
-        CancellationToken cancellationToken)
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 500,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             var effectiveStart = startDate ?? startDateUtc;
             var effectiveEnd = endDate ?? endDateUtc;
-            return Ok(await _commercialService.GetInstallmentHistoryAsync(search, paymentMethod, effectiveStart, effectiveEnd, customerId, cancellationToken));
+            return Ok(await _commercialService.GetInstallmentHistoryAsync(search, paymentMethod, effectiveStart, effectiveEnd, customerId, cancellationToken, page, pageSize));
         }
         catch (ArgumentException ex)
         {
@@ -107,13 +109,15 @@ public class PaymentsController : ControllerBase
         [FromQuery] DateTime? startDateUtc,
         [FromQuery] DateTime? endDateUtc,
         [FromQuery] string? customerId,
-        CancellationToken cancellationToken)
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 1000,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             var effectiveStart = startDate ?? startDateUtc;
             var effectiveEnd = endDate ?? endDateUtc;
-            return Ok(await _commercialService.GetPaymentTransactionsAsync(search, paymentMethod, effectiveStart, effectiveEnd, customerId, cancellationToken));
+            return Ok(await _commercialService.GetPaymentTransactionsAsync(search, paymentMethod, effectiveStart, effectiveEnd, customerId, cancellationToken, page, pageSize));
         }
         catch (ArgumentException ex)
         {

@@ -29,13 +29,15 @@ public class SalesController : ControllerBase
         [FromQuery] DateTime? endDate,
         [FromQuery] DateTime? startDateUtc,
         [FromQuery] DateTime? endDateUtc,
-        CancellationToken cancellationToken)
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 500,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             var effectiveStart = startDate ?? startDateUtc;
             var effectiveEnd = endDate ?? endDateUtc;
-            return Ok(await _saleService.GetSalesAsync(search, customerId, status, effectiveStart, effectiveEnd, cancellationToken));
+            return Ok(await _saleService.GetSalesAsync(search, customerId, status, effectiveStart, effectiveEnd, cancellationToken, page, pageSize));
         }
         catch (ArgumentException ex)
         {

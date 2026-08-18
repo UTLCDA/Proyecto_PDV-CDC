@@ -4,11 +4,14 @@ import { servicioCatalogo } from '../../services/servicioCatalogo';
 import { servicioVentas } from '../../services/servicioVentas';
 import { Cliente } from '../../types/tiposCatalogo';
 import { ResumenVentas, Venta } from '../../types/tiposVentas';
+import ExportButtons from '../../components/export/ExportButtons';
+import { ExportReportConfig } from '../../components/export/exportTypes';
+import { getOperationalDateInputValue, toOperationalUtcBoundary } from '../../utils/operationalDate';
+import { loadAllPagesForExport } from '../../utils/pagedExport';
 import SaleReceiptModal from './SaleReceiptModal';
 import './SalesHistoryPage.css';
 
-const today = () => new Date().toISOString().slice(0, 10);
-const boundary = (date: string, end = false) => date ? `${date}T${end ? '23:59:59.999' : '00:00:00.000'}` : undefined;
+const today = getOperationalDateInputValue;
 
 export const SalesHistoryPage: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -19,6 +22,7 @@ export const SalesHistoryPage: React.FC = () => {
   const [status, setStatus] = useState('');
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
+  const [appliedFilters, setAppliedFilters] = useState(() => ({ search: '', customerId: '', status: '', startDate: today(), endDate: today() }));
   const [receipt, setReceipt] = useState<Venta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,14 +30,19 @@ export const SalesHistoryPage: React.FC = () => {
   const money = useMemo(() => new Intl.NumberFormat(locale, { style: 'currency', currency: 'MXN' }), [locale]);
 
   const loadSales = useCallback(async () => {
+    if (startDate && endDate && startDate > endDate) {
+      setError(t('invalidReportDateRange'));
+      return;
+    }
     setLoading(true); setError('');
-    const start = boundary(startDate); const end = boundary(endDate, true);
+    const start = toOperationalUtcBoundary(startDate); const end = toOperationalUtcBoundary(endDate, true);
     try {
       const [salesData, customerData] = await Promise.all([
         servicioVentas.getSales(search.trim() || undefined, customerId || undefined, status || undefined, start, end),
         customers.length === 0 ? servicioCatalogo.getCustomers() : Promise.resolve(customers)
       ]);
       setSales(salesData); setCustomers(customerData);
+      setAppliedFilters({ search: search.trim(), customerId, status, startDate, endDate });
     } catch (loadError) {
       setSales([]); setError(loadError instanceof Error ? loadError.message : t('salesLoadError'));
     } finally { setLoading(false); }
@@ -59,14 +68,43 @@ export const SalesHistoryPage: React.FC = () => {
     return saleStatus;
   };
 
+  const exportConfig = useMemo<ExportReportConfig<Venta>>(() => ({
+    moduleName: t('salesHistoryTitle'),
+    title: 'Histórico de Ventas',
+    fileName: 'Ventas',
+    sheetName: 'Ventas',
+    orientation: 'landscape',
+    dateRange: { startDate: appliedFilters.startDate, endDate: appliedFilters.endDate },
+    filters: [
+      { label: 'Periodo', value: appliedFilters.startDate && appliedFilters.endDate ? `${appliedFilters.startDate} al ${appliedFilters.endDate}` : appliedFilters.startDate || appliedFilters.endDate },
+      { label: 'Búsqueda', value: appliedFilters.search },
+      { label: 'Cliente', value: customers.find(customer => customer.id === appliedFilters.customerId)?.displayName || (appliedFilters.customerId ? appliedFilters.customerId : 'Todos') },
+      { label: 'Estado', value: appliedFilters.status || 'Todos' }
+    ],
+    columns: [
+      { key: 'idVenta', label: 'Id Venta', type: 'number', width: 0.7, value: sale => sale.idVenta },
+      { key: 'date', label: 'Fecha', type: 'datetime', width: 1.25, value: sale => sale.createdAtUtc },
+      { key: 'customer', label: 'Cliente', width: 1.5, value: sale => sale.customerDisplayName || t('generalPublic') },
+      { key: 'paymentType', label: 'Modalidad de Pago', width: 1.15, value: sale => t(paymentTypeKey(sale.paymentType)) },
+      { key: 'status', label: 'Estado', width: 1.05, value: sale => formatBadgeText(sale.status, sale.pendingBalance) },
+      { key: 'total', label: 'Total', type: 'currency', width: 1, value: sale => sale.totalAmount },
+      { key: 'paid', label: 'Pagado', type: 'currency', width: 1, value: sale => Math.max(0, sale.totalAmount - sale.pendingBalance) },
+      { key: 'pending', label: 'Saldo Pendiente', type: 'currency', width: 1, value: sale => sale.pendingBalance }
+    ]
+  }), [appliedFilters, customers, t]);
+
   return <section className="sales-history-page">
-    <article className="card sales-history-header"><div><h2>🧾 {t('salesHistoryTitle')}</h2><p>{t('salesHistorySubtitle')}</p></div>
+    <article className="card sales-history-header">
+      <div className="sales-history-header__top">
+        <div><h2>🧾 {t('salesHistoryTitle')}</h2><p>{t('salesHistorySubtitle')}</p></div>
+        <ExportButtons data={sales} config={exportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => servicioVentas.getSales(appliedFilters.search || undefined, appliedFilters.customerId || undefined, appliedFilters.status || undefined, toOperationalUtcBoundary(appliedFilters.startDate), toOperationalUtcBoundary(appliedFilters.endDate, true), paging))} />
+      </div>
       <form onSubmit={event => { event.preventDefault(); void loadSales(); }}>
         <input className="form-control" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('searchSaleHistory')} />
         <select className="form-control" value={customerId} onChange={event => setCustomerId(event.target.value)}><option value="">{t('allCustomers')}</option>{customers.map(customer => <option key={customer.id} value={customer.id}>{customer.displayName}</option>)}</select>
         <select className="form-control" value={status} onChange={event => setStatus(event.target.value)}><option value="">{t('allStatuses')}</option><option value="Completada">{t('completedStatus')}</option><option value="PendientePago">{t('pendingPaymentStatus')}</option><option value="Cancelada">{t('cancelledStatus')}</option></select>
-        <label style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem', fontWeight: 600 }}><span>{t('startDate')}</span><input className="form-control" type="date" value={startDate} onChange={event => setStartDate(event.target.value)} /></label>
-        <label style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem', fontWeight: 600 }}><span>{t('endDate')}</span><input className="form-control" type="date" value={endDate} onChange={event => setEndDate(event.target.value)} /></label>
+        <label className="sales-history-date-field"><span>{t('startDate')}</span><input className="form-control" type="date" max={endDate || undefined} value={startDate} onChange={event => setStartDate(event.target.value)} /></label>
+        <label className="sales-history-date-field"><span>{t('endDate')}</span><input className="form-control" type="date" min={startDate || undefined} value={endDate} onChange={event => setEndDate(event.target.value)} /></label>
         <button className="action-btn">🔎 {t('search')}</button>
         <button type="button" className="lang-btn" onClick={() => { setSearch(''); setCustomerId(''); setStatus(''); setStartDate(today()); setEndDate(today()); }}>{t('clearFilters')}</button>
       </form>

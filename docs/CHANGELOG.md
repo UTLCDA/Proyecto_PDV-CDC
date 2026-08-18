@@ -25,7 +25,22 @@ All notable changes to this project will be documented in this file.
 - El input de teléfono valida exclusivamente la captura de números (dígitos `0-9`).
 - Se reordenó el formulario pidiendo primero el CP y se creó `servicioCodigoPostal.ts` para autocompletar dinámicamente la Ciudad y Estado.
 
-## [Unreleased] - 2026-08-10
+## [Unreleased] - 2026-08-17
+
+### Exportación administrativa PDF y Excel
+
+- Se reordena el card de Histórico de Ventas separando título/exportación y filtros para evitar compresión y desalineación.
+- Se elimina el contador aislado del encabezado de Histórico de Transacciones y se adapta el toolbar del Directorio de Clientes mediante grid responsive.
+- Los errores de alta/edición de usuario se muestran dentro del modal; se incorpora una guía dinámica de contraseña para longitud, mayúscula, minúscula, número y símbolo, sincronizada con la validación backend.
+- Movimientos de Inventario presenta el rango en un bloque “Periodo del movimiento”, con etiquetas visibles para fecha inicial/final y comportamiento responsive.
+- Se agrega un estándar reutilizable para exportar reportes PDF profesionales y libros Excel tipados desde ventas, clientes, productos, inventario, cotizaciones, operaciones comerciales, caja, reportes, usuarios, roles y auditoría.
+- Los PDF incluyen logo oficial, identidad WPC Bajío, filtros aplicados, orientación configurable, tabla multipágina con encabezados repetidos y numeración de páginas.
+- Los XLSX incluyen fechas/números reales, formatos monetarios y porcentuales, autofiltro, encabezado congelado, ajuste de columnas, bordes y filas alternadas.
+- Los listados paginados recuperan el conjunto completo autorizado en lotes de 500 usando parámetros API opcionales y retrocompatibles; nunca se exporta silenciosamente sólo la página visible.
+- Los periodos inician con el día operativo de `America/Mexico_City` y los archivos conservan los últimos filtros realmente consultados.
+- Se excluyen acciones, GUID técnicos y datos sensibles; los módulos de ventas utilizan `IdVenta` y `RECIBO-{IdVenta}`.
+- Sin cambios de esquema SQL, PK/FK, permisos, reglas comerciales ni generación de ventas.
+- Cobertura ampliada a backend **67/67** y frontend **21/21**, con builds Release/Vite aprobados.
 
 ### Referencias operativas de recibo `RECIBO-{IdVenta}`
 

@@ -148,16 +148,16 @@ public class CashShiftController : ControllerBase
 
     [HttpGet("history")]
     [Authorize(Policy = PermissionCodes.Cash.ZReport)]
-    public async Task<ActionResult<List<CashShiftDto>>> GetShiftHistory(CancellationToken cancellationToken)
+    public async Task<ActionResult<List<CashShiftDto>>> GetShiftHistory([FromQuery] int page = 1, [FromQuery] int pageSize = 100, CancellationToken cancellationToken = default)
     {
-        var history = await _shiftService.GetShiftHistoryAsync(cancellationToken);
+        var history = await _shiftService.GetShiftHistoryAsync(cancellationToken, page, pageSize);
         return Ok(history);
     }
 
     [HttpGet("general-movements")]
     [Authorize(Policy = AuthorizationPolicyNames.CashShiftRead)]
-    public async Task<ActionResult<List<CashGeneralMovementDto>>> GetGeneralMovements(CancellationToken cancellationToken)
+    public async Task<ActionResult<List<CashGeneralMovementDto>>> GetGeneralMovements([FromQuery] int page = 1, [FromQuery] int pageSize = 250, CancellationToken cancellationToken = default)
     {
-        return Ok(await _shiftService.GetGeneralMovementsAsync(cancellationToken));
+        return Ok(await _shiftService.GetGeneralMovementsAsync(cancellationToken, page, pageSize));
     }
 }

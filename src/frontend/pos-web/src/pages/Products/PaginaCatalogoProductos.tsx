@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Producto, Categoria } from '../../types/tiposCatalogo';
 import { servicioCatalogo } from '../../services/servicioCatalogo';
 import { useAuth } from '../../context/AuthContext';
+import ExportButtons from '../../components/export/ExportButtons';
+import { ExportReportConfig } from '../../components/export/exportTypes';
 import './ProductListPage.css';
 
 const MAX_PRODUCT_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
@@ -17,6 +19,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [categoriaFiltro, setCategoriaFiltro] = useState('');
+  const [filtrosAplicados, setFiltrosAplicados] = useState({ busqueda: '', categoriaId: '' });
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState('');
 
@@ -52,6 +55,32 @@ export const PaginaCatalogoProductos: React.FC = () => {
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
+  const exportConfig = useMemo<ExportReportConfig<Producto>>(() => ({
+    moduleName: 'Catálogo de Productos WPC Bajío',
+    title: 'Catálogo Administrativo de Productos',
+    fileName: 'Productos',
+    sheetName: 'Productos',
+    orientation: 'landscape',
+    filters: [
+      { label: 'Búsqueda', value: filtrosAplicados.busqueda },
+      { label: 'Categoría', value: categorias.find(category => category.id === filtrosAplicados.categoriaId)?.name || 'Todas' }
+    ],
+    columns: [
+      { key: 'sku', label: 'SKU', width: 0.8, value: product => product.sku },
+      { key: 'barcode', label: 'Código de Barras', width: 1.1, value: product => product.barcode || '—' },
+      { key: 'name', label: 'Producto', width: 1.7, value: product => product.name },
+      { key: 'category', label: 'Categoría', width: 1, value: product => product.categoryName },
+      { key: 'unit', label: 'Unidad', width: 0.65, value: product => product.unitOfMeasure },
+      { key: 'unitPrice', label: 'Precio Unitario', type: 'currency', width: 0.9, value: product => product.unitPrice },
+      { key: 'wholesalePrice', label: 'Precio Mayoreo', type: 'currency', width: 0.9, value: product => product.wholesalePrice },
+      { key: 'wholesaleMin', label: 'Mínimo Mayoreo', type: 'number', width: 0.8, value: product => product.wholesaleMinQuantity },
+      { key: 'pieces', label: 'Piezas / Contenido', type: 'number', width: 0.8, value: product => product.piecesPerBox || 1 },
+      { key: 'coverage', label: 'Cobertura m²', type: 'number', width: 0.8, value: product => product.boxCoverageSqM || product.coveragePerUnitSqM },
+      { key: 'stock', label: 'Existencias', type: 'number', width: 0.75, value: product => product.availableQuantity },
+      { key: 'status', label: 'Estado', width: 0.7, value: product => product.isActive ? 'Activo' : 'Inactivo' }
+    ]
+  }), [categorias, filtrosAplicados]);
+
   useEffect(() => {
     cargarDatos();
   }, [categoriaFiltro]);
@@ -66,6 +95,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
       ]);
       setProductos(prodsData);
       setCategorias(catsData);
+      setFiltrosAplicados({ busqueda: busqueda.trim(), categoriaId: categoriaFiltro });
     } catch (error) {
       setProductos([]);
       setCategorias([]);
@@ -282,6 +312,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
             {canCreateCategory && <button className="lang-btn" onClick={() => setModalCategoriaAbierto(true)}>
               📁 Crear Categoría
             </button>}
+            <ExportButtons data={productos} config={exportConfig} />
           </div>
         </div>
 

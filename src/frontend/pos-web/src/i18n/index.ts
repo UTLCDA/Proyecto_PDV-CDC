@@ -370,6 +370,7 @@ const resources = {
       reportsDashboardSubtitle: 'Indicadores reales de ventas, cobros, devoluciones, inventario y trazabilidad.',
       startDate: 'Fecha inicial',
       endDate: 'Fecha final',
+      movementDateRange: 'Periodo del movimiento',
       applyFilters: 'Aplicar filtros',
       clearFilters: 'Limpiar',
       invalidReportDateRange: 'La fecha inicial no puede ser posterior a la fecha final.',
@@ -452,6 +453,12 @@ const resources = {
       selectRole: '-- Seleccione un rol --',
       accountStatus: 'Estado de cuenta',
       passwordPolicy: 'La contraseña debe tener 8 caracteres o más, con mayúscula, minúscula, número y símbolo.',
+      passwordRequirementLength: '8 caracteres como mínimo',
+      passwordRequirementUppercase: 'Una letra mayúscula',
+      passwordRequirementLowercase: 'Una letra minúscula',
+      passwordRequirementNumber: 'Un número',
+      passwordRequirementSymbol: 'Un carácter especial',
+      passwordRequirementsIncomplete: 'Complete todos los requisitos de la contraseña antes de guardar.',
       saving: 'Guardando...',
       saveUser: 'Guardar usuario',
       editRoleTitle: 'Editar rol y permisos',
@@ -538,7 +545,13 @@ const resources = {
       boxesEstimated: 'Cajas estimadas',
       returnDate: 'Fecha de Devolución',
       transactionsModuleTitle: 'Histórico de Transacciones y Movimientos de Pago',
-      transactionsModuleSubtitle: 'Consulta unificada de cobranza, abonos, pagos con tarjeta/SPEI y devoluciones del día'
+      transactionsModuleSubtitle: 'Consulta unificada de cobranza, abonos, pagos con tarjeta/SPEI y devoluciones del día',
+      exportActions: 'Acciones de exportación',
+      exportPdf: 'Exportar PDF',
+      exportExcel: 'Exportar Excel',
+      generatingExport: 'Generando...',
+      noExportData: 'No existen datos para exportar.',
+      exportFailed: 'No fue posible generar el archivo.'
     }
   },
   zh: {
@@ -909,6 +922,7 @@ const resources = {
       reportsDashboardSubtitle: '显示真实的销售、收款、退货、库存与审计指标。',
       startDate: '开始日期',
       endDate: '结束日期',
+      movementDateRange: '库存变动日期范围',
       applyFilters: '应用筛选',
       clearFilters: '清除',
       invalidReportDateRange: '开始日期不能晚于结束日期。',
@@ -991,6 +1005,12 @@ const resources = {
       selectRole: '-- 请选择角色 --',
       accountStatus: '账户状态',
       passwordPolicy: '密码至少 8 位，并包含大写字母、小写字母、数字和符号。',
+      passwordRequirementLength: '至少 8 个字符',
+      passwordRequirementUppercase: '一个大写字母',
+      passwordRequirementLowercase: '一个小写字母',
+      passwordRequirementNumber: '一个数字',
+      passwordRequirementSymbol: '一个特殊字符',
+      passwordRequirementsIncomplete: '保存前请满足所有密码要求。',
       saving: '正在保存...',
       saveUser: '保存用户',
       editRoleTitle: '编辑角色与权限',
@@ -1077,7 +1097,13 @@ const resources = {
       boxesEstimated: '预计箱数',
       returnDate: '退货日期',
       transactionsModuleTitle: '每日交易与资金流水历史',
-      transactionsModuleSubtitle: '现金、刷卡、转账及退货交易统一查询'
+      transactionsModuleSubtitle: '现金、刷卡、转账及退货交易统一查询',
+      exportActions: '导出操作',
+      exportPdf: '导出 PDF',
+      exportExcel: '导出 Excel',
+      generatingExport: '正在生成...',
+      noExportData: '没有可导出的数据。',
+      exportFailed: '无法生成文件。'
     }
   }
 };

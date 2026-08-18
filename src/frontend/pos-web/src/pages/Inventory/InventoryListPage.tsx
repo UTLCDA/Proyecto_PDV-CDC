@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Stock } from '../../types/inventory';
 import { inventoryService } from '../../services/inventoryService';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import { useAuth } from '../../context/AuthContext';
 import { permissionCodes } from '../../security/accessControl';
+import ExportButtons from '../../components/export/ExportButtons';
+import { ExportReportConfig } from '../../components/export/exportTypes';
 import './InventoryListPage.css';
 
 const DEFAULT_WAREHOUSE_LOCATION = 'Bodega Adolfo Lopez Mateos';
@@ -19,8 +21,32 @@ export const InventoryListPage: React.FC = () => {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [search, setSearch] = useState('');
   const [isLowStockOnly, setIsLowStockOnly] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState({ search: '', isLowStockOnly: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const exportConfig = useMemo<ExportReportConfig<Stock>>(() => ({
+    moduleName: 'Control de Inventarios WPC Bajío',
+    title: 'Existencias de Inventario',
+    fileName: 'Inventario',
+    sheetName: 'Inventario',
+    orientation: 'landscape',
+    filters: [
+      { label: 'Búsqueda', value: appliedFilters.search },
+      { label: 'Stock', value: appliedFilters.isLowStockOnly ? 'Sólo stock bajo' : 'Todas las existencias' }
+    ],
+    columns: [
+      { key: 'sku', label: 'SKU', width: 0.9, value: stock => stock.productSku },
+      { key: 'product', label: 'Producto', width: 1.8, value: stock => stock.productName },
+      { key: 'category', label: 'Categoría', width: 1.1, value: stock => stock.categoryName },
+      { key: 'location', label: 'Ubicación', width: 1.4, value: stock => stock.location },
+      { key: 'stock', label: 'Existencias', type: 'number', width: 0.8, value: stock => stock.quantityOnHand },
+      { key: 'unit', label: 'Unidad', width: 0.7, value: stock => stock.unitOfMeasure },
+      { key: 'minimum', label: 'Mínimo', type: 'number', width: 0.7, value: stock => stock.minimumAlertThreshold },
+      { key: 'reorder', label: 'Reorden sugerido', type: 'number', width: 0.9, value: stock => stock.reorderQuantity },
+      { key: 'status', label: 'Estado', width: 0.9, value: stock => stock.isOutOfStock ? t('outOfStock') : stock.isLowStock ? t('lowStockAlert') : t('stockOk') }
+    ]
+  }), [appliedFilters, t]);
 
   // Modal State for Stock Movement Entry
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -42,6 +68,7 @@ export const InventoryListPage: React.FC = () => {
     try {
       const stockData = await inventoryService.getStockLevels(searchTerm, isLowStockOnly);
       setStocks(stockData);
+      setAppliedFilters({ search: searchTerm.trim(), isLowStockOnly });
     } catch (loadError) {
       setStocks([]);
       setError(loadError instanceof Error ? loadError.message : t('inventoryLoadError'));
@@ -171,6 +198,7 @@ export const InventoryListPage: React.FC = () => {
                 ➕ {t('captureMovement')}
               </button>
             )}
+            <ExportButtons data={stocks} config={exportConfig} />
           </div>
         </div>
 

@@ -5,8 +5,12 @@
 @media (max-width: 700px) { .commercial-header { flex-direction: column; }.commercial-header button { width: 100%; }.commercial-form-grid,.commercial-template-layout { grid-template-columns: 1fr; }.commercial-contracts { grid-column: auto; }.commercial-document { padding: 1rem; }.commercial-document footer { flex-direction: column; } }
 @media print { body * { visibility: hidden !important; }.commercial-document,.commercial-document * { visibility: visible !important; }.commercial-document { position: fixed; inset: 0; margin: 0; padding: 15mm; } }
 .commercial-global-history { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border-subtle); }
+.commercial-section-actions,.commercial-section-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.commercial-section-actions { justify-content: flex-end; }
+.commercial-section-heading h3 { margin: 0; }
 .commercial-history-filters { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-bottom: 0.75rem; align-items: flex-end; }
 .commercial-history-filters input,
 .commercial-history-filters select { min-width: 135px; flex: 1 1 135px; padding: 0.58rem 0.65rem; border: 1px solid var(--border-input); border-radius: var(--radius-md); background: var(--background-surface); color: var(--text-main); font-size: 0.85rem; }
 .commercial-history-filters label { display: inline-flex; flex-direction: column; gap: 2px; font-size: 0.75rem; font-weight: 600; color: var(--text-main); flex: 0 0 auto; }
 .commercial-history-filters label input[type="date"] { min-width: 125px; flex: 0 0 auto; padding: 0.5rem 0.55rem; font-size: 0.82rem; }
+@media (max-width: 700px) { .commercial-card > header { align-items: flex-start; flex-direction: column; }.commercial-section-actions { width: 100%; justify-content: space-between; }.commercial-section-heading { align-items: flex-start; flex-direction: column; } }

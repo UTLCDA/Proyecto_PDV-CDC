@@ -11,6 +11,9 @@ import {
   UsuarioGestion
 } from '../../services/servicioUsuarios';
 import { systemRoleNames } from '../../security/accessControl';
+import ExportButtons from '../../components/export/ExportButtons';
+import { ExportReportConfig } from '../../components/export/exportTypes';
+import { evaluatePassword, isPasswordValid, PasswordRequirementStatus } from './passwordValidation';
 import './PaginaUsuarios.css';
 
 type Vista = 'usuarios' | 'roles';
@@ -48,6 +51,7 @@ export const PaginaUsuarios: React.FC = () => {
   const [mostrarModalUsuario, setMostrarModalUsuario] = useState(false);
   const [usuarioEditando, setUsuarioEditando] = useState<UsuarioGestion | null>(null);
   const [formUsuario, setFormUsuario] = useState(usuarioVacio);
+  const [userFormError, setUserFormError] = useState('');
 
   const [mostrarModalRol, setMostrarModalRol] = useState(false);
   const [rolEditando, setRolEditando] = useState<RolGestion | null>(null);
@@ -102,10 +106,56 @@ export const PaginaUsuarios: React.FC = () => {
     );
   }, [busqueda, usuarios]);
 
+  const userExportConfig = useMemo<ExportReportConfig<UsuarioGestion>>(() => ({
+    moduleName: t('usersAndPermissionsTitle'),
+    title: 'Catálogo de Usuarios',
+    fileName: 'Usuarios',
+    sheetName: 'Usuarios',
+    orientation: 'landscape',
+    filters: [{ label: 'Búsqueda', value: busqueda.trim() }],
+    columns: [
+      { key: 'name', label: 'Nombre', width: 1.25, value: user => user.fullName },
+      { key: 'username', label: 'Usuario', width: 0.85, value: user => user.username },
+      { key: 'email', label: 'Correo', width: 1.35, value: user => user.email },
+      { key: 'jobTitle', label: 'Puesto', width: 1, value: user => user.jobTitle || t('notSpecified') },
+      { key: 'role', label: 'Rol', width: 0.9, value: user => user.roleName },
+      { key: 'status', label: 'Estado', width: 0.75, value: user => user.isActive ? t('activeAccount') : t('inactiveAccount') },
+      { key: 'createdAt', label: 'Fecha de alta', type: 'datetime', width: 1.1, value: user => user.createdAtUtc }
+    ]
+  }), [busqueda, t]);
+
+  const roleExportConfig = useMemo<ExportReportConfig<RolGestion>>(() => ({
+    moduleName: t('rolesAndPermissionsTab'),
+    title: 'Catálogo de Roles',
+    fileName: 'Roles',
+    sheetName: 'Roles',
+    orientation: 'landscape',
+    columns: [
+      { key: 'name', label: 'Rol', width: 1, value: role => role.name },
+      { key: 'description', label: 'Descripción', width: 1.7, value: role => role.description || t('noDescription') },
+      { key: 'status', label: 'Estado', width: 0.75, value: role => role.isActive ? t('activeRole') : t('inactiveRole') },
+      { key: 'system', label: 'Protegido por sistema', width: 0.9, value: role => role.isSystemRole ? 'Sí' : 'No' },
+      { key: 'users', label: 'Usuarios asignados', type: 'number', width: 0.8, value: role => role.userCount },
+      { key: 'permissions', label: 'Permisos asignados', type: 'number', width: 0.8, value: role => role.permissionCodes.length }
+    ]
+  }), [t]);
+
   const permisosPorModulo = useMemo(() => permisos.reduce<Record<string, PermisoGestion[]>>((grupos, permiso) => {
     (grupos[permiso.module] ??= []).push(permiso);
     return grupos;
   }, {}), [permisos]);
+
+  const passwordStatus = evaluatePassword(formUsuario.password);
+  const credentialCanSubmit = usuarioEditando
+    ? formUsuario.password.length === 0 || isPasswordValid(formUsuario.password)
+    : isPasswordValid(formUsuario.password);
+  const passwordRequirementItems: Array<{ key: keyof PasswordRequirementStatus; label: string }> = [
+    { key: 'length', label: t('passwordRequirementLength') },
+    { key: 'uppercase', label: t('passwordRequirementUppercase') },
+    { key: 'lowercase', label: t('passwordRequirementLowercase') },
+    { key: 'number', label: t('passwordRequirementNumber') },
+    { key: 'symbol', label: t('passwordRequirementSymbol') }
+  ];
 
   const abrirNuevoUsuario = () => {
     const rolCajero = roles.find(rol => rol.isActive && rol.name === systemRoleNames.cashier);
@@ -113,6 +163,7 @@ export const PaginaUsuarios: React.FC = () => {
     setUsuarioEditando(null);
     setFormUsuario({ ...usuarioVacio, roleId: rolCajero?.id ?? primerRolActivo?.id ?? '' });
     setAviso(null);
+    setUserFormError('');
     setMostrarModalUsuario(true);
   };
 
@@ -129,13 +180,20 @@ export const PaginaUsuarios: React.FC = () => {
       isActive: usuario.isActive
     });
     setAviso(null);
+    setUserFormError('');
     setMostrarModalUsuario(true);
   };
 
   const guardarUsuario = async (event: React.FormEvent) => {
     event.preventDefault();
+    const credentialMustBeValid = !usuarioEditando || formUsuario.password.length > 0;
+    if (credentialMustBeValid && !isPasswordValid(formUsuario.password)) {
+      setUserFormError(t('passwordRequirementsIncomplete'));
+      return;
+    }
     setGuardando(true);
     setAviso(null);
+    setUserFormError('');
     try {
       if (usuarioEditando) {
         const payload: PeticionActualizarUsuario = {
@@ -164,7 +222,7 @@ export const PaginaUsuarios: React.FC = () => {
       await cargarDatos(false);
       setAviso({ tipo: 'success', texto: t(usuarioEditando ? 'userUpdatedSuccess' : 'userCreatedSuccess') });
     } catch (error) {
-      setAviso({ tipo: 'error', texto: mensajeDeError(error, t('userSaveError')) });
+      setUserFormError(mensajeDeError(error, t('userSaveError')));
     } finally {
       setGuardando(false);
     }
@@ -244,9 +302,14 @@ export const PaginaUsuarios: React.FC = () => {
           <h1>👥 {t('usersAndPermissionsTitle')}</h1>
           <p>{t('usersAndPermissionsSubtitle')}</p>
         </div>
-        <button className="action-btn" onClick={vista === 'usuarios' ? abrirNuevoUsuario : abrirNuevoRol}>
-          {vista === 'usuarios' ? `➕ ${t('newUser')}` : `➕ ${t('newRole')}`}
-        </button>
+        <div className="users-page__header-actions">
+          {vista === 'usuarios'
+            ? <ExportButtons data={usuariosFiltrados} config={userExportConfig} />
+            : <ExportButtons data={roles} config={roleExportConfig} />}
+          <button className="action-btn" onClick={vista === 'usuarios' ? abrirNuevoUsuario : abrirNuevoRol}>
+            {vista === 'usuarios' ? `➕ ${t('newUser')}` : `➕ ${t('newRole')}`}
+          </button>
+        </div>
       </header>
 
       <nav className="users-tabs" aria-label={t('usersAndRolesTabs')}>
@@ -346,15 +409,16 @@ export const PaginaUsuarios: React.FC = () => {
                 <h2 id="user-modal-title">{usuarioEditando ? t('editUserTitle') : t('newUserTitle')}</h2>
                 <p>{t('userFormHint')}</p>
               </div>
-              <button type="button" aria-label={t('close')} onClick={() => setMostrarModalUsuario(false)}>×</button>
+              <button type="button" aria-label={t('close')} onClick={() => { setMostrarModalUsuario(false); setUserFormError(''); }}>×</button>
             </div>
             <form onSubmit={guardarUsuario} className="users-form">
+              {userFormError && <div className="users-form__alert" role="alert">⚠️ {userFormError}</div>}
               <div className="users-form__grid">
                 <label>{t('firstName')} *<input required minLength={2} value={formUsuario.firstName} onChange={event => setFormUsuario({ ...formUsuario, firstName: event.target.value })} /></label>
                 <label>{t('lastName')} *<input required minLength={2} value={formUsuario.lastName} onChange={event => setFormUsuario({ ...formUsuario, lastName: event.target.value })} /></label>
                 <label>{t('username')} *<input required minLength={3} disabled={!!usuarioEditando} autoComplete="off" value={formUsuario.username} onChange={event => setFormUsuario({ ...formUsuario, username: event.target.value })} /></label>
                 <label>{t('email')} *<input required type="email" autoComplete="off" value={formUsuario.email} onChange={event => setFormUsuario({ ...formUsuario, email: event.target.value })} /></label>
-                <label>{usuarioEditando ? t('newPasswordOptional') : `${t('password')} *`}<input required={!usuarioEditando} type="password" minLength={8} autoComplete="new-password" value={formUsuario.password} onChange={event => setFormUsuario({ ...formUsuario, password: event.target.value })} /></label>
+                <label>{usuarioEditando ? t('newPasswordOptional') : `${t('password')} *`}<input required={!usuarioEditando} type="password" minLength={8} autoComplete="new-password" aria-describedby={!usuarioEditando || formUsuario.password.length > 0 ? 'password-requirements' : undefined} aria-invalid={formUsuario.password.length > 0 && !isPasswordValid(formUsuario.password)} value={formUsuario.password} onChange={event => { setFormUsuario({ ...formUsuario, password: event.target.value }); setUserFormError(''); }} /></label>
                 <label>{t('jobTitle')}<input value={formUsuario.jobTitle} onChange={event => setFormUsuario({ ...formUsuario, jobTitle: event.target.value })} /></label>
                 <label>{t('securityRole')} *
                   <select required value={formUsuario.roleId} onChange={event => setFormUsuario({ ...formUsuario, roleId: event.target.value })}>
@@ -369,10 +433,19 @@ export const PaginaUsuarios: React.FC = () => {
                   </select>
                 </label>}
               </div>
-              <p className="users-form__password-hint">{t('passwordPolicy')}</p>
+              {(!usuarioEditando || formUsuario.password.length > 0) && <div id="password-requirements" className="users-password-help" aria-live="polite">
+                <p>{t('passwordPolicy')}</p>
+                <ul>
+                  {passwordRequirementItems.map(requirement => {
+                    const isMet = passwordStatus[requirement.key];
+                    const stateClass = isMet ? 'is-met' : formUsuario.password.length > 0 ? 'is-missing' : 'is-pending';
+                    return <li key={requirement.key} className={stateClass}><span aria-hidden="true">{isMet ? '✓' : '○'}</span>{requirement.label}</li>;
+                  })}
+                </ul>
+              </div>}
               <div className="users-modal__actions">
-                <button type="button" className="users-secondary-btn" disabled={guardando} onClick={() => setMostrarModalUsuario(false)}>{t('cancel')}</button>
-                <button type="submit" className="action-btn" disabled={guardando}>{guardando ? t('saving') : t('saveUser')}</button>
+                <button type="button" className="users-secondary-btn" disabled={guardando} onClick={() => { setMostrarModalUsuario(false); setUserFormError(''); }}>{t('cancel')}</button>
+                <button type="submit" className="action-btn" disabled={guardando || !credentialCanSubmit}>{guardando ? t('saving') : t('saveUser')}</button>
               </div>
             </form>
           </div>

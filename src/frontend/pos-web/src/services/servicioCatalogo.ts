@@ -8,6 +8,7 @@ import {
   PeticionCrearCliente,
   PeticionActualizarCliente
 } from '../types/tiposCatalogo';
+import { appendPaging, PagingRequest } from '../utils/pagedExport';
 
 export const servicioCatalogo = {
   // Categories
@@ -47,11 +48,12 @@ export const servicioCatalogo = {
   },
 
   // Customers
-  getCustomers: async (search?: string, type?: string, includeInactive = false): Promise<Cliente[]> => {
+  getCustomers: async (search?: string, type?: string, includeInactive = false, paging?: PagingRequest): Promise<Cliente[]> => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (type) params.append('type', type);
     if (includeInactive) params.append('includeInactive', 'true');
+    appendPaging(params, paging);
 
     const response = await api.get<Cliente[]>(`/customers?${params.toString()}`);
     return response.data;

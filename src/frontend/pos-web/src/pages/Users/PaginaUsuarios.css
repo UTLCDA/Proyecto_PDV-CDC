@@ -27,6 +27,8 @@
   margin: 0.25rem 0 0;
 }
 
+.users-page__header-actions { display: flex; align-items: center; justify-content: flex-end; gap: .75rem; flex-wrap: wrap; }
+
 .users-tabs {
   display: flex;
   gap: 0.5rem;
@@ -314,10 +316,61 @@
   grid-column: 1 / -1;
 }
 
-.users-form__password-hint {
-  margin: 0.8rem 0 0;
-  color: var(--text-muted);
-  font-size: 0.75rem;
+.users-form__alert {
+  margin-bottom: 1rem;
+  padding: 0.75rem 0.9rem;
+  color: var(--danger);
+  background: var(--danger-surface);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.users-password-help {
+  margin-top: 0.9rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--background-container);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.users-password-help p {
+  margin: 0 0 0.55rem;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.users-password-help ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.35rem 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.76rem;
+}
+
+.users-password-help li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 650;
+}
+
+.users-password-help li span {
+  width: 1.1rem;
+  text-align: center;
+  font-weight: 900;
+}
+
+.users-password-help li.is-met { color: var(--success); }
+.users-password-help li.is-missing { color: var(--danger); }
+.users-password-help li.is-pending { color: var(--text-muted); }
+
+.users-form input[aria-invalid="true"] {
+  border-color: var(--danger);
 }
 
 .users-modal__actions {
@@ -393,6 +446,7 @@
   .permissions-header { flex-direction: column; }
   .users-page__header .action-btn,
   .users-toolbar input { width: 100%; }
+  .users-page__header-actions { width: 100%; justify-content: flex-start; }
   .users-form__grid,
   .permissions-grid { grid-template-columns: 1fr; }
   .users-modal-backdrop { align-items: flex-start; padding: 0.5rem; }

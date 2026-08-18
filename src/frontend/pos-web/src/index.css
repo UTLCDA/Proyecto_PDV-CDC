@@ -39,6 +39,10 @@
   --info: #147D92;
   --info-surface: #E8F6F8;
   --info-border: #9BCFD8;
+  --export-pdf: #DC2626;
+  --export-pdf-hover: #B91C1C;
+  --export-excel: #16A34A;
+  --export-excel-hover: #15803D;
 
   --focus-ring: rgba(156, 77, 34, 0.15);
   --overlay: rgba(58, 35, 18, 0.58);
