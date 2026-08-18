@@ -80,6 +80,32 @@ export const SaleReceiptModal: React.FC<{ sale: Venta; targetPaymentId?: string;
           <span style={{ color: '#2b8a3e', fontWeight: 600 }}>• {t('fullPaymentConfirmed') || 'Venta liquidada en su totalidad'}</span>
         )}
       </div>
+
+      <div className="pos-receipt__footer-info">
+        <div className="receipt-thankyou">
+          <strong className="company-tag">WPC BAJÍO</strong>
+          <h4 className="thankyou-title">¡GRACIAS POR SU COMPRA!</h4>
+          <p className="thankyou-subtitle">Agradecemos su preferencia.<br />Esperamos atenderle nuevamente muy pronto.</p>
+        </div>
+
+        <div className="receipt-info-block">
+          <span className="info-label">ATENCIÓN A CLIENTES</span>
+          <span className="info-value">Tel. / WhatsApp: <strong>477 807 2768</strong></span>
+        </div>
+
+        <div className="receipt-info-block">
+          <span className="info-label">DIRECCIÓN</span>
+          <span className="info-value">Blvd. Adolfo López Mateos 2826</span>
+          <span className="info-subtext">El Rosario, C.P. 37125</span>
+          <span className="info-subtext">León de los Aldama, Gto.</span>
+        </div>
+
+        <div className="receipt-info-block website-block">
+          <span className="info-badge">PRÓXIMAMENTE</span>
+          <span className="info-url">www.wpcbajio.com</span>
+        </div>
+      </div>
+
       <footer><button className="action-btn" onClick={() => window.print()}>🖨️ {t('printReceipt')}</button><button className="pos-receipt-close" onClick={onClose}>{t('closeReceipt')}</button></footer>
     </div>
   </div>;
