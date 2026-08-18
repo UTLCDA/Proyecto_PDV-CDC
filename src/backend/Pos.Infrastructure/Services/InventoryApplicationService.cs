@@ -221,6 +221,9 @@ public class InventoryApplicationService : IInventoryApplicationService
         _dbContext.InventoryMovements.Add(movement);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        var eventType = movementType.Equals("Entrada", StringComparison.OrdinalIgnoreCase) ? "INVENTORY_INCREASED" :
+                        movementType.Equals("Salida", StringComparison.OrdinalIgnoreCase) ? "INVENTORY_DECREASED" : "INVENTORY_ADJUSTED";
+
         await _auditLogService.LogAsync(
             correlationId,
             currentUserId,
@@ -236,7 +239,10 @@ public class InventoryApplicationService : IInventoryApplicationService
             }),
             ipAddress,
             $"Motivo: {reason}, Ref: {referenceNumber}",
-            cancellationToken);
+            module: "Inventario",
+            eventType: eventType,
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return MapMovementToDto(movement);
     }

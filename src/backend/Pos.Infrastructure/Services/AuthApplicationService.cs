@@ -48,7 +48,10 @@ public class AuthApplicationService : IAuthApplicationService
                 $"AttemptedEmailOrUsername={request.EmailOrUsername}",
                 ipAddress,
                 "Intento fallido de inicio de sesión",
-                cancellationToken);
+                module: "Seguridad",
+                eventType: "LOGIN_FAILED",
+                resultStatus: "WARNING",
+                cancellationToken: cancellationToken);
 
             throw new UnauthorizedAccessException("Credenciales de acceso inválidas.");
         }
@@ -90,7 +93,10 @@ public class AuthApplicationService : IAuthApplicationService
             $"Username={user.NombreUsuario}",
             ipAddress,
             "Inicio de sesión exitoso WPC Bajío",
-            cancellationToken);
+            module: "Seguridad",
+            eventType: "LOGIN_SUCCESS",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         var fullName = user.Empleado != null ? $"{user.Empleado.Nombre} {user.Empleado.Apellido}" : user.NombreUsuario;
         var userDto = new UserDto(user.Id, user.NombreUsuario, user.Email, fullName, roles, permissions);
@@ -171,7 +177,10 @@ public class AuthApplicationService : IAuthApplicationService
                 null,
                 ipAddress,
                 "Cierre de sesión y revocación de token de refresco",
-                cancellationToken);
+                module: "Seguridad",
+                eventType: "LOGOUT",
+                resultStatus: "SUCCESS",
+                cancellationToken: cancellationToken);
         }
     }
 

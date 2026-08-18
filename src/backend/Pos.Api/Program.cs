@@ -13,12 +13,11 @@ using Serilog.Sinks.InMemory;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure Serilog Dual-Logging (File + Console + InMemory for Serilog UI)
+// Configure Serilog (File + Console only — InMemory sink desactivado tras eliminar Dashboard Serilog externo)
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
     .WriteTo.Console()
-    .WriteTo.InMemory()
     .WriteTo.File(
         path: "logs/auditoria-.log",
         rollingInterval: RollingInterval.Day,

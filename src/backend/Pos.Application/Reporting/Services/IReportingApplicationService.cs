@@ -7,5 +7,17 @@ public interface IReportingApplicationService
     Task<SalesSummaryReportDto> GetSalesSummaryReportAsync(DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken = default);
     Task<List<TopProductReportDto>> GetTopSellingProductsReportAsync(DateTime? startDate, DateTime? endDate, int top = 10, CancellationToken cancellationToken = default);
     Task<InventorySummaryReportDto> GetInventorySummaryReportAsync(CancellationToken cancellationToken = default);
-    Task<List<AuditLogDto>> GetAuditLogsAsync(string? correlationId, string? userSearch, string? action, DateTime? startDate, DateTime? endDate, int? idVenta = null, CancellationToken cancellationToken = default, int page = 1, int pageSize = 200);
+    Task<List<AuditLogDto>> GetAuditLogsAsync(
+        string? correlationId,
+        string? userSearch,
+        string? action,
+        DateTime? startDate,
+        DateTime? endDate,
+        int? idVenta = null,
+        string? module = null,
+        string? eventType = null,
+        string? resultStatus = null,
+        CancellationToken cancellationToken = default,
+        int page = 1,
+        int pageSize = 200);
 }

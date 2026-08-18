@@ -332,7 +332,10 @@ public class SaleApplicationService : ISaleApplicationService
             }),
             ipAddress,
             $"Venta #{sale.IdVenta} completada.",
-            cancellationToken);
+            module: "Ventas",
+            eventType: "SALE_CREATED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return (await GetSaleByIdAsync(sale.Id, cancellationToken))!;
     }

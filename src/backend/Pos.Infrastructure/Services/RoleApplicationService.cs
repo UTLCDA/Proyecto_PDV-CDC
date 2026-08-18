@@ -104,7 +104,10 @@ public class RoleApplicationService : IRoleApplicationService
             }),
             ipAddress,
             $"Rol creado: {role.Nombre}",
-            cancellationToken);
+            module: "Roles",
+            eventType: "ROLE_CREATED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return await GetRoleByIdAsync(role.Id, cancellationToken);
     }
@@ -215,7 +218,10 @@ public class RoleApplicationService : IRoleApplicationService
             }),
             ipAddress,
             $"Rol actualizado: {role.Nombre}",
-            cancellationToken);
+            module: "Roles",
+            eventType: "ROLE_UPDATED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return await GetRoleByIdAsync(role.Id, cancellationToken);
     }

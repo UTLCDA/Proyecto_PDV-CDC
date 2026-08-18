@@ -211,6 +211,9 @@ public class ReportingApplicationService : IReportingApplicationService
         DateTime? startDate,
         DateTime? endDate,
         int? idVenta = null,
+        string? module = null,
+        string? eventType = null,
+        string? resultStatus = null,
         CancellationToken cancellationToken = default,
         int page = 1,
         int pageSize = 200)
@@ -263,7 +266,28 @@ public class ReportingApplicationService : IReportingApplicationService
         if (!string.IsNullOrWhiteSpace(action))
         {
             var normalizedAction = action.Trim().ToLower();
-            query = query.Where(log => log.Accion.ToLower().Contains(normalizedAction));
+            query = query.Where(log => log.Accion.ToLower().Contains(normalizedAction) ||
+                (log.Motivo != null && log.Motivo.ToLower().Contains(normalizedAction)) ||
+                (log.ValoresNuevosJson != null && log.ValoresNuevosJson.ToLower().Contains(normalizedAction)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(module))
+        {
+            var normalizedModule = module.Trim().ToLower();
+            query = query.Where(log => log.ValoresNuevosJson != null && log.ValoresNuevosJson.ToLower().Contains(normalizedModule));
+        }
+
+        if (!string.IsNullOrWhiteSpace(eventType))
+        {
+            var normalizedEventType = eventType.Trim().ToLower();
+            query = query.Where(log => log.Accion.ToLower().Contains(normalizedEventType) ||
+                (log.ValoresNuevosJson != null && log.ValoresNuevosJson.ToLower().Contains(normalizedEventType)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(resultStatus))
+        {
+            var normalizedStatus = resultStatus.Trim().ToLower();
+            query = query.Where(log => log.ValoresNuevosJson != null && log.ValoresNuevosJson.ToLower().Contains(normalizedStatus));
         }
 
         if (startDate.HasValue)
@@ -314,6 +338,22 @@ public class ReportingApplicationService : IReportingApplicationService
                 };
             }
 
+            string? extractedModule = null;
+            string? extractedEventType = null;
+            string? extractedResultStatus = null;
+
+            if (!string.IsNullOrWhiteSpace(log.ValoresNuevosJson) && log.ValoresNuevosJson.TrimStart().StartsWith("{"))
+            {
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(log.ValoresNuevosJson);
+                    if (doc.RootElement.TryGetProperty("module", out var modProp)) extractedModule = modProp.GetString();
+                    if (doc.RootElement.TryGetProperty("eventType", out var evtProp)) extractedEventType = evtProp.GetString();
+                    if (doc.RootElement.TryGetProperty("resultStatus", out var resProp)) extractedResultStatus = resProp.GetString();
+                }
+                catch { }
+            }
+
             return new AuditLogDto(
                 log.Id,
                 operationalId,
@@ -326,7 +366,10 @@ public class ReportingApplicationService : IReportingApplicationService
                 log.ValoresNuevosJson,
                 log.DireccionIp,
                 log.Motivo ?? string.Empty,
-                log.FechaCreacionUtc);
+                log.FechaCreacionUtc,
+                extractedModule,
+                extractedEventType,
+                extractedResultStatus);
         }).ToList();
     }
 

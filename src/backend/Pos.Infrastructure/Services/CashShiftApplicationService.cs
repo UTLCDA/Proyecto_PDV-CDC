@@ -88,7 +88,10 @@ public class CashShiftApplicationService : ICashShiftApplicationService
             JsonSerializer.Serialize(new { shift.NumeroTurno, shift.MontoApertura, shift.FechaAperturaUtc, shift.Notas }),
             ipAddress,
             $"Turno de caja abierto: {shift.NumeroTurno}",
-            cancellationToken);
+            module: "Caja",
+            eventType: "CASH_REGISTER_OPENED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return (await GetCurrentOpenShiftAsync(userId, cancellationToken))!;
     }
@@ -130,7 +133,10 @@ public class CashShiftApplicationService : ICashShiftApplicationService
             JsonSerializer.Serialize(new { Deposit = request.Amount, Reason = reason, ExpectedCash = shift.MontoCierreEsperado, shift.TotalEntradas }),
             ipAddress,
             $"Entrada manual de caja por ${request.Amount:N2}",
-            cancellationToken);
+            module: "Caja",
+            eventType: "CASH_DEPOSIT",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return MapShiftToDto(await ReloadShiftAsync(shift.Id, cancellationToken));
     }
@@ -177,7 +183,10 @@ public class CashShiftApplicationService : ICashShiftApplicationService
             JsonSerializer.Serialize(new { Withdrawal = request.Amount, Reason = reason, ExpectedCash = shift.MontoCierreEsperado, shift.TotalRetiros }),
             ipAddress,
             $"Retiro de caja por ${request.Amount:N2}",
-            cancellationToken);
+            module: "Caja",
+            eventType: "CASH_WITHDRAWAL",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return MapShiftToDto(await ReloadShiftAsync(shift.Id, cancellationToken));
     }
@@ -222,7 +231,10 @@ public class CashShiftApplicationService : ICashShiftApplicationService
             }),
             ipAddress,
             $"Corte X consultado sin cerrar el turno {shift.NumeroTurno}",
-            cancellationToken);
+            module: "Caja",
+            eventType: "CASH_CUT_CREATED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return MapShiftToDto(await ReloadShiftAsync(shift.Id, cancellationToken));
     }
@@ -281,7 +293,10 @@ public class CashShiftApplicationService : ICashShiftApplicationService
             }),
             ipAddress,
             $"Corte Z de {shift.NumeroTurno}. Diferencia: ${shift.MontoDiferencia:N2}",
-            cancellationToken);
+            module: "Caja",
+            eventType: "CASH_REGISTER_CLOSED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return MapShiftToDto(await ReloadShiftAsync(shift.Id, cancellationToken));
     }

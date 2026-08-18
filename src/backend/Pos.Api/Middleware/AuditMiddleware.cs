@@ -31,32 +31,41 @@ public class AuditMiddleware
 
         await _next(context);
 
-        try
+        // Only log HTTP errors (StatusCode >= 400) to AuditLogs table.
+        // Routine GET/POST 200 OK HTTP entries are handled by explicit domain audit logs in services to prevent DB log bloat.
+        var statusCode = context.Response.StatusCode;
+        if (statusCode >= 400)
         {
-            var userIdClaim = context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            Guid? userId = Guid.TryParse(userIdClaim, out var parsedId) ? parsedId : null;
+            try
+            {
+                var userIdClaim = context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                Guid? userId = Guid.TryParse(userIdClaim, out var parsedId) ? parsedId : null;
 
-            var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
-            var action = $"{context.Request.Method} {path}";
-            var statusCode = context.Response.StatusCode;
+                var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+                var action = $"{context.Request.Method} {path}";
+                var resultStatus = statusCode >= 500 ? "ERROR" : "WARNING";
 
-            using var scope = serviceProvider.CreateScope();
-            var auditService = scope.ServiceProvider.GetRequiredService<IAuditLogService>();
+                using var scope = serviceProvider.CreateScope();
+                var auditService = scope.ServiceProvider.GetRequiredService<IAuditLogService>();
 
-            await auditService.LogAsync(
-                correlationId: correlationId,
-                userId: userId,
-                action: action,
-                entityName: "HttpRequest",
-                entityId: statusCode.ToString(),
-                oldValuesJson: null,
-                newValuesJson: null,
-                ipAddress: ipAddress,
-                reason: $"HTTP Response StatusCode: {statusCode}");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error writing audit middleware log");
+                await auditService.LogAsync(
+                    correlationId: correlationId,
+                    userId: userId,
+                    action: action,
+                    entityName: "HttpRequest",
+                    entityId: statusCode.ToString(),
+                    oldValuesJson: null,
+                    newValuesJson: null,
+                    ipAddress: ipAddress,
+                    reason: $"HTTP Failure StatusCode: {statusCode}",
+                    module: "Sistema",
+                    eventType: statusCode == 401 ? "LOGIN_FAILED" : statusCode == 403 ? "ACCESS_DENIED" : "SYSTEM_ERROR",
+                    resultStatus: resultStatus);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error writing audit middleware log");
+            }
         }
     }
 }

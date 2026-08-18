@@ -76,7 +76,10 @@ public class CatalogApplicationService : ICatalogApplicationService
             $"Name={category.Nombre}",
             ipAddress,
             $"Nueva categoría creada: {category.Nombre}",
-            cancellationToken);
+            module: "Productos",
+            eventType: "CATEGORY_CREATED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return MapCategoryToDto(category);
     }
@@ -115,7 +118,10 @@ public class CatalogApplicationService : ICatalogApplicationService
             JsonSerializer.Serialize(new { category.Nombre, category.Slug, category.Descripcion, category.CategoriaPadreId, category.EstaActivo }),
             ipAddress,
             $"Categoría actualizada: {category.Nombre}",
-            cancellationToken);
+            module: "Productos",
+            eventType: "CATEGORY_UPDATED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return MapCategoryToDto(category);
     }
@@ -256,7 +262,10 @@ public class CatalogApplicationService : ICatalogApplicationService
             $"Sku={product.Sku}, Name={product.Nombre}, Price={product.PrecioUnitario}",
             ipAddress,
             $"Nuevo producto registrado: {product.Nombre}",
-            cancellationToken);
+            module: "Productos",
+            eventType: "PRODUCT_CREATED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return (await GetProductByIdAsync(product.Id, cancellationToken))!;
     }
@@ -318,7 +327,10 @@ public class CatalogApplicationService : ICatalogApplicationService
             JsonSerializer.Serialize(new { product.Nombre, product.CategoriaId, product.PrecioUnitario, product.PrecioMayoreo, product.UnidadMedida, product.EstaActivo }),
             ipAddress,
             $"Producto actualizado: {product.Nombre}",
-            cancellationToken);
+            module: "Productos",
+            eventType: "PRODUCT_UPDATED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return (await GetProductByIdAsync(product.Id, cancellationToken))!;
     }
@@ -351,7 +363,10 @@ public class CatalogApplicationService : ICatalogApplicationService
             $"UnitPrice={product.PrecioUnitario}, WholesalePrice={product.PrecioMayoreo}",
             ipAddress,
             $"Precio de producto actualizado: {product.Nombre}",
-            cancellationToken);
+            module: "Productos",
+            eventType: "PRODUCT_UPDATED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return (await GetProductByIdAsync(product.Id, cancellationToken))!;
     }
@@ -438,7 +453,10 @@ public class CatalogApplicationService : ICatalogApplicationService
             JsonSerializer.Serialize(new { customer.Nombre, customer.Apellido, customer.NombreEmpresa, customer.Rfc, customer.Email, customer.Telefono, customer.TipoCliente, customer.PorcentajeDescuentoEspecial }),
             ipAddress,
             $"Nuevo cliente registrado: {customer.NombreMostrar}",
-            cancellationToken);
+            module: "Clientes",
+            eventType: "CLIENT_CREATED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return MapCustomerToDto(customer);
     }
@@ -490,7 +508,10 @@ public class CatalogApplicationService : ICatalogApplicationService
             JsonSerializer.Serialize(new { customer.Nombre, customer.Apellido, customer.NombreEmpresa, customer.Rfc, customer.Email, customer.Telefono, customer.TipoCliente, customer.PorcentajeDescuentoEspecial, customer.EstaActivo }),
             ipAddress,
             $"Cliente actualizado: {customer.NombreMostrar}",
-            cancellationToken);
+            module: "Clientes",
+            eventType: "CLIENT_UPDATED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return MapCustomerToDto(customer);
     }

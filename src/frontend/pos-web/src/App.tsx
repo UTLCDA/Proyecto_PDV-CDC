@@ -172,15 +172,7 @@ const MainLayout: React.FC = () => {
 
         <div className="nav-actions">
           {/* Dashboard UI de Logs Serilog */}
-          {canOpenTab('users') && <a
-            href="http://localhost:5000/serilog-ui"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="lang-btn nav-audit-link"
-            title={t('openAuditLogs')}
-          >
-            📜 {t('auditLogs')}
-          </a>}
+
 
           <span className="nav-mode-indicator" title={t('lightMode')}>
             ☀️ {t('lightMode')}

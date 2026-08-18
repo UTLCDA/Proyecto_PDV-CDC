@@ -100,4 +100,7 @@ export interface AuditLog {
   ipAddress: string;
   notes: string;
   createdAtUtc: string;
+  module?: string;
+  eventType?: string;
+  resultStatus?: string;
 }

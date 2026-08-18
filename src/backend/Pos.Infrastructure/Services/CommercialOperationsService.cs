@@ -191,7 +191,10 @@ public class CommercialOperationsService : ICommercialOperationsService
             JsonSerializer.Serialize(new { quote.NumeroCotizacion, quote.MontoTotal, quote.MontoDescuento, Items = quote.Partidas.Count, request.ValidityDays }),
             ipAddress,
             $"Cotización creada: {quote.NumeroCotizacion}",
-            cancellationToken);
+            module: "Cotizaciones",
+            eventType: "QUOTE_CREATED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return (await GetQuoteByIdAsync(quote.Id, cancellationToken))!;
     }
@@ -276,7 +279,10 @@ public class CommercialOperationsService : ICommercialOperationsService
                     JsonSerializer.Serialize(new { Status = quote.Estado, sale.IdVenta, SaleFolio = sale.FolioNumber }),
                     ipAddress,
                     $"Cotización {quote.NumeroCotizacion} convertida a Venta #{sale.IdVenta}",
-                    cancellationToken);
+                    module: "Cotizaciones",
+                    eventType: "LAYAWAY_CONVERTED",
+                    resultStatus: "SUCCESS",
+                    cancellationToken: cancellationToken);
                 return sale;
             }
             catch
@@ -375,7 +381,10 @@ public class CommercialOperationsService : ICommercialOperationsService
                 JsonSerializer.Serialize(new { sale.IdVenta, installment.NumeroRecibo, installment.MontoAbonado, PendingBalance = sale.SaldoPendiente, installment.FormaPago }),
                 ipAddress,
                 $"Abono registrado para Venta #{sale.IdVenta}",
-                cancellationToken);
+                module: "Pagos",
+                eventType: "PAYMENT_CREATED",
+                resultStatus: "SUCCESS",
+                cancellationToken: cancellationToken);
             return MapInstallmentToDto(installment, sale);
         }, cancellationToken);
     }
@@ -716,7 +725,10 @@ public class CommercialOperationsService : ICommercialOperationsService
                 JsonSerializer.Serialize(new { sale.IdVenta, returnHeader.NumeroDevolucion, sale.NumeroFolio, returnHeader.MontoTotalDevuelto, returnHeader.MontoAplicadoSaldoPendiente, returnHeader.MontoReembolsado, returnHeader.FormaReembolso, Items = returnHeader.Detalle.Count }),
                 ipAddress,
                 $"Devolución {returnHeader.NumeroDevolucion} procesada para Venta #{sale.IdVenta}",
-                cancellationToken);
+                module: "Devoluciones",
+                eventType: "RETURN_CREATED",
+                resultStatus: "SUCCESS",
+                cancellationToken: cancellationToken);
 
             return (await GetReturnByIdAsync(returnHeader.Id, cancellationToken))!;
         }, cancellationToken);
@@ -1154,6 +1166,9 @@ public class CommercialOperationsService : ICommercialOperationsService
             JsonSerializer.Serialize(new { template.Titulo, template.Categoria, ContentLength = template.ContenidoHtmlPlantilla.Length }),
             ipAddress,
             $"Plantilla guardada: {template.Titulo}",
-            cancellationToken);
+            module: "Configuracion",
+            eventType: action,
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
     }
 }

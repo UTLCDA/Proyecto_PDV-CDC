@@ -12,6 +12,9 @@ interface AuditFilters extends ReportFilters {
   user?: string;
   action?: string;
   idVenta?: string;
+  module?: string;
+  eventType?: string;
+  resultStatus?: string;
 }
 
 const appendFilters = <T extends object>(url: string, filters: T) => {

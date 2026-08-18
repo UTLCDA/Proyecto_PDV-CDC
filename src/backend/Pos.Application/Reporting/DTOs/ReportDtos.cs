@@ -59,5 +59,8 @@ public record AuditLogDto(
     string? NewValues,
     string IpAddress,
     string Notes,
-    DateTime CreatedAtUtc
+    DateTime CreatedAtUtc,
+    string? Module = null,
+    string? EventType = null,
+    string? ResultStatus = null
 );

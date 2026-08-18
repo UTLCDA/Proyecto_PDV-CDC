@@ -113,7 +113,10 @@ public class UserApplicationService : IUserApplicationService
             }),
             ipAddress,
             $"Nuevo usuario registrado en WPC Bajío: {user.NombreUsuario}",
-            cancellationToken);
+            module: "Usuarios",
+            eventType: "USER_CREATED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return (await GetUserByIdAsync(user.Id, cancellationToken))!;
     }
@@ -243,7 +246,10 @@ public class UserApplicationService : IUserApplicationService
             }),
             ipAddress,
             $"Usuario actualizado: {user.NombreUsuario}",
-            cancellationToken);
+            module: "Usuarios",
+            eventType: "USER_UPDATED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
 
         return (await GetUserByIdAsync(user.Id, cancellationToken))!;
     }

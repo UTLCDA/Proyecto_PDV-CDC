@@ -12,5 +12,8 @@ public interface IAuditLogService
         string? newValuesJson,
         string ipAddress,
         string? reason = null,
+        string? module = null,
+        string? eventType = null,
+        string? resultStatus = null,
         CancellationToken cancellationToken = default);
 }
