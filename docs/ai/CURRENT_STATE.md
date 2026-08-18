@@ -9,7 +9,8 @@
   - Alta/edición de Usuarios muestra errores dentro del modal y una lista dinámica de requisitos de contraseña; cada requisito cambia a verde al cumplirse y el guardado permanece deshabilitado mientras falte alguno.
   - Movimientos de Inventario agrupa las fechas bajo “Periodo del movimiento” y muestra etiquetas visibles para Fecha inicial/Fecha final, con disposición responsive.
 - **Ramas Git & Publicación en GitHub**:
-  - `origin/main`, `origin/fase-1.1` y `origin/codex/exportacion-pdf-excel` se encuentran 100% integradas y alineadas en el commit `726faae`.
+  - `origin/main`, `origin/fase-1.1` y `origin/codex/exportacion-pdf-excel` integradas en `3fbc641`.
+  - Nueva rama activa de trabajo creada desde `main`: `codex/2.1.0-fix-interaccion-bitacora` (publicada en `origin/codex/2.1.0-fix-interaccion-bitacora`).
 - **Infraestructura reutilizable**: `ExportButtons`, generador PDF con `@react-pdf/renderer`, generador XLSX con `ExcelJS`, contrato tipado de columnas/filtros y carga paginada común.
 - **Cobertura funcional**: ventas, clientes, productos, existencias, movimientos de inventario, cotizaciones, abonos, transacciones/pagos, devoluciones, caja, reportes, usuarios, roles y auditoría.
 - **Archivos profesionales**: logo oficial, identidad WPC Bajío, filtros realmente aplicados, tabla multipágina en PDF, valores tipados/autofiltro/freeze en Excel y nombres derivados del periodo activo.
