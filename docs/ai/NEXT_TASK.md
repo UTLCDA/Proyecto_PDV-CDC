@@ -1,11 +1,12 @@
-# NEXT TASK — Módulo de Promociones y Ofertas
+# NEXT TASK — Inicio de Fase 2 (Plataforma E-Commerce / Atributos Avanzados)
 
 ## Estado actual
 
-- El rediseño de Bitácora y Auditoría Central del Sistema está completado y probado.
-- La base de datos limpia `PosLambrinDb` fue generada con 26 tablas, 10 migraciones aplicadas y poblada exclusivamente con Roles, Permisos, Usuario `admin` y Cliente Público en General (sin datos demo de ventas/productos).
-- El botón `📜 Bitácora del Sistema` del navbar fue removido y Serilog InMemory sink fue desactivado.
-- Pruebas automatizadas: backend **67/67**, Vitest frontend **24/24**, build Release / Vite aprobados.
+- **Fase 1 100% Concluida y Fucionada a `main`**:
+  - La rama `main` contiene la base autoritativa de la Fase 1 con todas las funcionalidades de PDV, Ventas, Cotizaciones, Inventario, Caja, Clientes, Usuarios, Permisos, Auditoría Central y Exportación PDF/Excel.
+  - La rama `fase-1.1` queda archivada y concluida; de ahora en adelante se utilizarán ramas consecutivas para la Fase 2 (ej. `fase-2.0` / `feature/...`).
+  - La base de datos limpia `PosLambrinDb` está lista para producción.
+  - Pruebas automatizadas: backend **67/67**, Vitest frontend **24/24**, build Release / Vite aprobados.
 
 ## Siguiente única tarea recomendada
 

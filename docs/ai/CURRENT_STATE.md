@@ -1,5 +1,18 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
+## Iteración aprobada — Pie de Comprobante WPC Bajío, Corrección de CI y Sincronización de Puertos (2026-08-18)
+
+- **Diseño e Integración del Pie de Comprobante (Ticket / Recibo)**:
+  - Estructuración pulida del pie de comprobante en `SaleReceiptModal.tsx` con la identidad institucional WPC BAJÍO.
+  - Inclusión de mensaje de agradecimiento (*¡GRACIAS POR SU COMPRA!*), atención a clientes (Tel/WhatsApp: *477 807 2768*), dirección física (*Blvd. Adolfo López Mateos 2826, El Rosario, C.P. 37125, León de los Aldama, Gto.*) e insignia `PRÓXIMAMENTE` (*www.wpcbajio.com*).
+  - Reglas de impresión `@media print` en `PaginaPuntoVenta.css` optimizadas para rollo continuo de 80mm/58mm en impresoras térmicas y PDF sin recortes de altura (`@page { size: auto; margin: 0; }` y `page-break-inside: auto !important`).
+
+- **Estabilización de Pipeline CI (GitHub Actions Linux) y Alineación de Puertos**:
+  - Creación de `src/backend/Pos.sln` con rutas relativas multiplataforma (`/`) compatibles con Linux (`ubuntu-latest`).
+  - Implementación de `CustomWebApplicationFactory` para pruebas de integración 100% in-memory sin dependencia de servidor SQL local en la nube.
+  - Alineación de puertos de desarrollo en `launchSettings.json` y `vite.config.ts` (`http://localhost:60931` / `http://localhost:5000`).
+  - Suite de pruebas 100% verde: **67/67 pruebas backend** (xUnit) y **24/24 pruebas frontend** (Vitest).
+
 ## Iteración aprobada — Bitácora Central de Auditoría y Base de Datos Limpia de Producción (2026-08-18)
 
 - **Rediseño del Módulo de Auditoría / Bitácora Central del Sistema**:
