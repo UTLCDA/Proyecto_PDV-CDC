@@ -229,7 +229,9 @@ def main():
       </rules>
     </rewrite>
     <staticContent>
+      <remove fileExtension=".json" />
       <mimeMap fileExtension=".json" mimeType="application/json" />
+      <remove fileExtension=".webp" />
       <mimeMap fileExtension=".webp" mimeType="image/webp" />
     </staticContent>
   </system.webServer>
