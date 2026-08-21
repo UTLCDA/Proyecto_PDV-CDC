@@ -1,12 +1,12 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
-## Iteración aprobada — Solución a Turno de Caja Compartido, Restricción de Cajero y Scroll en Bitácora (2026-08-21)
+## Iteración aprobada — Despliegue Local en IIS y Validación de API Operativa (2026-08-21)
 
 - **Rama Git Activa**: `codex/2.1.1-comentarios-finales-clientes`.
-- **Solución a Incidencias**:
-  - **Apertura de Caja Compartida**: Inclusión de `PermissionCodes.Sales.Process` en la política `CashShiftRead` de `Program.cs`. Cuando un Administrador abre la caja, los Cajeros consultan el turno activo en `/api/v1/cashshifts/current` sin error 403 Forbidden y pueden vender directamente.
-  - **Restricción de Módulos para Cajero**: Actualizado `tabPermissions.sales` en `accessControl.ts` a `[permissionCodes.reportsSalesView]`. El rol Cajero únicamente visualiza la pestaña **🛒 Punto de Venta**, quedando oculto el Histórico de Ventas.
-  - **Scroll en Detalles Técnicos de Bitácora**: Reestructuración del modal con `.audit-modal-container`, `.audit-modal-body` (`overflow-y: auto`) y desbordamiento libre en `.audit-tech-accordion`. El acordeón `🛠️ Detalles Técnicos` se despliega con scroll vertical/horizontal fluido.
+- **Despliegue Local en IIS**:
+  - **API Backend (.NET 9)**: Instalado y activo en IIS (`http://localhost:5000/api/v1/health`). Estado validado por el usuario: `{"estado": "Operativo", "nombreServicio": "WPC Bajío POS API"}`.
+  - **Instalador Automatizado**: Desarrollado `install_local_iis.py` que habilita IIS mediante DISM, instala ASP.NET Core Hosting Bundle 9.0, asigna identidad `LocalSystem` a AppPools y otorga permisos `sysadmin` en SQL Server AAM.
+  - **Frontend SPA (React + Vite)**: Desplegado en IIS (`http://localhost:80`) con soporte para enrutamiento SPA mediante `web.config`.
 - **Suite de Pruebas**: **67/67 pruebas backend** (xUnit) y **24/24 pruebas frontend** (Vitest). Compilación Vite con 0 errores.
 
 ## Iteración aprobada — Pie de Comprobante WPC Bajío, Corrección de CI y Sincronización de Puertos (2026-08-18)
