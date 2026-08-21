@@ -16,7 +16,8 @@ public record CreateSaleDto(
     decimal CardAmount,
     decimal TransferAmount,
     string Notes,
-    List<CreateSaleItemDto> Items
+    List<CreateSaleItemDto> Items,
+    bool RequiresInvoice = true
 );
 
 public record SaleItemDto(

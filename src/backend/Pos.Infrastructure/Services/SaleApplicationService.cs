@@ -191,7 +191,7 @@ public class SaleApplicationService : ISaleApplicationService
             saleItem.CalcularTotalPartida();
             sale.Partidas.Add(saleItem);
         }
-        sale.CalcularTotales();
+        sale.CalcularTotales(request.RequiresInvoice ? 0.16m : 0m);
         ValidatePayments(sale, request);
 
         foreach (var pricedItem in pricedItems)

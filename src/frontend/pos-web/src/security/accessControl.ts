@@ -45,7 +45,7 @@ export const permissionCodes = {
 
 const tabPermissions: Record<Exclude<AppTab, 'profile'>, readonly string[]> = {
   pos: [permissionCodes.salesProcess],
-  sales: [permissionCodes.salesProcess, permissionCodes.reportsSalesView],
+  sales: [permissionCodes.reportsSalesView],
   shift: [
     permissionCodes.cashOpen,
     permissionCodes.cashClose,

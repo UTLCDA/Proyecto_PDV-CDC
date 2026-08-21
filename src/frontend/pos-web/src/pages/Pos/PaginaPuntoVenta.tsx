@@ -31,6 +31,7 @@ export const PaginaPuntoVenta: React.FC = () => {
   const [manualCode, setManualCode] = useState('');
   const [receipt, setReceipt] = useState<Venta | null>(null);
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
+  const [requiresInvoice, setRequiresInvoice] = useState(false);
   const [hasOpenShift, setHasOpenShift] = useState(true);
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState(true);
@@ -87,13 +88,21 @@ export const PaginaPuntoVenta: React.FC = () => {
       ? product.wholesalePrice
       : product.unitPrice;
 
+  const getProductUnitCoverage = (product: Producto) => {
+    if (product.boxCoverageSqM && product.boxCoverageSqM > 0) return product.boxCoverageSqM;
+    if (product.unitOfMeasure === 'Caja' || (product.piecesPerBox && product.piecesPerBox > 1)) {
+      return (product.piecesPerBox || 1) * (product.coveragePerUnitSqM || 0);
+    }
+    return product.coveragePerUnitSqM || 0;
+  };
+
   const subtotal = cart.reduce((total, item) => total + item.quantity * effectivePrice(item.product, item.quantity), 0);
   const customerDiscount = Math.round(subtotal * Math.min(100, Math.max(0, selectedCustomer?.specialDiscountPercentage ?? 0)) / 100 * 100) / 100;
   const requestedDiscount = canDiscount ? Number(manualDiscount || 0) : 0;
   const appliedDiscount = Math.max(customerDiscount, Number.isFinite(requestedDiscount) ? requestedDiscount : 0);
-  const taxAmount = Math.round(subtotal * 0.16 * 100) / 100;
+  const taxAmount = requiresInvoice ? Math.round(subtotal * 0.16 * 100) / 100 : 0;
   const totalAmount = Math.max(0, subtotal - appliedDiscount + taxAmount);
-  const coverage = cart.reduce((total, item) => total + item.quantity * (item.product.coveragePerUnitSqM || 0), 0);
+  const coverage = cart.reduce((total, item) => total + item.quantity * getProductUnitCoverage(item.product), 0);
 
   const findAndAddProduct = (code: string) => {
     const term = code.trim().toLocaleLowerCase();
@@ -207,6 +216,7 @@ export const PaginaPuntoVenta: React.FC = () => {
         cardAmount: card,
         transferAmount: transfer,
         notes: notes.trim() || t('defaultSaleNote', { coverage: coverage.toFixed(2) }),
+        requiresInvoice,
         items: cart.map(item => ({
           productId: item.product.id,
           quantity: item.quantity,
@@ -281,7 +291,7 @@ export const PaginaPuntoVenta: React.FC = () => {
               <div>
                 <small className="pos-cart-item__sku">{item.product.sku}</small>
                 <strong>{item.product.name}</strong>
-                <small>{item.product.unitOfMeasure} · {money.format(price)} · {(item.quantity * item.product.coveragePerUnitSqM).toFixed(2)} m²</small>
+                <small>{item.product.unitOfMeasure} · {money.format(price)} · {(item.quantity * getProductUnitCoverage(item.product)).toFixed(2)} m²</small>
               </div>
               <div className="pos-quantity-control">
                 <button type="button" onClick={() => changeQuantity(item.product.id, -1)} aria-label={t('decreaseQuantity')}>−</button>
@@ -295,10 +305,24 @@ export const PaginaPuntoVenta: React.FC = () => {
         </div>
 
         <div className="pos-totals">
+          <div className="pos-totals__invoice-row" onClick={() => setRequiresInvoice(prev => !prev)}>
+            <label className="pos-totals__checkbox-label" onClick={e => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={requiresInvoice}
+                onChange={event => setRequiresInvoice(event.target.checked)}
+              />
+              <span>🧾 {t('requiresInvoiceLabel')}</span>
+            </label>
+            <span className={`pos-invoice-badge ${requiresInvoice ? 'is-active' : ''}`}>
+              {requiresInvoice ? 'SÍ (+16%)' : 'NO (0%)'}
+            </span>
+          </div>
+
           <span>{t('subtotal')}<b>{money.format(subtotal)}</b></span>
           {appliedDiscount > 0 && <span className="pos-discount">{t('discount')}<b>-{money.format(appliedDiscount)}</b></span>}
-          <span>{t('tax')}<b>{money.format(taxAmount)}</b></span>
-          {coverage > 0 && <span>{t('coverage')}<b>{coverage.toFixed(2)} m² <small style={{ fontWeight: 400, color: 'var(--primary-main)' }}>(📦 ~{cart.reduce((sum, item) => sum + Math.ceil(item.quantity / (item.product.piecesPerBox || 9)), 0)} {t('boxesEstimated')})</small></b></span>}
+          {requiresInvoice && <span>{t('tax')}<b>{money.format(taxAmount)}</b></span>}
+          {coverage > 0 && <span>{t('coverage')}<b>{coverage.toFixed(2)} m² <small style={{ fontWeight: 400, color: 'var(--primary-main)' }}>(📦 ~{cart.reduce((sum, item) => sum + Math.ceil(item.quantity / ((item.product.unitOfMeasure === 'Caja' || item.product.boxCoverageSqM) ? 1 : (item.product.piecesPerBox || 9))), 0)} {t('boxesEstimated')})</small></b></span>}
           <span className="pos-total">{t('total')}<b>{money.format(totalAmount)}</b></span>
         </div>
 
@@ -309,10 +333,10 @@ export const PaginaPuntoVenta: React.FC = () => {
 
         <label className="pos-field">{t('paymentType')}
           <select value={paymentType} onChange={event => selectPaymentType(event.target.value as PaymentType)}>
-            <option value="FullPayment">{t('cashFullPayment')}</option>
+            <option value="FullPayment">💵 {t('cashFullPayment')}</option>
             <option value="CardPayment">💳 Pago total con tarjeta</option>
-            <option value="MixedPayment">{t('mixedPayment')}</option>
-            <option value="AdvanceDeposit">{t('advanceDeposit')}</option>
+            <option value="MixedPayment">🔀 {t('mixedPayment')}</option>
+            <option value="AdvanceDeposit">📑 {t('advanceDeposit')}</option>
           </select>
         </label>
 

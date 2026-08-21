@@ -205,6 +205,24 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setter(cleaned);
   };
 
+  const handleLargoChange = (val: string) => {
+    handleFormattedNumericChange(setLargoCm, val);
+    const largo = parseFloat(val) || 0;
+    const ancho = parseFloat(anchoCm) || 0;
+    if (largo > 0 && ancho > 0) {
+      setCoberturaUnidadM2(((largo * ancho) / 10000).toFixed(3));
+    }
+  };
+
+  const handleAnchoChange = (val: string) => {
+    handleFormattedNumericChange(setAnchoCm, val);
+    const largo = parseFloat(largoCm) || 0;
+    const ancho = parseFloat(val) || 0;
+    if (largo > 0 && ancho > 0) {
+      setCoberturaUnidadM2(((largo * ancho) / 10000).toFixed(3));
+    }
+  };
+
   // Cálculo de Cobertura Total de la Caja (1.3)
   const piezasNum = parseFloat(piezasPorCaja) || 0;
   const cobUnitM2Num = parseFloat(coberturaUnidadM2) || 0;
@@ -299,18 +317,18 @@ export const PaginaCatalogoProductos: React.FC = () => {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h2>📦 Catálogo de Productos WPC Bajío</h2>
+            <h2>📦 {t('catalogTitle')}</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-              Gestión de páneles Lambrín, precios de mayoreo, imágenes y dimensiones
+              {t('catalogSubtitle')}
             </p>
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             {canCreateProduct && <button className="action-btn" onClick={abrirModalCrear}>
-              ➕ Nuevo Producto Lambrín
+              ➕ {t('newLambrinProduct')}
             </button>}
             {canCreateCategory && <button className="lang-btn" onClick={() => setModalCategoriaAbierto(true)}>
-              📁 Crear Categoría
+              📁 {t('createCategory')}
             </button>}
             <ExportButtons data={productos} config={exportConfig} />
           </div>
@@ -323,7 +341,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
           <input
             type="text"
             className="input-field"
-            placeholder="🔍 Buscar por Nombre, SKU (WPC-...) o Código de Barras..."
+            placeholder={t('searchProductsPlaceholder')}
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             style={{ flex: 1, minWidth: '240px' }}
@@ -335,31 +353,31 @@ export const PaginaCatalogoProductos: React.FC = () => {
             onChange={(e) => setCategoriaFiltro(e.target.value)}
             style={{ width: '220px' }}
           >
-            <option value="">-- Todas las Categorías --</option>
+            <option value="">-- {t('allCategories')} --</option>
             {categorias.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
 
-          <button type="submit" className="action-btn">Buscar</button>
+          <button type="submit" className="action-btn">{t('search')}</button>
         </form>
 
         {/* Tabla de Productos con Columna de Imagen Thumbnail (Punto 2.0) */}
         {cargando ? (
-          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Cargando catálogo WPC Bajío...</div>
+          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>{t('loading')}</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-main)', background: 'var(--background-container)' }}>
-                  <th style={{ padding: '0.75rem', width: '70px' }}>Imagen</th>
-                  <th style={{ padding: '0.75rem' }}>SKU / Producto</th>
-                  <th style={{ padding: '0.75rem' }}>Categoría</th>
-                  <th style={{ padding: '0.75rem' }}>Precio Unit.</th>
-                  <th style={{ padding: '0.75rem' }}>Precio Mayoreo</th>
-                  <th style={{ padding: '0.75rem' }}>Piezas/Caja</th>
-                  <th style={{ padding: '0.75rem' }}>Cobertura (m²)</th>
-                  {canEditProduct && <th style={{ padding: '0.75rem', textAlign: 'right' }}>Acciones</th>}
+                  <th style={{ padding: '0.75rem', width: '70px' }}>{t('productImage')}</th>
+                  <th style={{ padding: '0.75rem' }}>{t('skuProduct')}</th>
+                  <th style={{ padding: '0.75rem' }}>{t('category')}</th>
+                  <th style={{ padding: '0.75rem' }}>{t('unitPrice')}</th>
+                  <th style={{ padding: '0.75rem' }}>{t('wholesalePrice')}</th>
+                  <th style={{ padding: '0.75rem' }}>{t('piecesPerBox')}</th>
+                  <th style={{ padding: '0.75rem' }}>{t('coverageM2')}</th>
+                  {canEditProduct && <th style={{ padding: '0.75rem', textAlign: 'right' }}>{t('actions')}</th>}
                 </tr>
               </thead>
               <tbody>
@@ -404,46 +422,46 @@ export const PaginaCatalogoProductos: React.FC = () => {
                       ${p.unitPrice?.toFixed(2)} MXN
                     </td>
                     <td style={{ padding: '0.75rem', color: 'var(--success)' }}>
-                      ${p.wholesalePrice?.toFixed(2)} (Min {p.wholesaleMinQuantity} {p.unitOfMeasure})
+                      ${p.wholesalePrice?.toFixed(2)} ({t('wholesaleMin', { qty: p.wholesaleMinQuantity, unit: p.unitOfMeasure })})
                     </td>
                     <td style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>
-                      {p.piecesPerBox || 1} pzas
+                      {t('piecesCount', { count: p.piecesPerBox || 1 })}
                     </td>
-                     <td style={{ padding: '0.75rem' }}>
-                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                         <span style={{
-                           display: 'inline-flex',
-                           alignItems: 'center',
-                           gap: '0.25rem',
-                           padding: '0.15rem 0.4rem',
-                           borderRadius: '4px',
-                           background: 'var(--background-container)',
-                           color: 'var(--text-secondary)',
-                           fontSize: '0.75rem',
-                           width: 'fit-content'
-                         }}>
-                           📐 {p.coveragePerUnitSqM || 0} m²/pza
-                         </span>
-                         <span style={{
-                           display: 'inline-flex',
-                           alignItems: 'center',
-                           gap: '0.25rem',
-                           padding: '0.15rem 0.4rem',
-                           borderRadius: '4px',
-                           background: 'var(--background-selected)',
-                           border: '1px solid var(--border-hover)',
-                           color: 'var(--primary-main)',
-                           fontSize: '0.75rem',
-                           width: 'fit-content',
-                           fontWeight: 'bold'
-                         }}>
-                           📦 Caja: {p.boxCoverageSqM ? p.boxCoverageSqM.toFixed(2) : ((p.piecesPerBox || 1) * (p.coveragePerUnitSqM || 0)).toFixed(2)} m²
-                         </span>
-                       </div>
-                     </td>
+                    <td style={{ padding: '0.75rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          padding: '0.15rem 0.4rem',
+                          borderRadius: '4px',
+                          background: 'var(--background-container)',
+                          color: 'var(--text-secondary)',
+                          fontSize: '0.75rem',
+                          width: 'fit-content'
+                        }}>
+                          📐 {t('coveragePerPiece', { coverage: p.coveragePerUnitSqM || 0 })}
+                        </span>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          padding: '0.15rem 0.4rem',
+                          borderRadius: '4px',
+                          background: 'var(--background-selected)',
+                          border: '1px solid var(--border-hover)',
+                          color: 'var(--primary-main)',
+                          fontSize: '0.75rem',
+                          width: 'fit-content',
+                          fontWeight: 'bold'
+                        }}>
+                          📦 {t('boxCoverage', { coverage: p.boxCoverageSqM ? p.boxCoverageSqM.toFixed(2) : ((p.piecesPerBox || 1) * (p.coveragePerUnitSqM || 0)).toFixed(2) })}
+                        </span>
+                      </div>
+                    </td>
                     {canEditProduct && <td style={{ padding: '0.75rem', textAlign: 'right' }}>
                       <button className="lang-btn" onClick={() => abrirModalEditar(p)} style={{ fontSize: '0.8rem', padding: '0.35rem 0.65rem' }}>
-                        ✏️ Editar
+                        ✏️ {t('editProduct') || 'Editar Producto'}
                       </button>
                     </td>}
                   </tr>
@@ -464,11 +482,11 @@ export const PaginaCatalogoProductos: React.FC = () => {
             </div>
 
             <form onSubmit={handleGuardarProducto} style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              
+
               {/* Sección 1: Información General */}
               <div style={{ padding: '1rem', background: 'var(--background-container)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                 <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--accent-primary)' }}>📦 1. Información General</h4>
-                
+
                 <div className="catalog-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>SKU (Prefijo WPC- Obligatorio) *</label>
@@ -564,7 +582,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
               {/* Sección 2: Imagen y Cobertura/Dimensiones (1.2, 1.3) */}
               <div style={{ padding: '1rem', background: 'var(--background-container)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                 <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--accent-primary)' }}>🖼️ 2. Imagen, Cobertura y Dimensiones</h4>
-                
+
                 <div className="catalog-image-grid" style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr', gap: '1rem', alignItems: 'center' }}>
                   {/* Vista Previa de Imagen (1.2) */}
                   <div style={{ textAlign: 'center' }}>
@@ -639,12 +657,12 @@ export const PaginaCatalogoProductos: React.FC = () => {
                           type="number"
                           className="input-field"
                           value={largoCm}
-                          onChange={(e) => handleFormattedNumericChange(setLargoCm, e.target.value)}
+                          onChange={(e) => handleLargoChange(e.target.value)}
                         />
                       </div>
 
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Alto (cm)</label>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Espesor (cm)</label>
                         <input
                           type="number"
                           className="input-field"
@@ -659,7 +677,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
                           type="number"
                           className="input-field"
                           value={anchoCm}
-                          onChange={(e) => handleFormattedNumericChange(setAnchoCm, e.target.value)}
+                          onChange={(e) => handleAnchoChange(e.target.value)}
                         />
                       </div>
                     </>
@@ -670,7 +688,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
               {/* Sección 3: Precios, Unidad de Medida e Inventario Inicial (1.4, 1.8, 1.9) */}
               <div style={{ padding: '1rem', background: 'var(--background-container)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                 <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--accent-primary)' }}>💰 3. Precios, Unidad de Medida e Inventario Inicial</h4>
-                
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem' }}>
                   {/* Formateo de Cajas Monetarias sin ceros molestos (1.8) */}
                   <div>

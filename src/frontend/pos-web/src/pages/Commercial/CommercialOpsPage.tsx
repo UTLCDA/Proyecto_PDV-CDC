@@ -347,10 +347,7 @@ Por medio del presente documento, WPC Bajío acuerda la comercialización y sumi
 
 2. RESUMEN FINANCIERO:
 - Monto Total Acordado: {{TOTAL}}
-- Saldo Pendiente de Liquidar: {{SALDO}}
-
-3. CONDICIONES Y GARANTÍA:
-El comprador declara estar conforme con las cantidades, colores y especificaciones técnicas de los productos adquiridos. La garantía cubre defectos de fabricación por 12 meses.`);
+- Saldo Pendiente de Liquidar: {{SALDO}}`);
   };
 
   const selectTemplate = (template: DocumentTemplate) => {

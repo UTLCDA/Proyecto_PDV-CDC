@@ -67,6 +67,7 @@ export interface PeticionCrearVenta {
   cardAmount: number;
   transferAmount: number;
   notes: string;
+  requiresInvoice?: boolean;
   items: {
     productId: string;
     quantity: number;

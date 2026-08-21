@@ -2,15 +2,14 @@
 
 ## Estado actual
 
-- **Fase 1 100% Concluida y Fucionada a `main`**:
-  - La rama `main` contiene la base autoritativa de la Fase 1 con todas las funcionalidades de PDV, Ventas, Cotizaciones, Inventario, Caja, Clientes, Usuarios, Permisos, Auditoría Central y Exportación PDF/Excel.
-  - La rama `fase-1.1` queda archivada y concluida; de ahora en adelante se utilizarán ramas consecutivas para la Fase 2 (ej. `fase-2.0` / `feature/...`).
+- **Fase 1 & Ajustes Finales (v2.1.2) Concluidos**:
+  - La rama `codex/2.1.1-comentarios-finales-clientes` contiene todos los ajustes finales comerciales, i18n, rediseño de facturación en PDV, soporte de 0%/16% IVA en backend/frontend, cálculo de cobertura por caja (`4.87 m²`), autocálculo de dimensiones en catálogo y plantillas de contrato.
   - La base de datos limpia `PosLambrinDb` está lista para producción.
   - Pruebas automatizadas: backend **67/67**, Vitest frontend **24/24**, build Release / Vite aprobados.
 
 ## Siguiente única tarea recomendada
 
-Diseñar e implementar el **Módulo de Promociones y Ofertas** con cambios pequeños y auditables.
+Diseñar e implementar el **Módulo de Promociones y Ofertas** o despliegue a producción en SQL Server.
 
 ### Criterios de aceptación iniciales
 

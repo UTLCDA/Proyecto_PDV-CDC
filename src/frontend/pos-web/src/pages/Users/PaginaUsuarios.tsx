@@ -295,6 +295,13 @@ export const PaginaUsuarios: React.FC = () => {
     }
   };
 
+  const formatRoleName = (roleName: string) => {
+    const norm = (roleName || '').toLowerCase();
+    if (norm === 'administrador') return t('roleAdmin');
+    if (norm === 'cajero') return t('roleCashier');
+    return roleName;
+  };
+
   return (
     <section className="users-page">
       <header className="users-page__header">
@@ -359,7 +366,7 @@ export const PaginaUsuarios: React.FC = () => {
                     </td>
                     <td data-label={t('email')}>{usuario.email}</td>
                     <td data-label={t('jobTitle')}>{usuario.jobTitle || t('notSpecified')}</td>
-                    <td data-label={t('systemRole')}><span className="users-role-badge">🛡️ {usuario.roleName}</span></td>
+                    <td data-label={t('systemRole')}><span className="users-role-badge">🛡️ {formatRoleName(usuario.roleName)}</span></td>
                     <td data-label={t('status')}>
                       <span className={`users-status users-status--${usuario.isActive ? 'active' : 'inactive'}`}>
                         {usuario.isActive ? t('activeAccount') : t('inactiveAccount')}
@@ -381,7 +388,7 @@ export const PaginaUsuarios: React.FC = () => {
             <article className={`role-card ${!rol.isActive ? 'role-card--inactive' : ''}`} key={rol.id}>
               <div className="role-card__title">
                 <div>
-                  <h2>{rol.name}</h2>
+                  <h2>{formatRoleName(rol.name)}</h2>
                   <span className={`users-status users-status--${rol.isActive ? 'active' : 'inactive'}`}>
                     {rol.isActive ? t('activeRole') : t('inactiveRole')}
                   </span>

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { cashShiftService } from '../../services/cashShiftService';
 import { commercialService } from '../../services/commercialService';
+import { servicioCatalogo } from '../../services/servicioCatalogo';
 import { ConvertQuoteRequest, CreateQuoteRequest, Quote, QuoteOptions } from '../../types/commercial';
 import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
@@ -36,6 +37,49 @@ export const QuoteListPage: React.FC = () => {
   const [cash, setCash] = useState('');
   const [card, setCard] = useState('');
   const [transfer, setTransfer] = useState('');
+
+  const [quickCustomerOpen, setQuickCustomerOpen] = useState(false);
+  const [quickCustomerName, setQuickCustomerName] = useState('');
+  const [quickCustomerPhone, setQuickCustomerPhone] = useState('');
+  const [quickCustomerEmail, setQuickCustomerEmail] = useState('');
+  const [quickCustomerType, setQuickCustomerType] = useState<'General' | 'Mayorista'>('General');
+  const [quickCustomerSaving, setQuickCustomerSaving] = useState(false);
+  const [quickCustomerError, setQuickCustomerError] = useState('');
+
+  const handleCreateQuickCustomer = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!quickCustomerName.trim()) return;
+    try {
+      setQuickCustomerSaving(true);
+      setQuickCustomerError('');
+      const created = await servicioCatalogo.createCustomer({
+        firstName: quickCustomerName.trim(),
+        lastName: '.',
+        phone: quickCustomerPhone.trim(),
+        email: quickCustomerEmail.trim(),
+        address: '',
+        city: '',
+        state: '',
+        postalCode: '',
+        notes: '',
+        customerType: quickCustomerType,
+        specialDiscountPercentage: 0
+      });
+      const optionData = await commercialService.getQuoteOptions();
+      setOptions(optionData);
+      setCustomerId(created.id);
+      setQuickCustomerOpen(false);
+      setQuickCustomerName('');
+      setQuickCustomerPhone('');
+      setQuickCustomerEmail('');
+      setQuickCustomerType('General');
+      setNotice({ type: 'success', text: t('customerCreatedSuccess', { name: created.displayName }) });
+    } catch (err: unknown) {
+      setQuickCustomerError(err instanceof Error ? err.message : 'Error al registrar cliente');
+    } finally {
+      setQuickCustomerSaving(false);
+    }
+  };
 
   const canDiscount = hasPermission('ventas', 'descuento');
   const locale = i18n.language.startsWith('zh') ? 'zh-CN' : 'es-MX';
@@ -297,7 +341,15 @@ export const QuoteListPage: React.FC = () => {
     </Modal>}
 
     {createOpen && <Modal title={t('newQuoteTitle')} onClose={() => setCreateOpen(false)}><form onSubmit={saveQuote} className="quotes-form">
-      <div className="quotes-form-grid"><label>{t('customer')} *<select required value={customerId} onChange={event => setCustomerId(event.target.value)}><option value="" disabled>{t('selectCustomerRequired')}</option>{options.customers.map(customer => <option key={customer.id} value={customer.id}>{customer.displayName}</option>)}</select></label><label>{t('validityDays')} *<input required type="number" min="1" max="90" value={validityDays} onChange={event => setValidityDays(event.target.value)} /></label></div>
+      <div className="quotes-form-grid">
+        <label>{t('customer')} *
+          <select required value={customerId} onChange={event => setCustomerId(event.target.value)}>
+            <option value="" disabled>{t('selectCustomerRequired')}</option>
+            {options.customers.map(customer => <option key={customer.id} value={customer.id}>{customer.displayName}</option>)}
+          </select>
+        </label>
+        <label>{t('validityDays')} *<input required type="number" min="1" max="90" value={validityDays} onChange={event => setValidityDays(event.target.value)} /></label>
+      </div>
       <div className="quotes-lines"><header><strong>{t('quoteProducts')}</strong><button type="button" className="pos-link-btn" onClick={() => setLines(current => [...current, { productId: '', quantity: '1' }])}>➕ {t('addLine')}</button></header>{lines.map((line, index) => {
         const selectedProduct = options.products.find(product => product.id === line.productId);
         return <div className="quotes-line" key={index}>
@@ -312,6 +364,33 @@ export const QuoteListPage: React.FC = () => {
       <div className="quotes-summary"><span>{t('subtotal')}<b>{money.format(quoteSubtotal)}</b></span><span>{t('tax')}<b>{money.format(quoteTax)}</b></span><span>{t('total')}<b>{money.format(quoteTotal)}</b></span></div>
       <footer><button type="button" className="lang-btn" onClick={() => setCreateOpen(false)}>{t('cancel')}</button><button className="action-btn" disabled={saving}>{saving ? t('saving') : t('saveQuote')}</button></footer>
     </form></Modal>}
+
+    {quickCustomerOpen && <Modal title={`👤 ${t('createCustomerTitle')}`} onClose={() => setQuickCustomerOpen(false)}>
+      <form onSubmit={handleCreateQuickCustomer} className="quotes-form">
+        {quickCustomerError && <div className="quotes-notice quotes-notice--error" role="alert">{quickCustomerError}</div>}
+        <label>{t('fullNameOrBusiness')} *
+          <input required minLength={3} value={quickCustomerName} onChange={e => setQuickCustomerName(e.target.value)} placeholder="Ej. Juan Pérez / Decoraciones S.A." />
+        </label>
+        <div className="quotes-form-grid">
+          <label>{t('phone')}
+            <input type="tel" value={quickCustomerPhone} onChange={e => setQuickCustomerPhone(e.target.value)} placeholder="4771234567" />
+          </label>
+          <label>{t('email')}
+            <input type="email" value={quickCustomerEmail} onChange={e => setQuickCustomerEmail(e.target.value)} placeholder="cliente@ejemplo.com" />
+          </label>
+        </div>
+        <label>{t('customerType')}
+          <select value={quickCustomerType} onChange={e => setQuickCustomerType(e.target.value as 'General' | 'Mayorista')}>
+            <option value="General">{t('regularCustomer')}</option>
+            <option value="Mayorista">{t('wholesaleCustomer')}</option>
+          </select>
+        </label>
+        <footer>
+          <button type="button" className="lang-btn" onClick={() => setQuickCustomerOpen(false)}>{t('cancel')}</button>
+          <button className="action-btn" disabled={quickCustomerSaving}>{quickCustomerSaving ? t('saving') : t('newCustomer')}</button>
+        </footer>
+      </form>
+    </Modal>}
 
     {conversionQuote && <Modal title={t('convertQuoteTitle', { folio: conversionQuote.quoteNumber })} onClose={() => setConversionQuote(null)}><form onSubmit={convertQuote} className="quotes-form">
       <div className="quotes-conversion-total"><span>{t('customer')}</span><b>{conversionQuote.customerDisplayName || t('generalPublic')}</b><span>{t('total')}</span><strong>{money.format(conversionQuote.totalAmount)}</strong></div>

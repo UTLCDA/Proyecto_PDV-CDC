@@ -100,6 +100,7 @@ builder.Services.AddAuthorization(options =>
 
     var cashPermissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
+        PermissionCodes.Sales.Process,
         PermissionCodes.Cash.Open,
         PermissionCodes.Cash.Close,
         PermissionCodes.Cash.ZReport,

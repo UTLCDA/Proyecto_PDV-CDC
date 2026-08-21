@@ -1,5 +1,14 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
+## Iteración aprobada — Solución a Turno de Caja Compartido, Restricción de Cajero y Scroll en Bitácora (2026-08-21)
+
+- **Rama Git Activa**: `codex/2.1.1-comentarios-finales-clientes`.
+- **Solución a Incidencias**:
+  - **Apertura de Caja Compartida**: Inclusión de `PermissionCodes.Sales.Process` en la política `CashShiftRead` de `Program.cs`. Cuando un Administrador abre la caja, los Cajeros consultan el turno activo en `/api/v1/cashshifts/current` sin error 403 Forbidden y pueden vender directamente.
+  - **Restricción de Módulos para Cajero**: Actualizado `tabPermissions.sales` en `accessControl.ts` a `[permissionCodes.reportsSalesView]`. El rol Cajero únicamente visualiza la pestaña **🛒 Punto de Venta**, quedando oculto el Histórico de Ventas.
+  - **Scroll en Detalles Técnicos de Bitácora**: Reestructuración del modal con `.audit-modal-container`, `.audit-modal-body` (`overflow-y: auto`) y desbordamiento libre en `.audit-tech-accordion`. El acordeón `🛠️ Detalles Técnicos` se despliega con scroll vertical/horizontal fluido.
+- **Suite de Pruebas**: **67/67 pruebas backend** (xUnit) y **24/24 pruebas frontend** (Vitest). Compilación Vite con 0 errores.
+
 ## Iteración aprobada — Pie de Comprobante WPC Bajío, Corrección de CI y Sincronización de Puertos (2026-08-18)
 
 - **Diseño e Integración del Pie de Comprobante (Ticket / Recibo)**:

@@ -18,3 +18,5 @@
 .quotes-quantity-control button { border: 1px solid var(--border-input); background: var(--background-surface); color: var(--primary-main); font-size: 1rem; font-weight: 800; }
 .quotes-quantity-control input { min-width: 0; border-radius: 0; text-align: center; }
 @media (max-width: 650px) { .quotes-line { grid-template-columns: 44px minmax(0, 1fr); }.quotes-quantity-control { grid-column: 2; } }
+.quotes-customer-row { display: flex; gap: .5rem; align-items: flex-end; width: 100%; }
+

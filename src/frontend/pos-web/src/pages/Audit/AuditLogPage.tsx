@@ -30,14 +30,14 @@ const AVAILABLE_MODULES = [
 ];
 
 const AVAILABLE_RESULTS = [
-  { value: 'Todos', label: 'Todos los resultados' },
-  { value: 'SUCCESS', label: 'Correcto' },
-  { value: 'WARNING', label: 'Advertencia / No completado' },
-  { value: 'ERROR', label: 'Error del sistema' }
+  { value: 'Todos', labelKey: 'auditAllResultStatuses' },
+  { value: 'SUCCESS', labelKey: 'auditStatus_SUCCESS' },
+  { value: 'WARNING', labelKey: 'auditStatus_WARNING' },
+  { value: 'ERROR', labelKey: 'auditStatus_ERROR' }
 ];
 
 export const AuditLogPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
@@ -179,7 +179,7 @@ export const AuditLogPage: React.FC = () => {
             <select className="input-field" value={module} onChange={event => setModule(event.target.value)}>
               {AVAILABLE_MODULES.map(m => (
                 <option key={m} value={m}>
-                  {m === 'Todos' ? t('auditFilterModule') : `${MODULE_ICONS[m] || ''} ${m}`}
+                  {m === 'Todos' ? t('auditAllModules') : `${MODULE_ICONS[m] || ''} ${t(`auditModule_${m}`, { defaultValue: m })}`}
                 </option>
               ))}
             </select>
@@ -189,7 +189,7 @@ export const AuditLogPage: React.FC = () => {
             <select className="input-field" value={resultStatus} onChange={event => setResultStatus(event.target.value)}>
               {AVAILABLE_RESULTS.map(res => (
                 <option key={res.value} value={res.value}>
-                  {res.label}
+                  {t(res.labelKey)}
                 </option>
               ))}
             </select>
@@ -267,7 +267,7 @@ export const AuditLogPage: React.FC = () => {
                   return (
                     <tr key={log.id}>
                       <td style={{ whiteSpace: 'nowrap' }}>
-                        {new Date(log.createdAtUtc).toLocaleString('es-MX', {
+                        {new Date(log.createdAtUtc).toLocaleString(i18n.language.startsWith('zh') ? 'zh-CN' : 'es-MX', {
                           day: '2-digit',
                           month: '2-digit',
                           year: 'numeric',
@@ -281,7 +281,7 @@ export const AuditLogPage: React.FC = () => {
                       </td>
                       <td>
                         <span className="audit-module-badge">
-                          <span>{mapped.icon}</span> {mapped.module}
+                          <span>{mapped.icon}</span> {t(`auditModule_${mapped.module}`, { defaultValue: mapped.module })}
                         </span>
                       </td>
                       <td>
@@ -292,7 +292,7 @@ export const AuditLogPage: React.FC = () => {
                       </td>
                       <td>
                         <span className={`audit-status-badge ${mapped.statusClass}`}>
-                          {mapped.statusText}
+                          {t(`auditStatus_${mapped.statusClass === 'success' ? 'SUCCESS' : mapped.statusClass === 'warning' ? 'WARNING' : 'ERROR'}`, { defaultValue: mapped.statusText })}
                         </span>
                       </td>
                       <td>
@@ -315,11 +315,11 @@ export const AuditLogPage: React.FC = () => {
 
       {selectedLog && selectedMapped && (
         <div
-          className="customers-modal-backdrop"
+          className="audit-modal-backdrop"
           onMouseDown={event => event.target === event.currentTarget && setSelectedLog(null)}
         >
-          <div className="customers-modal audit-modal-wide" role="dialog" aria-modal="true">
-            <header>
+          <div className="audit-modal-container" role="dialog" aria-modal="true">
+            <header className="audit-modal-header">
               <h2>
                 {selectedMapped.icon} {selectedMapped.title}
               </h2>
@@ -338,13 +338,13 @@ export const AuditLogPage: React.FC = () => {
                   <div className="audit-info-item">
                     <span className="audit-info-label">{t('date')}</span>
                     <span className="audit-info-val">
-                      {new Date(selectedLog.createdAtUtc).toLocaleString('es-MX')}
+                      {new Date(selectedLog.createdAtUtc).toLocaleString(i18n.language.startsWith('zh') ? 'zh-CN' : 'es-MX')}
                     </span>
                   </div>
                   <div className="audit-info-item">
                     <span className="audit-info-label">{t('auditModule')}</span>
                     <span className="audit-info-val">
-                      {selectedMapped.icon} {selectedMapped.module}
+                      {selectedMapped.icon} {t(`auditModule_${selectedMapped.module}`, { defaultValue: selectedMapped.module })}
                     </span>
                   </div>
                   <div className="audit-info-item">
@@ -355,7 +355,7 @@ export const AuditLogPage: React.FC = () => {
                     <span className="audit-info-label">{t('auditResultStatus')}</span>
                     <span className="audit-info-val">
                       <span className={`audit-status-badge ${selectedMapped.statusClass}`}>
-                        {selectedMapped.statusText}
+                        {t(`auditStatus_${selectedMapped.statusClass === 'success' ? 'SUCCESS' : selectedMapped.statusClass === 'warning' ? 'WARNING' : 'ERROR'}`, { defaultValue: selectedMapped.statusText })}
                       </span>
                     </span>
                   </div>

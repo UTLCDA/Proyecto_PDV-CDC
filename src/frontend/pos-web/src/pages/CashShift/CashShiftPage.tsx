@@ -31,6 +31,7 @@ export const CashShiftPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
 
+  const SHOW_FORCE_CORTE_Z = false;
   const canOpen = hasPermission('caja', 'aperturar');
   const canWithdraw = hasPermission('caja', 'sangria');
   const canClose = hasPermission('caja', 'cerrar');
@@ -337,7 +338,7 @@ export const CashShiftPage: React.FC = () => {
               <button className="action-btn" type="submit" disabled={saving}>{saving ? t('saving') : t('openShift')}</button>
             </form>
           ) : <p className="cash-muted">{t('noOpenPermission')}</p>}
-          {(canClose || canReport) && (
+          {SHOW_FORCE_CORTE_Z && (canClose || canReport) && (
             <div style={{ marginTop: '16px', padding: '14px', background: '#fff3cd', borderRadius: '8px', border: '1px solid #ffe79a' }}>
               <p style={{ margin: '0 0 10px 0', fontWeight: 600, color: '#856404' }}>
                 ⚠️ Si existe un turno activo previo que impide la apertura, puedes recuperar o forzar el Corte Z para cerrar el turno y liberar la caja:
