@@ -155,7 +155,7 @@ def main():
         print_error(f"No se encontró el proyecto API en {api_proj}")
         sys.exit(1)
 
-    # Detener especificamente la API en IIS para liberar DLLs bloqueadas sin tumbar WAS RPC
+    # Detener específicamente la API en IIS para liberar DLLs bloqueadas sin tumbar WAS RPC
     if appcmd.exists():
         subprocess.run([str(appcmd), "stop", "site", "PosApi"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run([str(appcmd), "stop", "apppool", "PosApiPool"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -268,12 +268,11 @@ def main():
         subprocess.run([str(appcmd), "set", "apppool", "PosApiPool", "/processModel.identityType:LocalSystem"], check=False)
         subprocess.run([str(appcmd), "set", "apppool", "PosWebPool", "/processModel.identityType:LocalSystem"], check=False)
 
-        # Reorientar el directorio físico de "Default Web Site" a C:\inetpub\wwwroot\pos-web
-        subprocess.run([str(appcmd), "set", "vdir", "Default Web Site/", f"/physicalPath:{web_publish_path}"], check=False)
-        subprocess.run([str(appcmd), "set", "app", "Default Web Site/", "/applicationPool:PosWebPool"], check=False)
-        subprocess.run([str(appcmd), "start", "site", "Default Web Site"], check=False)
+        # Retirar binding *:80: de Default Web Site si existe para liberar el Puerto 80 a PosWeb
+        subprocess.run([str(appcmd), "stop", "site", "Default Web Site"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([str(appcmd), "set", "site", "Default Web Site", "/-bindings.[protocol='http',bindingInformation='*:80:']"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        # Eliminar sitios previos si existen para reconfigurar
+        # Eliminar sitios previos si existen para reconfigurar limpia
         subprocess.run([str(appcmd), "delete", "site", "PosApi"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run([str(appcmd), "delete", "site", "PosWeb"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -287,10 +286,10 @@ def main():
         subprocess.run([str(appcmd), "set", "site", "/site.name:PosApi", "/[path='/'].applicationPool:PosApiPool"], check=False)
         subprocess.run([str(appcmd), "start", "site", "PosApi"], check=False)
 
-        # Crear Sitio Frontend Web (Puerto 8080)
+        # Crear Sitio Frontend Web exclusivo en el Puerto 80
         cmd_site_web = [
             str(appcmd), "add", "site", "/name:PosWeb",
-            "/bindings:http/*:8080:",
+            "/bindings:http/*:80:",
             f"/physicalPath:{web_publish_path}"
         ]
         subprocess.run(cmd_site_web, check=False)
@@ -301,7 +300,8 @@ def main():
         subprocess.run([str(appcmd), "recycle", "apppool", "PosApiPool"], check=False)
         subprocess.run([str(appcmd), "recycle", "apppool", "PosWebPool"], check=False)
 
-        print_success("Sitios 'PosApi' (Puerto 5000) y 'Default Web Site' / 'PosWeb' (Puerto 80) iniciados en IIS.")
+        print_success("Sitio 'PosWeb' activado de forma exclusiva en el Puerto 80 (http://localhost).")
+        print_success("Sitio 'PosApi' activado en el Puerto 5000 (http://localhost:5000).")
     else:
         print_error(f"No se encontró appcmd.exe en {appcmd}. Por favor verifica que IIS esté instalado.")
 
