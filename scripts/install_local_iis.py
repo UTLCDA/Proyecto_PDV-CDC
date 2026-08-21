@@ -241,6 +241,10 @@ def main():
         subprocess.run([str(appcmd), "set", "apppool", "PosApiPool", "/processModel.identityType:LocalSystem"], check=False)
         subprocess.run([str(appcmd), "set", "apppool", "PosWebPool", "/processModel.identityType:LocalSystem"], check=False)
 
+        # Eliminar el sitio por defecto de IIS ("Default Web Site") para liberar el Puerto 80
+        subprocess.run([str(appcmd), "stop", "site", "Default Web Site"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([str(appcmd), "delete", "site", "Default Web Site"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
         # Eliminar sitios previos si existen para reconfigurar
         subprocess.run([str(appcmd), "delete", "site", "PosApi"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run([str(appcmd), "delete", "site", "PosWeb"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
