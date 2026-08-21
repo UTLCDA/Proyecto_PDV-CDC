@@ -6,7 +6,7 @@ Despliega el Backend (API .NET 9) y Frontend (React SPA) en IIS Local y SQL Serv
 
 Uso:
     python install_local_iis.py
-(Debe ejecutarse en una consola con permisos de ADMINISTRADOR en Windows)
+(Solicita automáticamente permisos de ADMINISTRADOR mediante UAC en Windows)
 """
 
 import os
@@ -39,11 +39,19 @@ def print_success(msg):
 def print_error(msg):
     print(f"  {COLOR_RED}-> {msg}{COLOR_RESET}")
 
-def is_admin():
+def ensure_admin_elevation():
     try:
-        return ctypes.windll.shell32.IsUserAnAdmin() != 0
-    except Exception:
-        return False
+        if ctypes.windll.shell32.IsUserAnAdmin() == 0:
+            print(f"{COLOR_YELLOW}Solicitando elevación de permisos de Administrador (UAC)...{COLOR_RESET}")
+            script_path = str(Path(__file__).resolve())
+            # Solicitar elevacion mediante ShellExecuteW 'runas'
+            ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", sys.executable, f'"{script_path}"', None, 1
+            )
+            sys.exit(0)
+    except Exception as ex:
+        print_error(f"No se pudo solicitar permisos de Administrador automáticamente: {ex}")
+        sys.exit(1)
 
 def check_and_install_iis_modules():
     sys32 = Path(os.environ.get("WINDIR", r"C:\Windows")) / "System32" / "inetsrv"
@@ -60,12 +68,10 @@ def check_and_install_iis_modules():
             print("  Ejecutando instalación silenciosa de ASP.NET Core Hosting Bundle...")
             subprocess.run([str(temp_exe), "/install", "/quiet", "/norestart"], check=True)
             print_success("ASP.NET Core Hosting Bundle instalado con éxito.")
-            # Reiniciar servicios de IIS para cargar el módulo
             subprocess.run(["net", "stop", "was", "/y"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.run(["net", "start", "w3svc"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception as ex:
             print_error(f"No se pudo instalar automáticamente el Hosting Bundle: {ex}")
-            print_error("Por favor descarga e instala manualmente: https://dotnet.microsoft.com/download/dotnet/9.0")
     else:
         print_success("Módulo AspNetCoreModuleV2 (ASP.NET Core Hosting Bundle) ya está instalado en IIS.")
 
@@ -104,10 +110,8 @@ def grant_sql_server_permissions():
 def main():
     print_header("INSTALADOR AUTOMATIZADO DE WPC BAJÍO — PUNTO DE VENTA EN IIS LOCAL")
 
-    if not is_admin():
-        print_error("ERROR: Este script requiere permisos de ADMINISTRADOR.")
-        print_error("Por favor, abre la consola (CMD o PowerShell) seleccionando 'Ejecutar como administrador'.")
-        sys.exit(1)
+    # Asegurar permisos de administrador elevados mediante UAC
+    ensure_admin_elevation()
 
     workspace_root = Path(__file__).resolve().parent
     api_publish_path = Path(r"C:\inetpub\wwwroot\pos-api")
@@ -258,6 +262,7 @@ def main():
         # Reorientar el directorio físico de "Default Web Site" a C:\inetpub\wwwroot\pos-web
         subprocess.run([str(appcmd), "set", "vdir", "Default Web Site/", f"/physicalPath:{web_publish_path}"], check=False)
         subprocess.run([str(appcmd), "set", "app", "Default Web Site/", "/applicationPool:PosWebPool"], check=False)
+        subprocess.run([str(appcmd), "start", "site", "Default Web Site"], check=False)
 
         # Eliminar sitios previos si existen para reconfigurar
         subprocess.run([str(appcmd), "delete", "site", "PosApi"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -271,6 +276,7 @@ def main():
         ]
         subprocess.run(cmd_site_api, check=False)
         subprocess.run([str(appcmd), "set", "site", "/site.name:PosApi", "/[path='/'].applicationPool:PosApiPool"], check=False)
+        subprocess.run([str(appcmd), "start", "site", "PosApi"], check=False)
 
         # Crear Sitio Frontend Web (Puerto 80)
         cmd_site_web = [
@@ -280,12 +286,13 @@ def main():
         ]
         subprocess.run(cmd_site_web, check=False)
         subprocess.run([str(appcmd), "set", "site", "/site.name:PosWeb", "/[path='/'].applicationPool:PosWebPool"], check=False)
+        subprocess.run([str(appcmd), "start", "site", "PosWeb"], check=False)
 
         # Reiniciar IIS para aplicar cambios de identidad y permisos
         subprocess.run(["net", "stop", "was", "/y"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run(["net", "start", "w3svc"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        print_success("Sitios 'PosApi' (Puerto 5000) y 'Default Web Site' / 'PosWeb' configurados en IIS.")
+        print_success("Sitios 'PosApi' (Puerto 5000) y 'Default Web Site' / 'PosWeb' (Puerto 80) iniciados en IIS.")
     else:
         print_error(f"No se encontró appcmd.exe en {appcmd}. Por favor verifica que IIS esté instalado.")
 
