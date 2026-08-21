@@ -60,7 +60,7 @@ def check_and_install_iis_modules():
             print("  Ejecutando instalación silenciosa de ASP.NET Core Hosting Bundle...")
             subprocess.run([str(temp_exe), "/install", "/quiet", "/norestart"], check=True)
             print_success("ASP.NET Core Hosting Bundle instalado con éxito.")
-            # Reiniciar servicios de IIS para cargar el modulo
+            # Reiniciar servicios de IIS para cargar el módulo
             subprocess.run(["net", "stop", "was", "/y"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.run(["net", "start", "w3svc"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception as ex:
@@ -131,6 +131,19 @@ def main():
         print_error("Error durante la publicación de la API backend.")
         sys.exit(1)
 
+    # Configurar logs stdout y permisos en el directorio publicado de la API
+    logs_dir = api_publish_path / "logs"
+    logs_dir.mkdir(exist_ok=True)
+    api_web_config = api_publish_path / "web.config"
+    if api_web_config.exists():
+        try:
+            content = api_web_config.read_text(encoding="utf-8")
+            content = content.replace('stdoutLogEnabled="false"', 'stdoutLogEnabled="true"')
+            api_web_config.write_text(content, encoding="utf-8")
+            print_success("Logs de inicio (stdout) habilitados en web.config de la API.")
+        except Exception as ex:
+            print_error(f"Advertencia al actualizar web.config de la API: {ex}")
+
     # 3. Compilar y Publicar Frontend SPA (React + Vite)
     print_step("3/6", "Compilando y Publicando Frontend SPA (React + Vite)")
     frontend_dir = workspace_root / "src" / "frontend" / "pos-web"
@@ -180,6 +193,17 @@ def main():
         f.write(web_config_content)
     print_success(f"web.config escrito correctamente en '{web_config_file}'.")
 
+    # Otorgar permisos de lectura y ejecución a IIS_IUSRS y IUSR
+    print_step("4.1/6", "Configurando Permisos NTFS en Directorios de IIS (icacls)")
+    try:
+        subprocess.run(["icacls", str(api_publish_path), "/grant", "IIS_IUSRS:(OI)(CI)F", "/T", "/C", "/Q"], check=False)
+        subprocess.run(["icacls", str(web_publish_path), "/grant", "IIS_IUSRS:(OI)(CI)F", "/T", "/C", "/Q"], check=False)
+        subprocess.run(["icacls", str(api_publish_path), "/grant", "IUSR:(OI)(CI)F", "/T", "/C", "/Q"], check=False)
+        subprocess.run(["icacls", str(web_publish_path), "/grant", "IUSR:(OI)(CI)F", "/T", "/C", "/Q"], check=False)
+        print_success("Permisos de acceso otorgados a IIS_IUSRS e IUSR.")
+    except Exception as ex:
+        print_error(f"Advertencia al asignar permisos NTFS: {ex}")
+
     # 5. Configurar Pools de Aplicaciones y Sitios Web mediante appcmd.exe de IIS
     print_step("5/6", "Configurando Sitios Web y AppPools en IIS (appcmd.exe)")
     appcmd = Path(os.environ.get("WINDIR", r"C:\Windows")) / "System32" / "inetsrv" / "appcmd.exe"
@@ -188,6 +212,10 @@ def main():
         # Crear Pools de Aplicaciones (Sin Código Administrado)
         subprocess.run([str(appcmd), "add", "apppool", "/name:PosApiPool", "/managedRuntimeVersion:"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run([str(appcmd), "add", "apppool", "/name:PosWebPool", "/managedRuntimeVersion:"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        # Configurar Identidad del AppPool de la API a LocalSystem para acceso a SQL Server / Windows Auth
+        subprocess.run([str(appcmd), "set", "apppool", "PosApiPool", "/processModel.identityType:LocalSystem"], check=False)
+        subprocess.run([str(appcmd), "set", "apppool", "PosWebPool", "/processModel.identityType:LocalSystem"], check=False)
 
         # Eliminar sitios previos si existen para reconfigurar
         subprocess.run([str(appcmd), "delete", "site", "PosApi"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -210,6 +238,10 @@ def main():
         ]
         subprocess.run(cmd_site_web, check=False)
         subprocess.run([str(appcmd), "set", "site", "/site.name:PosWeb", "/[path='/'].applicationPool:PosWebPool"], check=False)
+
+        # Reiniciar IIS para aplicar cambios de identidad y permisos
+        subprocess.run(["net", "stop", "was", "/y"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["net", "start", "w3svc"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         print_success("Sitios 'PosApi' (Puerto 5000) y 'PosWeb' (Puerto 80) configurados en IIS.")
     else:
