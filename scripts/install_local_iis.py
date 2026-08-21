@@ -112,6 +112,7 @@ def main():
     workspace_root = Path(__file__).resolve().parent.parent
     api_publish_path = Path(r"C:\inetpub\wwwroot\pos-api")
     web_publish_path = Path(r"C:\inetpub\wwwroot\pos-web")
+    default_wwwroot_path = Path(r"C:\inetpub\wwwroot")
 
     # 1. Habilitar Características de Windows para IIS mediante DISM
     print_step("1/6", "Verificando e Instalando Características de IIS en Windows (DISM)")
@@ -182,7 +183,16 @@ def main():
         dist_dir = frontend_dir / "dist"
         web_publish_path.mkdir(parents=True, exist_ok=True)
         shutil.copytree(dist_dir, web_publish_path, dirs_exist_ok=True)
-        print_success(f"Frontend SPA publicado exitosamente en '{web_publish_path}'.")
+        # Copiar también directamente a C:\inetpub\wwwroot para reemplazar iisstart.htm
+        shutil.copytree(dist_dir, default_wwwroot_path, dirs_exist_ok=True)
+        # Eliminar archivo viejo iisstart.htm si existe
+        old_iisstart = default_wwwroot_path / "iisstart.htm"
+        if old_iisstart.exists():
+            try:
+                old_iisstart.unlink()
+            except Exception:
+                pass
+        print_success(f"Frontend SPA publicado exitosamente en '{web_publish_path}' y '{default_wwwroot_path}'.")
     else:
         print_error("Error durante la compilación del Frontend SPA.")
         sys.exit(1)
@@ -215,15 +225,19 @@ def main():
     web_config_file = web_publish_path / "web.config"
     with open(web_config_file, "w", encoding="utf-8") as f:
         f.write(web_config_content)
-    print_success(f"web.config escrito correctamente en '{web_config_file}'.")
+    with open(default_wwwroot_path / "web.config", "w", encoding="utf-8") as f:
+        f.write(web_config_content)
+    print_success("web.config escrito correctamente.")
 
     # Otorgar permisos de lectura y ejecución a IIS_IUSRS y IUSR
     print_step("4.1/6", "Configurando Permisos NTFS en Directorios de IIS (icacls)")
     try:
         subprocess.run(["icacls", str(api_publish_path), "/grant", "IIS_IUSRS:(OI)(CI)F", "/T", "/C", "/Q"], check=False)
         subprocess.run(["icacls", str(web_publish_path), "/grant", "IIS_IUSRS:(OI)(CI)F", "/T", "/C", "/Q"], check=False)
+        subprocess.run(["icacls", str(default_wwwroot_path), "/grant", "IIS_IUSRS:(OI)(CI)F", "/T", "/C", "/Q"], check=False)
         subprocess.run(["icacls", str(api_publish_path), "/grant", "IUSR:(OI)(CI)F", "/T", "/C", "/Q"], check=False)
         subprocess.run(["icacls", str(web_publish_path), "/grant", "IUSR:(OI)(CI)F", "/T", "/C", "/Q"], check=False)
+        subprocess.run(["icacls", str(default_wwwroot_path), "/grant", "IUSR:(OI)(CI)F", "/T", "/C", "/Q"], check=False)
         print_success("Permisos de acceso otorgados a IIS_IUSRS e IUSR.")
     except Exception as ex:
         print_error(f"Advertencia al asignar permisos NTFS: {ex}")
@@ -241,9 +255,9 @@ def main():
         subprocess.run([str(appcmd), "set", "apppool", "PosApiPool", "/processModel.identityType:LocalSystem"], check=False)
         subprocess.run([str(appcmd), "set", "apppool", "PosWebPool", "/processModel.identityType:LocalSystem"], check=False)
 
-        # Eliminar el sitio por defecto de IIS ("Default Web Site") para liberar el Puerto 80
-        subprocess.run([str(appcmd), "stop", "site", "Default Web Site"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run([str(appcmd), "delete", "site", "Default Web Site"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Reorientar el directorio físico de "Default Web Site" a C:\inetpub\wwwroot\pos-web
+        subprocess.run([str(appcmd), "set", "vdir", "Default Web Site/", f"/physicalPath:{web_publish_path}"], check=False)
+        subprocess.run([str(appcmd), "set", "app", "Default Web Site/", "/applicationPool:PosWebPool"], check=False)
 
         # Eliminar sitios previos si existen para reconfigurar
         subprocess.run([str(appcmd), "delete", "site", "PosApi"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -261,7 +275,7 @@ def main():
         # Crear Sitio Frontend Web (Puerto 80)
         cmd_site_web = [
             str(appcmd), "add", "site", "/name:PosWeb",
-            "/bindings:http/*:80:",
+            "/bindings:http/*:8080:",
             f"/physicalPath:{web_publish_path}"
         ]
         subprocess.run(cmd_site_web, check=False)
@@ -271,7 +285,7 @@ def main():
         subprocess.run(["net", "stop", "was", "/y"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run(["net", "start", "w3svc"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        print_success("Sitios 'PosApi' (Puerto 5000) y 'PosWeb' (Puerto 80) configurados en IIS.")
+        print_success("Sitios 'PosApi' (Puerto 5000) y 'Default Web Site' / 'PosWeb' configurados en IIS.")
     else:
         print_error(f"No se encontró appcmd.exe en {appcmd}. Por favor verifica que IIS esté instalado.")
 
