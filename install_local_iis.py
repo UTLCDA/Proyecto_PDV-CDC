@@ -14,6 +14,7 @@ import sys
 import shutil
 import subprocess
 import ctypes
+import urllib.request
 import webbrowser
 from pathlib import Path
 
@@ -44,6 +45,45 @@ def is_admin():
     except Exception:
         return False
 
+def check_and_install_iis_modules():
+    sys32 = Path(os.environ.get("WINDIR", r"C:\Windows")) / "System32" / "inetsrv"
+    aspnetcore_dll = sys32 / "aspnetcore.dll"
+    rewrite_dll = sys32 / "rewrite.dll"
+
+    if not aspnetcore_dll.exists():
+        print_step("1.1/6", "Instalando ASP.NET Core 9.0 Hosting Bundle en IIS (aspnetcore.dll)")
+        bundle_url = "https://dotnetcli.azureedge.net/dotnet/aspnetcore/Runtime/9.0.2/dotnet-hosting-9.0.2-win.exe"
+        temp_exe = Path(os.environ.get("TEMP", r"C:\Windows\Temp")) / "dotnet-hosting-9.0.2-win.exe"
+        try:
+            print(f"  Descargando Hosting Bundle 9.0 desde {bundle_url}...")
+            urllib.request.urlretrieve(bundle_url, temp_exe)
+            print("  Ejecutando instalación silenciosa de ASP.NET Core Hosting Bundle...")
+            subprocess.run([str(temp_exe), "/install", "/quiet", "/norestart"], check=True)
+            print_success("ASP.NET Core Hosting Bundle instalado con éxito.")
+            # Reiniciar servicios de IIS para cargar el modulo
+            subprocess.run(["net", "stop", "was", "/y"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["net", "start", "w3svc"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception as ex:
+            print_error(f"No se pudo instalar automáticamente el Hosting Bundle: {ex}")
+            print_error("Por favor descarga e instala manualmente: https://dotnet.microsoft.com/download/dotnet/9.0")
+    else:
+        print_success("Módulo AspNetCoreModuleV2 (ASP.NET Core Hosting Bundle) ya está instalado en IIS.")
+
+    if not rewrite_dll.exists():
+        print_step("1.2/6", "Instalando Módulo IIS URL Rewrite (rewrite.dll)")
+        rewrite_url = "https://download.microsoft.com/download/1/2/8/128E2E22-C1B9-44A4-BE2A-5859ED1D4592/rewrite_amd64_es-ES.msi"
+        temp_msi = Path(os.environ.get("TEMP", r"C:\Windows\Temp")) / "rewrite_amd64.msi"
+        try:
+            print(f"  Descargando URL Rewrite Module desde {rewrite_url}...")
+            urllib.request.urlretrieve(rewrite_url, temp_msi)
+            print("  Ejecutando instalación silenciosa de IIS URL Rewrite...")
+            subprocess.run(["msiexec", "/i", str(temp_msi), "/qn"], check=True)
+            print_success("IIS URL Rewrite Module instalado con éxito.")
+        except Exception as ex:
+            print_error(f"No se pudo instalar automáticamente URL Rewrite: {ex}")
+    else:
+        print_success("Módulo IIS URL Rewrite ya está instalado en IIS.")
+
 def main():
     print_header("INSTALADOR AUTOMATIZADO DE WPC BAJÍO — PUNTO DE VENTA EN IIS LOCAL")
 
@@ -71,6 +111,9 @@ def main():
         print_success("Características de IIS verificadas en Windows.")
     except Exception as ex:
         print_error(f"Advertencia al ejecutar DISM: {ex}")
+
+    # Verificar e instalar dependencias IIS (Hosting Bundle & URL Rewrite)
+    check_and_install_iis_modules()
 
     # 2. Compilar y Publicar Backend API (.NET 9)
     print_step("2/6", "Compilando y Publicando Backend API (.NET 9)")
