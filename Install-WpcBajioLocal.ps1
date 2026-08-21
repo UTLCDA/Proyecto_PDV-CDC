@@ -77,33 +77,33 @@ if (Test-Path $frontendPath) {
     Exit 1
 }
 
-# 5. Configurar web.config para SPA Routing en IIS
-$webConfigContent = @'
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <system.webServer>
-    <rewrite>
-      <rules>
-        <rule name="React SPA Routes" stopProcessing="true">
-          <match url=".*" />
-          <conditions logicalGrouping="MatchAll">
-            <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
-            <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" />
-            <add input="{REQUEST_URI}" pattern="^/(api)" negate="true" />
-          </conditions>
-          <action type="Rewrite" url="/" />
-        </rule>
-      </rules>
-    </rewrite>
-    <staticContent>
-      <mimeMap fileExtension=".json" mimeType="application/json" />
-      <mimeMap fileExtension=".webp" mimeType="image/webp" />
-    </staticContent>
-  </system.webServer>
-</configuration>
-'@
+# 5. Configurar web.config para SPA Routing en IIS (Sin heredocs para maxima compatibilidad)
+$webConfigLines = @(
+    '<?xml version="1.0" encoding="utf-8"?>',
+    '<configuration>',
+    '  <system.webServer>',
+    '    <rewrite>',
+    '      <rules>',
+    '        <rule name="React SPA Routes" stopProcessing="true">',
+    '          <match url=".*" />',
+    '          <conditions logicalGrouping="MatchAll">',
+    '            <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />',
+    '            <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" />',
+    '            <add input="{REQUEST_URI}" pattern="^/(api)" negate="true" />',
+    '          </conditions>',
+    '          <action type="Rewrite" url="/" />',
+    '        </rule>',
+    '      </rules>',
+    '    </rewrite>',
+    '    <staticContent>',
+    '      <mimeMap fileExtension=".json" mimeType="application/json" />',
+    '      <mimeMap fileExtension=".webp" mimeType="image/webp" />',
+    '    </staticContent>',
+    '  </system.webServer>',
+    '</configuration>'
+)
 $webConfigFile = Join-Path $webPublishPath "web.config"
-Set-Content -Path $webConfigFile -Value $webConfigContent -Encoding UTF8
+Set-Content -Path $webConfigFile -Value $webConfigLines -Encoding UTF8
 
 # 6. Configurar Pools de Aplicaciones y Sitios Web en IIS
 Write-Host ""
@@ -147,13 +147,13 @@ Write-Host "[5/6] Creando Acceso Directo en el Escritorio..." -ForegroundColor Y
 try {
     $desktopPath = [Environment]::GetFolderPath("Desktop")
     $shortcutPath = Join-Path $desktopPath "WPC Bajío — Punto de Venta.url"
-    $urlShortcut = @'
-[InternetShortcut]
-URL=http://localhost
-IconIndex=0
-IconFile=C:\Program Files\Google\Chrome\Application\chrome.exe
-'@
-    Set-Content -Path $shortcutPath -Value $urlShortcut -Encoding UTF8
+    $shortcutLines = @(
+        '[InternetShortcut]',
+        'URL=http://localhost',
+        'IconIndex=0',
+        'IconFile=C:\Program Files\Google\Chrome\Application\chrome.exe'
+    )
+    Set-Content -Path $shortcutPath -Value $shortcutLines -Encoding UTF8
     Write-Host "  -> Acceso directo creado en el escritorio." -ForegroundColor Green
 } catch {
     Write-Host "  -> No se pudo crear el acceso directo en el escritorio." -ForegroundColor DarkYellow
