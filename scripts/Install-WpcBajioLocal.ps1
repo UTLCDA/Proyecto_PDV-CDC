@@ -77,8 +77,8 @@ if (Test-Path $frontendPath) {
     Exit 1
 }
 
-# 5. Configurar web.config para SPA Routing en IIS
-$webConfigContent = @"
+# 5. Configurar web.config para SPA Routing en IIS (Heredoc con comillas simples para evitar expansión de variables)
+$webConfigContent = @'
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <system.webServer>
@@ -101,8 +101,9 @@ $webConfigContent = @"
     </staticContent>
   </system.webServer>
 </configuration>
-"@
-Set-Content -Path "$webPublishPath\web.config" -Value $webConfigContent -Encoding UTF8
+'@
+$webConfigFile = Join-Path $webPublishPath "web.config"
+Set-Content -Path $webConfigFile -Value $webConfigContent -Encoding UTF8
 
 # 6. Configurar Pools de Aplicaciones y Sitios Web en IIS
 Write-Host ""
@@ -146,12 +147,12 @@ Write-Host "[5/6] Creando Acceso Directo en el Escritorio..." -ForegroundColor Y
 try {
     $desktopPath = [Environment]::GetFolderPath("Desktop")
     $shortcutPath = Join-Path $desktopPath "WPC Bajío — Punto de Venta.url"
-    $urlShortcut = @"
+    $urlShortcut = @'
 [InternetShortcut]
 URL=http://localhost
 IconIndex=0
 IconFile=C:\Program Files\Google\Chrome\Application\chrome.exe
-"@
+'@
     Set-Content -Path $shortcutPath -Value $urlShortcut -Encoding UTF8
     Write-Host "  -> Acceso directo creado en el escritorio." -ForegroundColor Green
 } catch {
