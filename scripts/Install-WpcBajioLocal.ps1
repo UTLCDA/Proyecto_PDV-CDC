@@ -77,7 +77,7 @@ if (Test-Path $frontendPath) {
     Exit 1
 }
 
-# 5. Configurar web.config para SPA Routing en IIS (Heredoc con comillas simples para evitar expansión de variables)
+# 5. Configurar web.config para SPA Routing en IIS
 $webConfigContent = @'
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
