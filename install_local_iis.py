@@ -44,7 +44,6 @@ def ensure_admin_elevation():
         if ctypes.windll.shell32.IsUserAnAdmin() == 0:
             print(f"{COLOR_YELLOW}Solicitando elevación de permisos de Administrador (UAC)...{COLOR_RESET}")
             script_path = str(Path(__file__).resolve())
-            # Solicitar elevacion mediante ShellExecuteW 'runas'
             ctypes.windll.shell32.ShellExecuteW(
                 None, "runas", sys.executable, f'"{script_path}"', None, 1
             )
@@ -52,6 +51,13 @@ def ensure_admin_elevation():
     except Exception as ex:
         print_error(f"No se pudo solicitar permisos de Administrador automáticamente: {ex}")
         sys.exit(1)
+
+def ensure_iis_services_running():
+    try:
+        subprocess.run(["net", "start", "was"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["net", "start", "w3svc"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
 
 def check_and_install_iis_modules():
     sys32 = Path(os.environ.get("WINDIR", r"C:\Windows")) / "System32" / "inetsrv"
@@ -68,8 +74,7 @@ def check_and_install_iis_modules():
             print("  Ejecutando instalación silenciosa de ASP.NET Core Hosting Bundle...")
             subprocess.run([str(temp_exe), "/install", "/quiet", "/norestart"], check=True)
             print_success("ASP.NET Core Hosting Bundle instalado con éxito.")
-            subprocess.run(["net", "stop", "was", "/y"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.run(["net", "start", "w3svc"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            ensure_iis_services_running()
         except Exception as ex:
             print_error(f"No se pudo instalar automáticamente el Hosting Bundle: {ex}")
     else:
@@ -112,11 +117,14 @@ def main():
 
     # Asegurar permisos de administrador elevados mediante UAC
     ensure_admin_elevation()
+    ensure_iis_services_running()
 
     workspace_root = Path(__file__).resolve().parent
     api_publish_path = Path(r"C:\inetpub\wwwroot\pos-api")
     web_publish_path = Path(r"C:\inetpub\wwwroot\pos-web")
     default_wwwroot_path = Path(r"C:\inetpub\wwwroot")
+
+    appcmd = Path(os.environ.get("WINDIR", r"C:\Windows")) / "System32" / "inetsrv" / "appcmd.exe"
 
     # 1. Habilitar Características de Windows para IIS mediante DISM
     print_step("1/6", "Verificando e Instalando Características de IIS en Windows (DISM)")
@@ -147,8 +155,10 @@ def main():
         print_error(f"No se encontró el proyecto API en {api_proj}")
         sys.exit(1)
 
-    # Detener IIS temporalmente para liberar DLLs bloqueadas
-    subprocess.run(["net", "stop", "w3svc"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # Detener especificamente la API en IIS para liberar DLLs bloqueadas sin tumbar WAS RPC
+    if appcmd.exists():
+        subprocess.run([str(appcmd), "stop", "site", "PosApi"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([str(appcmd), "stop", "apppool", "PosApiPool"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     dotnet_cmd = ["dotnet", "publish", str(api_proj), "-c", "Release", "-o", str(api_publish_path)]
     print(f"  Ejecutando: {' '.join(dotnet_cmd)}")
@@ -157,7 +167,6 @@ def main():
         print_success(f"Backend API publicado exitosamente en '{api_publish_path}'.")
     else:
         print_error("Error durante la publicación de la API backend.")
-        subprocess.run(["net", "start", "w3svc"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         sys.exit(1)
 
     # Configurar logs stdout y permisos en el directorio publicado de la API
@@ -248,7 +257,7 @@ def main():
 
     # 5. Configurar Pools de Aplicaciones y Sitios Web mediante appcmd.exe de IIS
     print_step("5/6", "Configurando Sitios Web y AppPools en IIS (appcmd.exe)")
-    appcmd = Path(os.environ.get("WINDIR", r"C:\Windows")) / "System32" / "inetsrv" / "appcmd.exe"
+    ensure_iis_services_running()
 
     if appcmd.exists():
         # Crear Pools de Aplicaciones (Sin Código Administrado)
@@ -278,7 +287,7 @@ def main():
         subprocess.run([str(appcmd), "set", "site", "/site.name:PosApi", "/[path='/'].applicationPool:PosApiPool"], check=False)
         subprocess.run([str(appcmd), "start", "site", "PosApi"], check=False)
 
-        # Crear Sitio Frontend Web (Puerto 80)
+        # Crear Sitio Frontend Web (Puerto 8080)
         cmd_site_web = [
             str(appcmd), "add", "site", "/name:PosWeb",
             "/bindings:http/*:8080:",
@@ -288,9 +297,9 @@ def main():
         subprocess.run([str(appcmd), "set", "site", "/site.name:PosWeb", "/[path='/'].applicationPool:PosWebPool"], check=False)
         subprocess.run([str(appcmd), "start", "site", "PosWeb"], check=False)
 
-        # Reiniciar IIS para aplicar cambios de identidad y permisos
-        subprocess.run(["net", "stop", "was", "/y"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run(["net", "start", "w3svc"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Reciclar app pools para refrescar estado sin desconectar la tuberia RPC
+        subprocess.run([str(appcmd), "recycle", "apppool", "PosApiPool"], check=False)
+        subprocess.run([str(appcmd), "recycle", "apppool", "PosWebPool"], check=False)
 
         print_success("Sitios 'PosApi' (Puerto 5000) y 'Default Web Site' / 'PosWeb' (Puerto 80) iniciados en IIS.")
     else:
