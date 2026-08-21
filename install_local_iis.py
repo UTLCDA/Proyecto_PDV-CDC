@@ -84,6 +84,23 @@ def check_and_install_iis_modules():
     else:
         print_success("Módulo IIS URL Rewrite ya está instalado en IIS.")
 
+def grant_sql_server_permissions():
+    print_step("1.3/6", "Configurando Permisos de Base de Datos en SQL Server para IIS")
+    sql_script = (
+        "IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = 'IIS AppPool\\PosApiPool') "
+        "BEGIN CREATE LOGIN [IIS AppPool\\PosApiPool] FROM WINDOWS; END; "
+        "ALTER SERVER ROLE sysadmin ADD MEMBER [IIS AppPool\\PosApiPool]; "
+        "IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = 'NT AUTHORITY\\SYSTEM') "
+        "BEGIN CREATE LOGIN [NT AUTHORITY\\SYSTEM] FROM WINDOWS; END; "
+        "ALTER SERVER ROLE sysadmin ADD MEMBER [NT AUTHORITY\\SYSTEM];"
+    )
+    for server in ["AAM", "localhost", r".\SQLEXPRESS"]:
+        try:
+            subprocess.run(["sqlcmd", "-S", server, "-Q", sql_script], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+    print_success("Permisos de acceso a SQL Server configurados para la identidad de IIS.")
+
 def main():
     print_header("INSTALADOR AUTOMATIZADO DE WPC BAJÍO — PUNTO DE VENTA EN IIS LOCAL")
 
@@ -115,12 +132,18 @@ def main():
     # Verificar e instalar dependencias IIS (Hosting Bundle & URL Rewrite)
     check_and_install_iis_modules()
 
+    # Configurar permisos de SQL Server
+    grant_sql_server_permissions()
+
     # 2. Compilar y Publicar Backend API (.NET 9)
     print_step("2/6", "Compilando y Publicando Backend API (.NET 9)")
     api_proj = workspace_root / "src" / "backend" / "Pos.Api" / "Pos.Api.csproj"
     if not api_proj.exists():
         print_error(f"No se encontró el proyecto API en {api_proj}")
         sys.exit(1)
+
+    # Detener IIS temporalmente para liberar DLLs bloqueadas
+    subprocess.run(["net", "stop", "w3svc"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     dotnet_cmd = ["dotnet", "publish", str(api_proj), "-c", "Release", "-o", str(api_publish_path)]
     print(f"  Ejecutando: {' '.join(dotnet_cmd)}")
@@ -129,6 +152,7 @@ def main():
         print_success(f"Backend API publicado exitosamente en '{api_publish_path}'.")
     else:
         print_error("Error durante la publicación de la API backend.")
+        subprocess.run(["net", "start", "w3svc"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         sys.exit(1)
 
     # Configurar logs stdout y permisos en el directorio publicado de la API

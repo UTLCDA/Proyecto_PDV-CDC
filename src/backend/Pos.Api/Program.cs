@@ -172,8 +172,7 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        app.Logger.LogCritical(ex, "No fue posible migrar o validar PosLambrinDb. La base de datos se conservó sin recrearla.");
-        throw;
+        app.Logger.LogWarning(ex, "No fue posible migrar o validar PosLambrinDb automáticamente. Se mantendrán las tablas existentes.");
     }
 }
 
