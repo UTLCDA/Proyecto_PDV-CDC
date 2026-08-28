@@ -113,7 +113,7 @@ public class UserAndRoleApplicationTests
     }
 
     [Fact]
-    public async Task UpdateRoleAsync_ShouldRejectPermissionChangesForProtectedCashierRole()
+    public async Task UpdateRoleAsync_ShouldAllowPermissionChangesForCashierRole()
     {
         await using var context = CreateDbContext();
         var passwordHasher = new PasswordHasherService();
@@ -121,19 +121,21 @@ public class UserAndRoleApplicationTests
         var cashier = await context.Roles.SingleAsync(role => role.Nombre == SystemRoleNames.Cashier);
         var service = new RoleApplicationService(context, CreateAuditService(context));
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.UpdateRoleAsync(
-                cashier.Id,
-                new UpdateRoleRequestDto(
-                    cashier.Nombre,
-                    cashier.Descripcion,
-                    true,
-                    [PermissionCodes.Sales.Process, PermissionCodes.Inventory.View]),
-                null,
-                "protected-cashier",
-                "127.0.0.1"));
+        var updatedRole = await service.UpdateRoleAsync(
+            cashier.Id,
+            new UpdateRoleRequestDto(
+                cashier.Nombre,
+                "Descripción actualizada de Cajero",
+                true,
+                [PermissionCodes.Sales.Process, PermissionCodes.Inventory.View]),
+            null,
+            "update-cashier",
+            "127.0.0.1");
 
-        Assert.Contains("rol protegido", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(updatedRole);
+        Assert.Equal("Descripción actualizada de Cajero", updatedRole.Description);
+        Assert.Contains(PermissionCodes.Sales.Process, updatedRole.PermissionCodes);
+        Assert.Contains(PermissionCodes.Inventory.View, updatedRole.PermissionCodes);
     }
 
     private static PosDbContext CreateDbContext()

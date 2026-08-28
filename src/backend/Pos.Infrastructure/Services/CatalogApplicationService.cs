@@ -232,6 +232,7 @@ public class CatalogApplicationService : ICatalogApplicationService
             LargoMm = request.LengthMm,
             EspesorMm = request.ThicknessMm,
             Material = request.Material.Trim(),
+            Color = request.Color?.Trim() ?? string.Empty,
             SoloCotizacion = request.IsQuoteOnly,
             VisibleMasVendido = request.IsTopSellerVisible,
             EstaActivo = true,
@@ -312,6 +313,7 @@ public class CatalogApplicationService : ICatalogApplicationService
         product.LargoMm = request.LengthMm;
         product.EspesorMm = request.ThicknessMm;
         product.Material = request.Material.Trim();
+        product.Color = request.Color?.Trim() ?? string.Empty;
         product.SoloCotizacion = request.IsQuoteOnly;
         product.VisibleMasVendido = request.IsTopSellerVisible;
         product.EstaActivo = request.IsActive;
@@ -559,6 +561,7 @@ public class CatalogApplicationService : ICatalogApplicationService
             p.LargoMm,
             p.EspesorMm,
             p.Material,
+            p.Color,
             p.SoloCotizacion,
             p.VisibleMasVendido,
             p.EstaActivo,
@@ -693,11 +696,10 @@ public class CatalogApplicationService : ICatalogApplicationService
 
     private static string NormalizeSku(string value)
     {
-        var sku = NormalizeText(value, "El SKU", 64, required: true).ToUpperInvariant();
-        if (!sku.StartsWith("WPC-", StringComparison.Ordinal) ||
-            !Regex.IsMatch(sku, "^WPC-[A-Z0-9][A-Z0-9._-]*$"))
+        var sku = NormalizeText(value, "El SKU", 64, required: true).Trim().Replace(' ', '-').ToUpperInvariant();
+        if (!Regex.IsMatch(sku, "^[A-Z0-9._-]{2,64}$"))
         {
-            throw new ArgumentException("El SKU debe iniciar con 'WPC-' y contener únicamente letras, números, punto, guion o guion bajo.");
+            throw new ArgumentException("El SKU debe contener al menos 2 caracteres (letras, números, punto, guion o guion bajo).");
         }
         return sku;
     }

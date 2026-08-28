@@ -28,7 +28,7 @@ public static class DependencyInjection
         {
             options.ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
 
-            if (!string.IsNullOrEmpty(connectionString) && !connectionString.Contains("(localdb)") && !connectionString.Contains("InMemory"))
+            if (!string.IsNullOrEmpty(connectionString) && !connectionString.Contains("InMemory"))
             {
                 options.UseSqlServer(connectionString, sqlOptions => sqlOptions.EnableRetryOnFailure());
             }

@@ -32,6 +32,7 @@ export interface Producto {
   lengthMm: number;
   thicknessMm: number;
   material: string;
+  color?: string;
   isQuoteOnly: boolean;
   isTopSellerVisible: boolean;
   isActive: boolean;
@@ -61,6 +62,7 @@ export interface PeticionCrearProducto {
   lengthMm: number;
   thicknessMm: number;
   material: string;
+  color?: string;
   isQuoteOnly: boolean;
   isTopSellerVisible: boolean;
 }
@@ -84,6 +86,7 @@ export interface PeticionActualizarProducto {
   lengthMm: number;
   thicknessMm: number;
   material: string;
+  color?: string;
   isQuoteOnly: boolean;
   isTopSellerVisible: boolean;
   isActive: boolean;

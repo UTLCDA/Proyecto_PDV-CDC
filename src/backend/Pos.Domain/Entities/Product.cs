@@ -21,6 +21,7 @@ public class Product : BaseEntity
     public int LengthMm { get; set; } = 2900;
     public int ThicknessMm { get; set; } = 24;
     public string Material { get; set; } = "WPC";
+    public string Color { get; set; } = string.Empty;
 
     public bool IsQuoteOnly { get; set; } = false;
     public bool IsTopSellerVisible { get; set; } = true;

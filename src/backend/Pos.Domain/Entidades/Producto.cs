@@ -30,6 +30,7 @@ public class Producto : EntidadBase
     public int LargoMm { get; set; }
     public int EspesorMm { get; set; }
     public string Material { get; set; } = string.Empty;
+    public string Color { get; set; } = string.Empty;
 
     public bool SoloCotizacion { get; set; } = false;
     public bool VisibleMasVendido { get; set; } = false;

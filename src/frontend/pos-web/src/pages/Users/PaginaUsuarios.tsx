@@ -248,7 +248,7 @@ export const PaginaUsuarios: React.FC = () => {
   };
 
   const alternarPermiso = (codigo: string) => {
-    if (rolEditando?.isSystemRole) return;
+    if (rolEditando?.name === systemRoleNames.administrator) return;
     setFormRol(actual => ({
       ...actual,
       permissionCodes: actual.permissionCodes.includes(codigo)
@@ -258,7 +258,7 @@ export const PaginaUsuarios: React.FC = () => {
   };
 
   const alternarModulo = (permisosModulo: PermisoGestion[]) => {
-    if (rolEditando?.isSystemRole) return;
+    if (rolEditando?.name === systemRoleNames.administrator) return;
     const codigos = permisosModulo.map(permiso => permiso.code);
     const todosSeleccionados = codigos.every(codigo => formRol.permissionCodes.includes(codigo));
     setFormRol(actual => ({
@@ -471,14 +471,14 @@ export const PaginaUsuarios: React.FC = () => {
             </div>
             <form onSubmit={guardarRol} className="users-form">
               <div className="users-form__grid users-form__grid--role">
-                <label>{t('roleName')} *<input required minLength={2} disabled={!!rolEditando?.isSystemRole} value={formRol.name} onChange={event => setFormRol({ ...formRol, name: event.target.value })} /></label>
+                <label>{t('roleName')} *<input required minLength={2} disabled={rolEditando?.name === systemRoleNames.administrator || rolEditando?.name === systemRoleNames.cashier} value={formRol.name} onChange={event => setFormRol({ ...formRol, name: event.target.value })} /></label>
                 <label>{t('roleStatus')}
-                  <select disabled={!!rolEditando?.isSystemRole} value={String(formRol.isActive)} onChange={event => setFormRol({ ...formRol, isActive: event.target.value === 'true' })}>
+                  <select disabled={rolEditando?.name === systemRoleNames.administrator} value={String(formRol.isActive)} onChange={event => setFormRol({ ...formRol, isActive: event.target.value === 'true' })}>
                     <option value="true">{t('activeRole')}</option>
                     <option value="false">{t('inactiveRole')}</option>
                   </select>
                 </label>
-                <label className="users-form__full">{t('roleDescription')}<textarea rows={2} maxLength={250} value={formRol.description} onChange={event => setFormRol({ ...formRol, description: event.target.value })} /></label>
+                <label className="users-form__full">{t('roleDescription')}<textarea rows={2} maxLength={250} disabled={rolEditando?.name === systemRoleNames.administrator} value={formRol.description} onChange={event => setFormRol({ ...formRol, description: event.target.value })} /></label>
               </div>
 
               <div className="permissions-header">
@@ -488,12 +488,12 @@ export const PaginaUsuarios: React.FC = () => {
               <div className="permissions-grid">
                 {Object.entries(permisosPorModulo).map(([modulo, permisosModulo]) => {
                   const todosSeleccionados = permisosModulo.every(permiso => formRol.permissionCodes.includes(permiso.code));
-                  return <fieldset key={modulo} className="permission-group" disabled={!!rolEditando?.isSystemRole}>
+                  return <fieldset key={modulo} className="permission-group" disabled={rolEditando?.name === systemRoleNames.administrator}>
                     <legend>
-                      <label><input type="checkbox" disabled={!!rolEditando?.isSystemRole} checked={todosSeleccionados} onChange={() => alternarModulo(permisosModulo)} /> {nombreModulo(modulo, t)}</label>
+                      <label><input type="checkbox" disabled={rolEditando?.name === systemRoleNames.administrator} checked={todosSeleccionados} onChange={() => alternarModulo(permisosModulo)} /> {nombreModulo(modulo, t)}</label>
                     </legend>
                     {permisosModulo.map(permiso => <label key={permiso.id} className="permission-item">
-                      <input type="checkbox" checked={formRol.permissionCodes.includes(permiso.code)} onChange={() => alternarPermiso(permiso.code)} />
+                      <input type="checkbox" disabled={rolEditando?.name === systemRoleNames.administrator} checked={formRol.permissionCodes.includes(permiso.code)} onChange={() => alternarPermiso(permiso.code)} />
                       <span><strong>{permiso.description}</strong><small>{permiso.code}</small></span>
                     </label>)}
                   </fieldset>;

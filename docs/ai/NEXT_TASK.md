@@ -1,20 +1,27 @@
-# NEXT TASK — Fusión de PR "version-final-de-PR" y Despliegue Final
+# NEXT_TASK — Siguiente Tarea Recomendada
 
-## Estado actual
+## 📌 Tarea Actual Recomendada: Módulo de Carrito de Compras, Cobro en Caja y Punto de Venta (v3.0.0 Feature)
 
-- **Rama Git Activa**: `version-final-de-PR`.
-- **Todos los requerimientos solicitados por el cliente fueron completados y verificados al 100%**:
-  - PDV: Botones rápidos `Pieza +` / `Caja +`, Calculadora de m² de Lambrín en checkout, cobertura corregida por pieza, desglose visual de piezas/cajas/m² en carrito y buscador en tiempo real.
-  - Catálogo: Campo `Costo Neto ($ MXN)` en modal de producto, persistencia full-stack de `CostoUnitario` e insignias/cabeceras bilingües.
-  - Clientes: Permiso de Límite Diario de Cajas por cliente, validación autoritativa en ventas y consulta de Historial de Compras por cliente.
-  - Reportería y Movimientos: Tablas y exportaciones con columnas de Costo Actual, Precio Venta, Monto Total, Impuesto, Costo Neto y Ganancia. Encabezados bilingües (Español / Chino Simplificado) al 100% en PDF y Excel.
-  - Pruebas: Backend **67/67** pasadas, Vitest **24/24** pasadas, build de producción Vite exitoso.
+### 🎯 Objetivo
+Desarrollar e integrar el flujo principal de venta rápida en la interfaz del Punto de Venta (`💰 Punto de Venta / Caja`):
+- Selección rápida de productos vía escáner de código de barras USB y buscador dinámico.
+- Carrito de compras reactivo con cálculo automático de unidades, cajas completas y aplicación transparente de reglas de precio (Menudeo vs. Mayoreo por caja).
+- Asignación de cliente (General o Registrar/Buscar Cliente Mayorista).
+- Métodos de cobro (Efectivo, Tarjeta, Transferencia, Mixto o Registro de Abonos) y generación de Ticket / Comprobante de Venta.
 
-## Siguiente única tarea recomendada
+---
 
-Realizar la revisión final y aprobación del Pull Request de la rama `version-final-de-PR` hacia `main` / `fase-1.1`.
+### 📋 Criterios de Aceptación
 
-### Criterios de Aceptación
-1. Revisión de código y aprobación explícita por el desarrollador humano.
-2. Ejecución del script de migración SQL Server en la base de producción.
-3. Fusión de la rama `version-final-de-PR` hacia `main`.
+1. **Lectura con Escáner USB**: Al escanear un código de barras en la pantalla de cobro, el producto se agrega o incrementa automáticamente en el carrito.
+2. **Cálculo de Precios e Inventario**: Aplicar regla de mayoreo cuando la cantidad de piezas iguale o supere el contenido de caja. Validar existencias disponibles en stock.
+3. **Flujo de Pago y Ticket**: Generación del registro de venta y apertura del modal/visor de ticket imprimible.
+4. **Pruebas y Auditoría**: Pruebas unitarias/integración al 100% y registro auditado en bitácora de transacciones (`AuditLog`).
+
+---
+
+### 📚 Archivos Relevantes
+- `src/frontend/pos-web/src/pages/Sales/PointOfSalePage.tsx`
+- `src/backend/Pos.Api/Controllers/v1/SalesController.cs`
+- `src/backend/Pos.Application/Sales/Services/SaleApplicationService.cs`
+- `docs/deployment/CLOUDFLARED_TUNNEL_SETUP.md`

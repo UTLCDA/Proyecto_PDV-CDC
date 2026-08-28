@@ -662,10 +662,14 @@ GO
 -- SEED DE DATOS INICIALES: ROL ADMINISTRADOR ÚNICO, PERMISOS Y USUARIO ADMIN
 -- =========================================================================
 
--- 1. Insert Rol Administrador Único
+-- 1. Insert Roles Administrador y Cajero
 DECLARE @RolAdminId UNIQUEIDENTIFIER = 'E7B81234-5678-4900-A111-000000000001';
+DECLARE @RolCajeroId UNIQUEIDENTIFIER = 'E7B81234-5678-4900-A111-000000000005';
+
 INSERT INTO [Roles] ([Id], [Nombre], [Descripcion], [FechaCreacionUtc], [EstaActivo])
-VALUES (@RolAdminId, N'Administrador', N'Acceso total al sistema WPC Bajío', GETUTCDATE(), 1);
+VALUES 
+(@RolAdminId, N'Administrador', N'Acceso total al sistema WPC Bajío', GETUTCDATE(), 1),
+(@RolCajeroId, N'Cajero', N'Operación del Punto de Venta y Cobro en Caja', GETUTCDATE(), 1);
 GO
 
 -- 2. Insert Empleado Administrador General
@@ -729,6 +733,17 @@ INSERT INTO @Perms VALUES
 INSERT INTO [Permissions] ([Id], [Modulo], [Accion], [Descripcion], [FechaCreacionUtc], [EstaActivo])
 SELECT Id, Modulo, Accion, Descripcion, GETUTCDATE(), 1 FROM @Perms;
 
+DECLARE @RolCajeroId UNIQUEIDENTIFIER = 'E7B81234-5678-4900-A111-000000000005';
+
 INSERT INTO [RolePermissions] ([RolId], [PermisoId])
 SELECT @RolAdminId, Id FROM @Perms;
+
+INSERT INTO [RolePermissions] ([RolId], [PermisoId])
+SELECT @RolCajeroId, Id FROM @Perms
+WHERE (Modulo = 'ventas' AND Accion IN ('procesar', 'cancelar', 'descuento', 'historial'))
+   OR (Modulo = 'caja' AND Accion IN ('aperturar', 'cerrar', 'corte_z', 'sangria', 'entrada'))
+   OR (Modulo = 'catalogo' AND Accion IN ('productos_ver', 'categorias_ver'))
+   OR (Modulo = 'inventario' AND Accion IN ('ver'))
+   OR (Modulo = 'clientes' AND Accion IN ('ver', 'crear', 'editar'))
+   OR (Modulo = 'comercial' AND Accion IN ('cotizaciones', 'abonos'));
 GO

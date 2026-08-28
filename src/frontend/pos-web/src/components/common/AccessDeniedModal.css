@@ -1,0 +1,79 @@
+.access-denied-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.access-denied-modal {
+  background: var(--background-surface, #ffffff);
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 440px;
+  padding: 24px;
+  text-align: center;
+  border: 1px solid var(--border-subtle, #e2e8f0);
+}
+
+.access-denied-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.access-denied-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.access-denied-header h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary, #1e293b);
+  margin: 0;
+}
+
+.access-denied-body {
+  margin-bottom: 24px;
+}
+
+.access-denied-body p {
+  font-size: 0.95rem;
+  color: var(--text-secondary, #475569);
+  line-height: 1.5;
+  margin: 0 0 12px 0;
+}
+
+.access-denied-hint {
+  display: block;
+  font-size: 0.825rem;
+  color: var(--text-muted, #64748b);
+  background: var(--background-subtle, #f8fafc);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px dashed var(--border-subtle, #cbd5e1);
+}
+
+.access-denied-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.access-denied-btn {
+  min-width: 120px;
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}

@@ -5,6 +5,8 @@ import { servicioCatalogo } from '../../services/servicioCatalogo';
 import { useAuth } from '../../context/AuthContext';
 import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
+import { generateBarcodeBase64, saveBarcodeLocally, getLocalBarcode } from '../../utils/barcodeGenerator';
+import { downloadTechnicalDataSheet } from '../../utils/technicalSheetGenerator';
 import './ProductListPage.css';
 
 const MAX_PRODUCT_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
@@ -29,9 +31,11 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const [productoEdicionId, setProductoEdicionId] = useState<string | null>(null);
 
   // Campos del Formulario de Producto (1.1 - 2.1)
-  const [sku, setSku] = useState('WPC-');
+  const [sku, setSku] = useState('');
   const [codigoBarras, setCodigoBarras] = useState('');
+  const [codigoBarrasBase64, setCodigoBarrasBase64] = useState('');
   const [nombre, setNombre] = useState('');
+  const [color, setColor] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [categoriaId, setCategoriaId] = useState('');
   const [precioUnitario, setPrecioUnitario] = useState<string>('');
@@ -116,9 +120,11 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const abrirModalCrear = () => {
     setEsEdicion(false);
     setProductoEdicionId(null);
-    setSku('WPC-');
+    setSku('');
     setCodigoBarras('');
+    setCodigoBarrasBase64('');
     setNombre('');
+    setColor('');
     setDescripcion('');
     setCategoriaId(categorias.length > 0 ? categorias[0].id : '');
     setPrecioUnitario('');
@@ -145,9 +151,16 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const abrirModalEditar = (p: Producto) => {
     setEsEdicion(true);
     setProductoEdicionId(p.id);
-    setSku(p.sku || 'WPC-');
+    setSku(p.sku || '');
     setCodigoBarras(p.barcode || '');
+    if (p.barcode?.trim()) {
+      const base64 = generateBarcodeBase64(p.barcode.trim());
+      setCodigoBarrasBase64(base64);
+    } else {
+      setCodigoBarrasBase64('');
+    }
     setNombre(p.name || '');
+    setColor(p.color || '');
     setDescripcion(p.description || '');
     setCategoriaId(p.categoryId || '');
     setPrecioUnitario(p.unitPrice?.toString() || '0');
@@ -167,13 +180,24 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setModalProductoAbierto(true);
   };
 
-  // Manejo de SKU con Prefijo Obligatorio WPC- (1.5)
+  // Manejo de SKU Libre Captura con Conversión Automática de Espacios a Guiones (-)
   const handleSkuChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let valor = e.target.value.toUpperCase();
-    if (!valor.startsWith('WPC-')) {
-      valor = 'WPC-' + valor.replace(/^WPC-?/, '');
+    const valueWithHyphens = e.target.value.replace(/\s+/g, '-').toUpperCase();
+    setSku(valueWithHyphens);
+  };
+
+  // Manejo de Generación Dinámica de Código de Barras e Imagen Base64 Local
+  const handleCodigoBarrasChange = (val: string) => {
+    setCodigoBarras(val);
+    if (val.trim()) {
+      const base64 = generateBarcodeBase64(val.trim());
+      setCodigoBarrasBase64(base64);
+      if (sku.trim() || val.trim()) {
+        saveBarcodeLocally(sku || val, base64);
+      }
+    } else {
+      setCodigoBarrasBase64('');
     }
-    setSku(valor);
   };
 
   // Manejo de Selección e Imagen Base64 / Local Preview (1.2 & 1.2.1)
@@ -249,19 +273,20 @@ export const PaginaCatalogoProductos: React.FC = () => {
           categoryId: categoriaId,
           unitPrice: parseFloat(precioUnitario) || 0,
           unitCost: parseFloat(costoUnitario) || 0,
-          wholesalePrice: isBoxUnit ? (parseFloat(precioMayoreo) || 0) : 0,
-          wholesaleMinQuantity: isBoxUnit ? (parseFloat(cantidadMinimaMayoreo) || 1) : 1,
+          wholesalePrice: parseFloat(precioMayoreo) || 0,
+          wholesaleMinQuantity: parseFloat(cantidadMinimaMayoreo) || 1,
           unitOfMeasure: unidadMedida,
-          coveragePerUnitSqM: isBoxUnit ? (parseFloat(coberturaUnidadM2) || 0) : 0,
+          coveragePerUnitSqM: parseFloat(coberturaUnidadM2) || 0,
           imageUrl: imagenUrl,
           piecesPerBox: parseInt(piezasPorCaja) || 1,
-          lengthCm: isBoxUnit ? (parseFloat(largoCm) || 0) : 0,
-          heightCm: isBoxUnit ? (parseFloat(altoCm) || 0) : 0,
-          widthCm: isBoxUnit ? (parseFloat(anchoCm) || 0) : 0,
-          widthMm: isBoxUnit ? Math.round((parseFloat(anchoCm) || 0) * 10) : 0,
-          lengthMm: isBoxUnit ? Math.round((parseFloat(largoCm) || 0) * 10) : 0,
+          lengthCm: parseFloat(largoCm) || 0,
+          heightCm: parseFloat(altoCm) || 0,
+          widthCm: parseFloat(anchoCm) || 0,
+          widthMm: Math.round((parseFloat(anchoCm) || 0) * 10),
+          lengthMm: Math.round((parseFloat(largoCm) || 0) * 10),
           thicknessMm: 24,
           material: 'WPC Madera Plástica',
+          color: color.trim(),
           isQuoteOnly: soloCotizacion,
           isTopSellerVisible: visibleMasVendido,
           isActive: true
@@ -275,20 +300,21 @@ export const PaginaCatalogoProductos: React.FC = () => {
           categoryId: categoriaId,
           unitPrice: parseFloat(precioUnitario) || 0,
           unitCost: parseFloat(costoUnitario) || 0,
-          wholesalePrice: isBoxUnit ? (parseFloat(precioMayoreo) || 0) : 0,
-          wholesaleMinQuantity: isBoxUnit ? (parseFloat(cantidadMinimaMayoreo) || 1) : 1,
+          wholesalePrice: parseFloat(precioMayoreo) || 0,
+          wholesaleMinQuantity: parseFloat(cantidadMinimaMayoreo) || 1,
           unitOfMeasure: unidadMedida,
-          coveragePerUnitSqM: isBoxUnit ? (parseFloat(coberturaUnidadM2) || 0) : 0,
+          coveragePerUnitSqM: parseFloat(coberturaUnidadM2) || 0,
           imageUrl: imagenUrl,
           piecesPerBox: parseInt(piezasPorCaja) || 1,
-          lengthCm: isBoxUnit ? (parseFloat(largoCm) || 0) : 0,
-          heightCm: isBoxUnit ? (parseFloat(altoCm) || 0) : 0,
-          widthCm: isBoxUnit ? (parseFloat(anchoCm) || 0) : 0,
+          lengthCm: parseFloat(largoCm) || 0,
+          heightCm: parseFloat(altoCm) || 0,
+          widthCm: parseFloat(anchoCm) || 0,
           initialInventoryQuantity: parseFloat(cantidadInventarioInicial) || 0,
-          widthMm: isBoxUnit ? Math.round((parseFloat(anchoCm) || 0) * 10) : 0,
-          lengthMm: isBoxUnit ? Math.round((parseFloat(largoCm) || 0) * 10) : 0,
+          widthMm: Math.round((parseFloat(anchoCm) || 0) * 10),
+          lengthMm: Math.round((parseFloat(largoCm) || 0) * 10),
           thicknessMm: 24,
           material: 'WPC Madera Plástica',
+          color: color.trim(),
           isQuoteOnly: soloCotizacion,
           isTopSellerVisible: visibleMasVendido
         });
@@ -383,12 +409,12 @@ export const PaginaCatalogoProductos: React.FC = () => {
                   <th style={{ padding: '0.75rem' }}>{t('wholesalePrice')}</th>
                   <th style={{ padding: '0.75rem' }}>{t('piecesPerBox')}</th>
                   <th style={{ padding: '0.75rem' }}>{t('coverageM2')}</th>
-                  {canEditProduct && <th style={{ padding: '0.75rem', textAlign: 'right' }}>{t('actions')}</th>}
+                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>{t('actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {productos.length === 0 && (
-                  <tr><td colSpan={canEditProduct ? 8 : 7} className="catalog-empty-state">{t('noCatalogProducts')}</td></tr>
+                  <tr><td colSpan={8} className="catalog-empty-state">{t('noCatalogProducts')}</td></tr>
                 )}
                 {productos.map(p => (
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
@@ -420,7 +446,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
                     <td style={{ padding: '0.75rem' }}>
                       <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{p.name}</div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                        SKU: <strong style={{ color: 'var(--accent-primary)' }}>{p.sku}</strong> &bull; Cod: {p.barcode || 'N/A'}
+                        SKU: <strong style={{ color: 'var(--accent-primary)' }}>{p.sku}</strong> &bull; Cod: {p.barcode || 'N/A'} {p.color ? `• Color: ${p.color}` : ''}
                       </div>
                     </td>
                     <td style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>{p.categoryName}</td>
@@ -465,11 +491,24 @@ export const PaginaCatalogoProductos: React.FC = () => {
                         </span>
                       </div>
                     </td>
-                    {canEditProduct && <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                      <button className="lang-btn" onClick={() => abrirModalEditar(p)} style={{ fontSize: '0.8rem', padding: '0.35rem 0.65rem' }}>
-                        ✏️ {t('editProduct') || 'Editar Producto'}
-                      </button>
-                    </td>}
+                    <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          className="lang-btn"
+                          onClick={() => void downloadTechnicalDataSheet(p)}
+                          style={{ fontSize: '0.8rem', padding: '0.35rem 0.65rem' }}
+                          title="Descargar Ficha Técnica PDF"
+                        >
+                          📄 Ficha Técnica
+                        </button>
+                        {canEditProduct && (
+                          <button className="lang-btn" onClick={() => abrirModalEditar(p)} style={{ fontSize: '0.8rem', padding: '0.35rem 0.65rem' }}>
+                            ✏️ {t('editProduct') || 'Editar Producto'}
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -495,31 +534,88 @@ export const PaginaCatalogoProductos: React.FC = () => {
 
                 <div className="catalog-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>SKU (Prefijo WPC- Obligatorio) *</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>SKU *</label>
                     <input
                       type="text"
                       className="input-field"
                       required
                       value={sku}
                       onChange={handleSkuChange}
-                      placeholder="WPC-INT-TEKA-01"
+                      placeholder="Ej. WPC-INT-TEKA-01"
                       disabled={esEdicion}
                       style={{ width: '100%', boxSizing: 'border-box' }}
                     />
                   </div>
 
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Código de Barras (Escáner USB) *</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Código de Barras (Escáner / Captura Libre) *</label>
                     <input
                       ref={barcodeInputRef}
                       type="text"
                       className="input-field"
                       required
                       value={codigoBarras}
-                      onChange={(e) => setCodigoBarras(e.target.value)}
+                      onChange={(e) => handleCodigoBarrasChange(e.target.value)}
                       placeholder="Escanee o ingrese código..."
                       style={{ width: '100%', boxSizing: 'border-box' }}
                     />
+                  </div>
+
+                  {/* Espacio para Visualizar y Guardar Código de Barras en Base64 para Impresión de Etiquetas */}
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <div style={{
+                      padding: '0.75rem 1rem',
+                      background: 'var(--background-surface, #ffffff)',
+                      borderRadius: '6px',
+                      border: '1px dashed var(--border-hover, #0284c7)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '0.75rem'
+                    }}>
+                      <div style={{ flex: 1, minWidth: '220px' }}>
+                        <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-primary, #0284c7)', marginBottom: '0.35rem' }}>
+                          📊 Código de Barras Renderizado (Base64 Generado para Impresión de Etiquetas)
+                        </span>
+                        {codigoBarras.trim() ? (
+                          codigoBarrasBase64 ? (
+                            <img
+                              src={codigoBarrasBase64}
+                              alt={`Barcode ${codigoBarras}`}
+                              style={{ maxHeight: '65px', maxWidth: '100%', background: '#ffffff', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                            />
+                          ) : (
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Generando representación visual...</span>
+                          )
+                        ) : (
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                            Al escribir o escanear el número en este campo, se generará y mostrará la imagen del código de barras en formato Base64 para guardarla localmente e imprimir etiquetas.
+                          </span>
+                        )}
+                      </div>
+
+                      {codigoBarrasBase64 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', alignItems: 'flex-end' }}>
+                          <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>
+                            💾 Base64 Guardado ({codigoBarrasBase64.length} bytes)
+                          </span>
+                          <button
+                            type="button"
+                            className="lang-btn"
+                            style={{ fontSize: '0.75rem', padding: '4px 10px' }}
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = codigoBarrasBase64;
+                              link.download = `Barcode_${sku || codigoBarras}.png`;
+                              link.click();
+                            }}
+                          >
+                            📥 Descargar Etiqueta PNG
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div style={{ gridColumn: 'span 2' }}>
@@ -548,6 +644,19 @@ export const PaginaCatalogoProductos: React.FC = () => {
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Color / Tono *</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      required
+                      value={color}
+                      onChange={(e) => setColor(e.target.value)}
+                      placeholder="Ej. Teka, Nogal, Roble, Gris Grafito..."
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                    />
                   </div>
 
                   <div>

@@ -117,6 +117,7 @@ public class ProductApplicationTests
         LengthMm: 2900,
         ThicknessMm: 24,
         Material: "WPC Co-Extrusión",
+        Color: "Teka",
         IsQuoteOnly: false,
         IsTopSellerVisible: true);
 }

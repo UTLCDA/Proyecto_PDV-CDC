@@ -6,14 +6,10 @@ namespace Pos.Api.IntegrationTests;
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
+    private readonly string _dbName = $"InMemory_TestDb_{Guid.NewGuid()}";
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.ConfigureAppConfiguration((context, config) =>
-        {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ConnectionStrings:DefaultConnection"] = "InMemory_TestDb"
-            });
-        });
+        builder.UseSetting("ConnectionStrings:DefaultConnection", _dbName);
     }
 }

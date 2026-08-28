@@ -55,7 +55,7 @@ const tabPermissions: Record<Exclude<AppTab, 'profile'>, readonly string[]> = {
   reports: [permissionCodes.reportsSalesView, permissionCodes.reportsInventoryView],
   quotes: [permissionCodes.commercialQuotes],
   commercial: [permissionCodes.commercialInstallments],
-  transactions: [permissionCodes.commercialInstallments, permissionCodes.usersAdminister],
+  transactions: [permissionCodes.reportsSalesView, permissionCodes.usersAdminister],
   returns: [permissionCodes.commercialReturns],
   contracts: [permissionCodes.commercialContracts],
   catalog: [

@@ -26,6 +26,17 @@ public class CashShiftControllerIntegrationTests : IClassFixture<CustomWebApplic
 
         _client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", auth.AccessToken);
 
+        // Close existing shift if active
+        var currentResponse = await _client.GetAsync("/api/v1/cashshifts/current");
+        if (currentResponse.StatusCode == HttpStatusCode.OK)
+        {
+            var currentShift = await currentResponse.Content.ReadFromJsonAsync<CashShiftDto>();
+            if (currentShift != null && currentShift.Status == "Abierto")
+            {
+                await _client.PostAsJsonAsync($"/api/v1/cashshifts/{currentShift.Id}/close", new CloseCashShiftDto(1000m, "Cierre automatico test"));
+            }
+        }
+
         // 2. Open Cash Shift
         var request = new OpenCashShiftDto(1000m, "Fondo de apertura de turno");
         var response = await _client.PostAsJsonAsync("/api/v1/cashshifts/open", request);

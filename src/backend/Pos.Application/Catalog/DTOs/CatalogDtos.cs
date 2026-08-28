@@ -47,6 +47,7 @@ public record ProductDto(
     int LengthMm,
     int ThicknessMm,
     string Material,
+    string Color,
     bool IsQuoteOnly,
     bool IsTopSellerVisible,
     bool IsActive,
@@ -76,6 +77,7 @@ public record CreateProductDto(
     int LengthMm,
     int ThicknessMm,
     string Material,
+    string? Color,
     bool IsQuoteOnly,
     bool IsTopSellerVisible
 );
@@ -99,6 +101,7 @@ public record UpdateProductDto(
     int LengthMm,
     int ThicknessMm,
     string Material,
+    string? Color,
     bool IsQuoteOnly,
     bool IsTopSellerVisible,
     bool IsActive

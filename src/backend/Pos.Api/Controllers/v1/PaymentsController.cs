@@ -100,7 +100,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpGet("transactions")]
-    [Authorize(Policy = PermissionCodes.Commercial.Installments)]
+    [Authorize(Policy = PermissionCodes.Reports.SalesView)]
     public async Task<ActionResult<List<PaymentTransactionDto>>> GetPaymentTransactions(
         [FromQuery] string? search,
         [FromQuery] string? paymentMethod,

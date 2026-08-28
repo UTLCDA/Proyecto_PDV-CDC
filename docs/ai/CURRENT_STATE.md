@@ -1,5 +1,23 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
+## 🟢 ESTADO ACTUAL (28 de Agosto, 2026)
+
+- **Instalación y Despliegue en IIS y SQL Server**: **COMPLETADO AL 100%**
+  - **Base de Datos Física**: SQL Server `PosLambrinDb` montada limpia y verificada con Autenticación por Usuario.
+    - **Servidor**: `.` (o `localhost`)
+    - **Autenticación**: SQL Server Authentication
+    - **Login**: `wpcadminaam` | **Password**: `Aaron2804#`
+    - **Tablas Creadas**: 26 tablas físicas verificadas y semillas autoritativas de roles/permisos/admin cargadas.
+    - **HotFix 2.2.1 (Rol Cajero y Codificación Unicode)**: Se registró el Rol Cajero (`E7B81234-5678-4900-A111-000000000005`) con sus 17 permisos operativos y se corrigieron todos los acentos y caracteres especiales (`NVARCHAR` Unicode) en SQL Server (`Acceso total al sistema WPC Bajío`, `Operación del Punto de Venta y Cobro en Caja`).
+    - **HotFix 2.2.2 (Edición e Inactivación de Roles)**: Habilitada la edición de descripción, matriz de permisos y cambio de estado (`Activo` / `Inactivo`) para el Rol Cajero y roles personalizados desde el modal de edición de roles.
+    - **HotFix 2.2.3 (Ocultamiento y Restricción de Transacciones a Cajero)**: Se restringió la pestaña `💳 Transacciones` ("Histórico de Transacciones y Movimientos de Pago") y el endpoint `/api/v1/payments/transactions` para requerir el permiso ejecutivo `reportes:ver_ventas`. El rol Cajero ya no ve la pestaña ni puede acceder a la API de histórico de pagos.
+    - **Feature 2.4.0 (Conversión SKU a Guiones, Campo Color y Ficha Técnica PDF)**: Conversión automática de espacios a `-` en SKU, campo Color en formulario y BD SQL Server (`Color NVARCHAR(100)`), y botón de descarga **📄 Ficha Técnica** PDF en tabla de catálogo con desglose de precios menudeo, mayoreo, caja completa y regla comercial.
+    - **Feature 2.3.0 (SKU Libre Captura y Código de Barras Dinámico en Base64)**: SKU sin prefijo forzado `WPC-`. Creado el generador dinámico de código de barras Code 128 (`barcodeGenerator.ts`), con previsualización visual de imagen en tiempo real dentro del modal de producto, almacenamiento en Base64 y botón de descarga de etiqueta PNG.
+  - **Publicación en IIS**:
+    - **Backend API (.NET 9)**: Publicado en Release en `C:\inetpub\wwwroot\pos-api` (`http://localhost:5000`).
+    - **Frontend SPA (React)**: Publicado en Producción en `C:\inetpub\wwwroot\pos-web` (`http://localhost`).
+  - **Pruebas y Verificación**: 92 / 92 pruebas ejecutadas y pasando al 100% (68 backend xUnit, 24 frontend Vitest).
+
 ## Iteración Final aprobada — Release PR "version-final-de-PR" (2026-08-28)
 
 - **Rama Git Activa**: `version-final-de-PR` (creada a petición explícita del cliente para entregables finales).

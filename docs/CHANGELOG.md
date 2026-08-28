@@ -2,6 +2,54 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.0 Feature] - 2026-08-28
+
+### Añadido / Corregido
+- **Conversión Automática de Espacios a Guiones (`-`) en SKU**: Al escribir espacios en el campo SKU del formulario modal de productos, el sistema reemplaza dinámicamente cada espacio por un guion `-` (`replace(/\s+/g, '-')`), garantizando la estandarización y formato limpio del código SKU tanto en frontend como backend.
+- **Campo de Color y Persistencia en Base de Datos**: Se incorporó el campo **Color / Tono** en las entidades de dominio (`Product.cs`, `Producto.cs`), DTOs, columna SQL Server `Color NVARCHAR(100)` y en el formulario modal de productos.
+- **Generación y Descarga de Ficha Técnica PDF (`technicalSheetGenerator.tsx`)**: Se añadió el botón **`📄 Ficha Técnica`** en la tabla del catálogo de productos. Genera un documento PDF oficial con membrete WPC Bajío que incluye:
+  - SKU, Color, Código de Barras (con imagen renderizada).
+  - Especificaciones técnicas de material y dimensiones (Largo x Ancho x Alto x Cobertura m² por pieza/caja).
+  - **Desglose de Precios**: Precio Menudeo (individual), Precio Mayoreo (por pieza) y Precio por Caja Completa (`Piezas por caja × Precio Mayoreo`).
+  - **Regla Comercial de Aplicación de Precios**: Explicación formal donde si se llevan las piezas contenidas en una caja completa (o superior), aplica Precio Mayoreo; si llevan menos piezas que la caja, aplica Precio Menudeo.
+
+## [2.3.0 Feature] - 2026-08-28
+
+### Añadido / Corregido
+- **SKU de Libre Captura**: Se eliminó el prefijo forzado u obligatorio `WPC-` en el campo SKU del modal de alta/edición de productos (`PaginaCatalogoProductos.tsx`), permitiendo ingresar cualquier código o SKU personalizado libremente.
+- **Generación Dinámica de Código de Barras en Base64**: Implementado el módulo `barcodeGenerator.ts` con estándar Code 128. Al escribir o escanear un código de barras en el modal de producto, el sistema genera dinámicamente su representación visual en Base64 (`data:image/png;base64,...`).
+- **Espacio de Previsualización y Descarga PNG de Etiqueta**: Se añadió un cuadro de previsualización visual en el formulario de producto que muestra la imagen del código de barras renderizada en tiempo real, indica la longitud de la cadena Base64 e incluye un botón para descargar la etiqueta PNG de forma local para impresión.
+
+## [2.2.5 HotFix] - 2026-08-28
+
+### Corregido
+- **Reversión de Restricciones en Módulo de Abonos**: Se restauró la funcionalidad completa del módulo `💰 Abonos` para el **Rol Cajero** (y cualquier rol con `comercial:abonos`), permitiéndole registrar abonos, consultar el historial de abonos y comprobantes normalmente.
+- **Alerta por Modal de Acceso Restringido (`AccessDeniedModal`)**: Se implementó un nuevo componente visual `AccessDeniedModal` y manejo centralizado de respuestas `403 Forbidden` e intentos de navegación no autorizada. Si un usuario sin permisos intenta acceder a un módulo restringido o realizar una transacción no autorizada, el sistema despliega un modal interactivo indicando que no cuenta con los permisos necesarios.
+
+## [2.2.4 HotFix] - 2026-08-28
+
+### Corregido
+- **Ocultamiento del Histórico de Transacciones en el Módulo de Abonos para Cajero**: Se restringió la visualización del bloque de **Histórico de Transacciones / Abonos** (`commercial-global-history`) en la pantalla de Abonos.
+- **Operación Restringida y Segura para Cajeros**: El Cajero con permiso `comercial:abonos` sólo puede buscar ventas pendientes, registrar abonos y consultar/imprimir el comprobante de la venta actual. Toda la tabla de reporte histórico global y endpoints `/payments/installments` quedan ocultos y restringidos exclusivamente para Administradores.
+
+## [2.2.3 HotFix] - 2026-08-28
+
+### Corregido
+- **Restricción de Acceso a Transacciones para Cajero**: Se vinculó el módulo **Histórico de Transacciones y Movimientos de Pago** (`/payments/transactions`) y la pestaña `💳 Transacciones` a los permisos ejecutivos de reporte (`reportes:ver_ventas` / `usuarios:administrar`).
+- **Seguridad en Backend y Frontend**: El **Rol Cajero** ya no ve la pestaña de Transacciones en el menú superior ni tiene acceso al endpoint `/api/v1/payments/transactions` (retorna `403 Forbidden`).
+
+## [2.2.2 HotFix] - 2026-08-28
+
+### Corregido
+- **Edición e Inactivación de Roles**: Se habilitó la edición completa de descripción, matriz de 27 permisos e inactivación (`EstaActivo = false`) para el **Rol Cajero** y roles personalizados.
+- **Protección de Seguridad Admin**: Se mantiene la protección del nombre de roles del sistema (`Administrador` y `Cajero`) y el rol `Administrador` permanece activo y con permisos totales para evitar bloqueos accidentales del sistema.
+
+## [2.2.1 HotFix] - 2026-08-28
+
+### Corregido
+- **Rol de Seguridad Cajero**: Se incluyó e insertó el **Rol de Seguridad Cajero** (`E7B81234-5678-4900-A111-000000000005`) y sus 17 permisos operativos en la base de datos SQL Server `PosLambrinDb` y en los scripts de inicialización (`scratch/clean_init.sql`).
+- **Desplegable de Alta de Usuarios**: El listado de roles en la pantalla de gestión de usuarios ([`PaginaUsuarios.tsx`](file:///c:/Users/wpcba/OneDrive/Documents/PDV/src/frontend/pos-web/src/pages/Users/PaginaUsuarios.tsx)) ahora muestra las opciones **Administrador** y **Cajero**.
+
 ## [2.2.0] - 2026-08-28
 
 ### Entrega Final PR - Rama `version-final-de-PR`

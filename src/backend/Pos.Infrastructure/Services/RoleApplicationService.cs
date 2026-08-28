@@ -132,35 +132,41 @@ public class RoleApplicationService : IRoleApplicationService
         var description = ValidateDescription(request.Description);
         var permissions = await ResolvePermissionsAsync(request.PermissionCodes, cancellationToken);
         var requestedCodes = permissions.Select(permission => permission.ClavePermiso).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var isSystemRole = SystemRoleNames.IsSystemRole(role.Nombre);
+        var isAdminRole = string.Equals(role.Nombre, SystemRoleNames.Administrator, StringComparison.OrdinalIgnoreCase);
 
-        if (isSystemRole)
+        if (isAdminRole)
         {
-            if (!string.Equals(requestedName, role.Nombre, StringComparison.OrdinalIgnoreCase) || !request.IsActive)
+            if (!string.Equals(requestedName, role.Nombre, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("Los roles Administrador y Cajero no se pueden renombrar ni desactivar.");
+                throw new InvalidOperationException("El nombre del rol Administrador no se puede modificar.");
             }
-
-            var expectedCodes = string.Equals(role.Nombre, SystemRoleNames.Administrator, StringComparison.OrdinalIgnoreCase)
-                ? PermissionCodes.All.ToHashSet(StringComparer.OrdinalIgnoreCase)
-                : CashierPermissionCodes;
-
-            if (!requestedCodes.SetEquals(expectedCodes))
+            if (!request.IsActive)
             {
-                throw new InvalidOperationException("Los permisos del rol protegido no se pueden modificar. Cree un rol personalizado para otra combinación de permisos.");
+                throw new InvalidOperationException("El rol Administrador debe permanecer activo en el sistema.");
             }
         }
         else
         {
-            if (SystemRoleNames.IsSystemRole(requestedName))
+            if (string.Equals(role.Nombre, SystemRoleNames.Cashier, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(requestedName, role.Nombre, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("El nombre del rol Cajero no se puede modificar.");
+            }
+
+            if (SystemRoleNames.IsSystemRole(requestedName) && !string.Equals(requestedName, role.Nombre, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException("El nombre corresponde a un rol protegido del sistema.");
             }
 
-            await EnsureUniqueRoleNameAsync(requestedName, role.Id, cancellationToken);
+            if (!string.Equals(requestedName, role.Nombre, StringComparison.OrdinalIgnoreCase))
+            {
+                await EnsureUniqueRoleNameAsync(requestedName, role.Id, cancellationToken);
+            }
+
             if (!request.IsActive && role.UsuarioRoles.Any(userRole => userRole.Usuario.EstaActivo))
             {
-                throw new InvalidOperationException("No se puede desactivar un rol que todavía tiene usuarios activos asignados.");
+                var activeUserCount = role.UsuarioRoles.Count(userRole => userRole.Usuario.EstaActivo);
+                throw new InvalidOperationException($"No se puede desactivar el rol '{role.Nombre}' porque tiene {activeUserCount} usuario(s) activo(s) asignado(s). Reasigne los usuarios a otro rol primero.");
             }
         }
 
@@ -174,9 +180,9 @@ public class RoleApplicationService : IRoleApplicationService
         var previousCodes = role.RolPermisos.Select(item => item.Permiso.ClavePermiso).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var securityChanged = !previousCodes.SetEquals(requestedCodes) || role.EstaActivo != request.IsActive;
 
-        role.Nombre = isSystemRole ? role.Nombre : requestedName;
+        role.Nombre = (isAdminRole || string.Equals(role.Nombre, SystemRoleNames.Cashier, StringComparison.OrdinalIgnoreCase)) ? role.Nombre : requestedName;
         role.Descripcion = description;
-        role.EstaActivo = isSystemRole || request.IsActive;
+        role.EstaActivo = isAdminRole ? true : request.IsActive;
         role.FechaActualizacionUtc = DateTime.UtcNow;
 
         if (!previousCodes.SetEquals(requestedCodes))

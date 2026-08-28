@@ -1,6 +1,16 @@
 import { AuthResponse } from '../types/auth';
 
-const API_BASE = '/api/v1';
+const getApiBaseUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    if (window.location.port === '5173') {
+      return '/api/v1'; // Dev proxy Vite
+    }
+    return 'http://localhost:5000/api/v1'; // Production backend API
+  }
+  return '/api/v1';
+};
+
+const API_BASE = getApiBaseUrl();
 
 class ApiClient {
   private token: string | null = null;
@@ -43,6 +53,13 @@ class ApiClient {
         const refreshed = await this.tryRefreshSession();
         if (refreshed) {
           return this.request<T>(endpoint, options, false);
+        }
+      }
+      if (response.status === 403) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('lambrin-access-denied', {
+            detail: { endpoint, status: 403 }
+          }));
         }
       }
       const errorData = await response.json().catch(() => ({ message: 'Error de red o servidor' }));

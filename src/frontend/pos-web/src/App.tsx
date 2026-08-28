@@ -15,11 +15,16 @@ import InventoryMovementsPage from './pages/Inventory/InventoryMovementsPage';
 import { PaginaUsuarios } from './pages/Users/PaginaUsuarios';
 import AuditLogPage from './pages/Audit/AuditLogPage';
 import { AppTab, canAccessTab, getDefaultTab } from './security/accessControl';
+import AccessDeniedModal from './components/common/AccessDeniedModal';
 
 const MainLayout: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { user, isAuthenticated, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<AppTab>('pos');
+  const [accessDeniedOpen, setAccessDeniedOpen] = useState(false);
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState('');
+  const [accessDeniedModule, setAccessDeniedModule] = useState('');
+
   const userPermissions = user?.permissions ?? [];
   const canOpenTab = (tab: AppTab) => isAuthenticated && canAccessTab(userPermissions, tab);
   const currentTab = canOpenTab(activeTab) ? activeTab : getDefaultTab(userPermissions);
@@ -29,6 +34,27 @@ const MainLayout: React.FC = () => {
       setActiveTab(getDefaultTab(user.permissions));
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    const handleAccessDenied = (event: Event) => {
+      const customEvent = event as CustomEvent<{ endpoint?: string; status?: number; message?: string }>;
+      setAccessDeniedModule('');
+      setAccessDeniedMessage(customEvent.detail?.message || 'No cuenta con los permisos de seguridad requeridos para realizar esta operación o acceder a este módulo.');
+      setAccessDeniedOpen(true);
+    };
+    window.addEventListener('lambrin-access-denied', handleAccessDenied);
+    return () => window.removeEventListener('lambrin-access-denied', handleAccessDenied);
+  }, []);
+
+  const handleNavTabClick = (tab: AppTab, tabLabelKey: string) => {
+    if (canOpenTab(tab)) {
+      setActiveTab(tab);
+    } else {
+      setAccessDeniedModule(t(tabLabelKey));
+      setAccessDeniedMessage('');
+      setAccessDeniedOpen(true);
+    }
+  };
 
   const toggleLanguage = () => {
     const nextLang = i18n.language === 'es' ? 'zh' : 'es';
@@ -256,6 +282,13 @@ const MainLayout: React.FC = () => {
       <footer className="footer">
         &copy; {new Date().getFullYear()} WPC Bajío — Punto de Venta e Inventario Lambrín Decorativo (.NET 9 & React TypeScript)
       </footer>
+
+      <AccessDeniedModal
+        isOpen={accessDeniedOpen}
+        onClose={() => setAccessDeniedOpen(false)}
+        moduleName={accessDeniedModule}
+        customMessage={accessDeniedMessage}
+      />
     </div>
   );
 };
