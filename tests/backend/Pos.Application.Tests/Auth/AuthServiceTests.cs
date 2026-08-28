@@ -128,6 +128,7 @@ public class AuthServiceTests
             new[]
             {
                 PermissionCodes.Catalog.ProductsView,
+                PermissionCodes.Customers.Create,
                 PermissionCodes.Customers.View,
                 PermissionCodes.Sales.Process
             },

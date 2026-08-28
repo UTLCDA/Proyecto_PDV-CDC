@@ -31,6 +31,7 @@ public record ProductDto(
     Guid CategoryId,
     string CategoryName,
     decimal UnitPrice,
+    decimal UnitCost,
     decimal WholesalePrice,
     decimal WholesaleMinQuantity,
     string UnitOfMeasure,
@@ -60,6 +61,7 @@ public record CreateProductDto(
     string Description,
     Guid CategoryId,
     decimal UnitPrice,
+    decimal UnitCost,
     decimal WholesalePrice,
     decimal WholesaleMinQuantity,
     string UnitOfMeasure,
@@ -83,6 +85,7 @@ public record UpdateProductDto(
     string Description,
     Guid CategoryId,
     decimal UnitPrice,
+    decimal UnitCost,
     decimal WholesalePrice,
     decimal WholesaleMinQuantity,
     string UnitOfMeasure,
@@ -116,6 +119,7 @@ public record CustomerDto(
     string PostalCode,
     string CustomerType,
     decimal SpecialDiscountPercentage,
+    decimal DailyBoxLimit,
     string Notes,
     bool IsActive
 );
@@ -133,6 +137,7 @@ public record CreateCustomerDto(
     string PostalCode,
     string CustomerType, // Particular, Mayorista
     decimal SpecialDiscountPercentage,
+    decimal DailyBoxLimit,
     string Notes
 );
 
@@ -149,6 +154,7 @@ public record UpdateCustomerDto(
     string PostalCode,
     string CustomerType,
     decimal SpecialDiscountPercentage,
+    decimal DailyBoxLimit,
     string Notes,
     bool IsActive
 );

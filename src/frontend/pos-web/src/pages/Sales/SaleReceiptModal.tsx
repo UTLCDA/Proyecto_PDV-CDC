@@ -54,6 +54,11 @@ export const SaleReceiptModal: React.FC<{ sale: Venta; targetPaymentId?: string;
   return <div className="pos-receipt-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
     <div className="pos-receipt" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
       <header><img src="/logo_wpc_bajio.jpeg" alt="WPC Bajío" /><h2 id="receipt-title">WPC BAJÍO</h2><p>{t('receiptSubtitle')}</p><strong>{t('saleNumber', { idVenta: sale.idVenta })}</strong>{receiptReference && <span>{t('reference')}: {receiptReference}</span>}<small>{dateTime.format(parseUtcDate(sale.createdAtUtc))}</small></header>
+      {(sale.status === 'Cancelada' || sale.status === 'Cancelled') && (
+        <div style={{ background: '#fff5f5', border: '2px solid var(--danger)', color: 'var(--danger)', padding: '0.6rem 1rem', borderRadius: '6px', textAlign: 'center', fontWeight: 800, fontSize: '1.1rem', margin: '0.5rem 0' }}>
+          🚫 VENTA CANCELADA
+        </div>
+      )}
       <div className="pos-receipt__customer">{t('customer')}: <strong>{sale.customerDisplayName || t('generalPublic')}</strong></div>
       <div className="pos-receipt__items">{sale.items.map(item => <div key={item.id}><span>{item.quantity} × {item.productName}<small>{money.format(item.unitPrice)} / {item.unitOfMeasure}</small></span><b>{money.format(item.totalPrice)}</b></div>)}</div>
       <div className="pos-receipt__totals"><span>{t('subtotal')}<b>{money.format(sale.subTotal)}</b></span>{sale.discountAmount > 0 && <span>{t('discount')}<b>-{money.format(sale.discountAmount)}</b></span>}<span>{t('tax')}<b>{money.format(sale.taxAmount)}</b></span><span className="receipt-total">{t('total')}<b>{money.format(sale.totalAmount)}</b></span></div>

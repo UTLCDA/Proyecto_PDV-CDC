@@ -117,4 +117,34 @@ public class SalesController : ControllerBase
             return NotFound(new { message = ex.Message });
         }
     }
+
+    [HttpPost("{id:guid}/cancel")]
+    [Authorize(Policy = PermissionCodes.Sales.Cancel)]
+    public async Task<ActionResult<SaleDto>> CancelSale(Guid id, [FromBody] CancelSaleDto request, CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        Guid? currentUserId = Guid.TryParse(userIdClaim, out var userId) ? userId : null;
+        if (!currentUserId.HasValue) return Unauthorized(new { message = "La sesión no contiene un usuario válido." });
+
+        var correlationId = HttpContext.Items["CorrelationId"]?.ToString() ?? Guid.NewGuid().ToString();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+
+        try
+        {
+            var sale = await _saleService.CancelSaleAsync(id, request.Reason, currentUserId.Value, correlationId, ipAddress, cancellationToken);
+            return Ok(sale);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
 }

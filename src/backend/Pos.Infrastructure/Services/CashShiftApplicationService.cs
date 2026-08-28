@@ -57,9 +57,15 @@ public class CashShiftApplicationService : ICashShiftApplicationService
         }
 
         var openedAtUtc = DateTime.UtcNow;
+        var todayStartUtc = openedAtUtc.Date;
+        var todayEndUtc = todayStartUtc.AddDays(1);
+        var shiftCountToday = await _dbContext.CashShifts
+            .CountAsync(s => s.FechaAperturaUtc >= todayStartUtc && s.FechaAperturaUtc < todayEndUtc, cancellationToken);
+        var sequentialIndex = shiftCountToday + 1;
+
         var shift = new TurnoCaja
         {
-            NumeroTurno = $"CAJA-{openedAtUtc:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}"[..31].ToUpperInvariant(),
+            NumeroTurno = $"CAJA-{openedAtUtc:yyyyMMdd}-{sequentialIndex}",
             UsuarioId = userId,
             MontoApertura = request.OpeningAmount,
             Estado = CashShiftStatuses.Open,
@@ -351,20 +357,22 @@ public class CashShiftApplicationService : ICashShiftApplicationService
         var sales = await _dbContext.Sales
             .AsNoTracking()
             .Include(item => item.Usuario)
-            .Where(item => item.EstaActivo && item.Estado != SaleStatuses.Cancelled &&
-                item.FechaCreacionUtc >= shift.FechaAperturaUtc)
+            .Where(item => item.EstaActivo && item.FechaCreacionUtc >= shift.FechaAperturaUtc)
             .Select(item => new CashGeneralMovementDto(
                 item.Id.ToString(),
                 item.IdVenta,
+                item.Estado == SaleStatuses.Cancelled ? "Venta (CANCELADA)" :
                 item.TipoPago == SalePaymentTypes.AdvanceDeposit ? "Venta / Abono" :
                 item.Notas.StartsWith("Convertida desde cotización") ? "Venta (Cotización)" : "Venta",
-                item.TipoPago == SalePaymentTypes.AdvanceDeposit || item.Notas.StartsWith("Convertida desde cotización")
-                    ? "Abono a venta"
-                    : "Venta #" + item.IdVenta,
+                item.Estado == SaleStatuses.Cancelled
+                    ? $"Venta #{item.IdVenta} [CANCELADA]"
+                    : item.TipoPago == SalePaymentTypes.AdvanceDeposit || item.Notas.StartsWith("Convertida desde cotización")
+                        ? "Abono a venta"
+                        : "Venta #" + item.IdVenta,
                 item.TipoPago == SalePaymentTypes.MixedPayment ? "Mixed" :
                     item.MontoTarjeta > 0 ? PaymentMethods.Card :
                     item.MontoTransferencia > 0 ? PaymentMethods.Transfer : PaymentMethods.Cash,
-                item.MontoEfectivo + item.MontoTarjeta + item.MontoTransferencia,
+                item.Estado == SaleStatuses.Cancelled ? 0m : (item.MontoEfectivo + item.MontoTarjeta + item.MontoTransferencia),
                 item.Usuario != null ? item.Usuario.NombreUsuario : null,
                 item.FechaCreacionUtc))
             .ToListAsync(cancellationToken);

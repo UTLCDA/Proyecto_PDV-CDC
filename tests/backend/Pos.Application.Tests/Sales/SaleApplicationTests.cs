@@ -260,6 +260,54 @@ public class SaleApplicationTests
         Assert.Equal(5, firstPage.Concat(secondPage).Concat(thirdPage).Select(sale => sale.Id).Distinct().Count());
     }
 
+    [Fact]
+    public async Task CancelSaleAsync_ShouldMarkCancelledAndRestoreStock()
+    {
+        await using var context = GetInMemoryDbContext();
+        var auditService = new AuditLogService(context, NullLogger<AuditLogService>.Instance);
+        var service = new SaleApplicationService(context, auditService);
+
+        var userId = Guid.NewGuid();
+        context.Users.Add(new Usuario { Id = userId, NombreUsuario = "admin", EstaActivo = true });
+
+        var productId = Guid.NewGuid();
+        var product = new Producto { Id = productId, Nombre = "Lambrin Test", PiezasPorCaja = 10, PrecioUnitario = 100m, EstaActivo = true };
+        context.Products.Add(product);
+
+        var stock = new Existencia { ProductoId = productId, CantidadDisponible = 20m };
+        context.Stocks.Add(stock);
+
+        var sale = new Venta
+        {
+            IdVenta = 200,
+            NumeroFolio = "VENTA-200",
+            UsuarioId = userId,
+            TipoPago = SalePaymentTypes.FullPayment,
+            MontoTotal = 500m,
+            Estado = SaleStatuses.Completed,
+            EstaActivo = true,
+            Partidas = new List<PartidaVenta>
+            {
+                new PartidaVenta { ProductoId = productId, Cantidad = 5m, PrecioUnitario = 100m, PrecioTotal = 500m }
+            }
+        };
+        context.Sales.Add(sale);
+        await context.SaveChangesAsync();
+
+        var result = await service.CancelSaleAsync(sale.Id, "Cliente solicitó devolución", userId, "corr-123", "127.0.0.1");
+
+        Assert.NotNull(result);
+        Assert.Equal(SaleStatuses.Cancelled, result.Status);
+        Assert.Contains("Cliente solicitó devolución", result.Notes);
+
+        var updatedStock = await context.Stocks.SingleAsync(s => s.ProductoId == productId);
+        Assert.Equal(25m, updatedStock.CantidadDisponible);
+
+        var movement = await context.InventoryMovements.FirstOrDefaultAsync(m => m.NumeroReferencia == "VENTA-200");
+        Assert.NotNull(movement);
+        Assert.Equal(5m, movement.Cantidad);
+    }
+
     private static CreateSaleDto CreateFullPaymentRequest(
         Guid productId,
         decimal quantity,

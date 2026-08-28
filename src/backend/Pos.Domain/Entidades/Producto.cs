@@ -11,6 +11,7 @@ public class Producto : EntidadBase
     public Guid CategoriaId { get; set; }
 
     public decimal PrecioUnitario { get; set; }
+    public decimal CostoUnitario { get; set; } = 0m;
     public decimal PrecioMayoreo { get; set; }
     public decimal CantidadMinimaMayoreo { get; set; }
     public string UnidadMedida { get; set; } = "Pza"; // Pza, M2, ML, Caja, Kilo, Bolsa, Tubo, Juego

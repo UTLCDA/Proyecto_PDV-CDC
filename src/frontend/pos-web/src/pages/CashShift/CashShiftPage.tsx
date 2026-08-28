@@ -5,6 +5,7 @@ import { cashShiftService } from '../../services/cashShiftService';
 import { CashGeneralMovement, CashShift, CashTransaction } from '../../types/reports';
 import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
+import { formatOperationalDateTime, formatShiftFolio } from '../../utils/operationalDate';
 import { loadAllPagesForExport } from '../../utils/pagedExport';
 import './CashShiftPage.css';
 
@@ -55,21 +56,21 @@ export const CashShiftPage: React.FC = () => {
 
   const currentMovementsExportConfig = useMemo<ExportReportConfig<CashTransaction>>(() => ({
     moduleName: t('cashShiftTitle'),
-    title: `Movimientos del turno ${currentShift?.shiftNumber || ''}`.trim(),
+    title: `Movimientos del turno ${formatShiftFolio(currentShift?.shiftNumber) || ''}`.trim(),
     fileName: 'Movimientos_Caja',
     sheetName: 'MovimientosCaja',
     orientation: 'landscape',
     filters: [
-      { label: 'Turno', value: currentShift?.shiftNumber || '—' },
+      { label: 'Turno', value: formatShiftFolio(currentShift?.shiftNumber) },
       { label: 'Cajero', value: currentShift?.userUsername || '—' },
       { label: 'Estado', value: currentShift?.status || '—' }
     ],
     columns: [
-      { key: 'date', label: 'Fecha', type: 'datetime', width: 1.15, value: item => item.createdAtUtc },
-      { key: 'type', label: 'Tipo', width: 1, value: item => t(transactionTypeKey(item.transactionType)) },
-      { key: 'reason', label: 'Motivo', width: 1.6, value: item => item.reason || '—' },
-      { key: 'user', label: 'Usuario', width: 0.9, value: item => item.userUsername || currentShift?.userUsername || '—' },
-      { key: 'amount', label: 'Monto', type: 'currency', width: 0.85, value: item => item.amount }
+      { key: 'date', label: 'Fecha / 日期', type: 'datetime', width: 1.15, value: item => item.createdAtUtc },
+      { key: 'type', label: 'Tipo / 类型', width: 1, value: item => t(transactionTypeKey(item.transactionType)) },
+      { key: 'reason', label: 'Motivo / 原因', width: 1.6, value: item => item.reason || '—' },
+      { key: 'user', label: 'Usuario / 操作员', width: 0.9, value: item => item.userUsername || currentShift?.userUsername || '—' },
+      { key: 'amount', label: 'Monto / 金额', type: 'currency', width: 0.85, value: item => item.amount }
     ]
   }), [currentShift, t]);
 
@@ -80,13 +81,13 @@ export const CashShiftPage: React.FC = () => {
     sheetName: 'Movimientos',
     orientation: 'landscape',
     columns: [
-      { key: 'date', label: 'Fecha', type: 'datetime', width: 1.1, value: item => item.createdAtUtc },
-      { key: 'category', label: 'Categoría', width: 1, value: item => formatMovementCategory(item.category) },
-      { key: 'idVenta', label: 'Id Venta', type: 'number', width: 0.7, value: item => item.idVenta },
-      { key: 'movement', label: 'Tipo de movimiento', width: 1, value: item => formatMovementType(item.paymentMethod).replace(/^\S+\s/, '') },
-      { key: 'description', label: 'Descripción', width: 1.5, value: item => formatMovementDescription(item) },
-      { key: 'user', label: 'Usuario', width: 0.85, value: item => item.userUsername || '—' },
-      { key: 'amount', label: 'Monto', type: 'currency', width: 0.85, value: item => item.amount }
+      { key: 'date', label: 'Fecha / 日期', type: 'datetime', width: 1.1, value: item => item.createdAtUtc },
+      { key: 'category', label: 'Categoría / 类别', width: 1, value: item => formatMovementCategory(item.category) },
+      { key: 'idVenta', label: 'Id Venta / 单号', type: 'number', width: 0.7, value: item => item.idVenta },
+      { key: 'movement', label: 'Tipo de movimiento / 变动类型', width: 1.1, value: item => formatMovementType(item.paymentMethod).replace(/^\S+\s/, '') },
+      { key: 'description', label: 'Descripción / 说明', width: 1.5, value: item => formatMovementDescription(item) },
+      { key: 'user', label: 'Usuario / 操作员', width: 0.85, value: item => item.userUsername || '—' },
+      { key: 'amount', label: 'Monto / 金额', type: 'currency', width: 0.85, value: item => item.amount }
     ]
   }), [t]);
 
@@ -97,15 +98,15 @@ export const CashShiftPage: React.FC = () => {
     sheetName: 'CortesCaja',
     orientation: 'landscape',
     columns: [
-      { key: 'shift', label: 'Núm. Turno', width: 0.85, value: shift => shift.shiftNumber },
-      { key: 'user', label: 'Usuario', width: 0.8, value: shift => shift.userUsername || '—' },
-      { key: 'opened', label: 'Apertura', type: 'datetime', width: 1.1, value: shift => shift.openedAtUtc },
-      { key: 'closed', label: 'Cierre', type: 'datetime', width: 1.1, value: shift => shift.closedAtUtc },
-      { key: 'openingAmount', label: 'Fondo inicial', type: 'currency', width: 0.8, value: shift => shift.openingAmount },
-      { key: 'expected', label: 'Cierre esperado', type: 'currency', width: 0.9, value: shift => shift.expectedClosingAmount },
-      { key: 'actual', label: 'Cierre real', type: 'currency', width: 0.85, value: shift => shift.status === 'Cerrado' ? shift.actualClosingAmount : null },
-      { key: 'difference', label: 'Diferencia', type: 'currency', width: 0.8, value: shift => shift.status === 'Cerrado' ? shift.differenceAmount : null },
-      { key: 'status', label: 'Estado', width: 0.7, value: shift => shift.status }
+      { key: 'shift', label: 'Núm. Turno / 班次', width: 0.85, value: shift => formatShiftFolio(shift.shiftNumber) },
+      { key: 'user', label: 'Usuario / 操作员', width: 0.8, value: shift => shift.userUsername || '—' },
+      { key: 'opened', label: 'Apertura / 开班时间', type: 'datetime', width: 1.1, value: shift => shift.openedAtUtc },
+      { key: 'closed', label: 'Cierre / 交班时间', type: 'datetime', width: 1.1, value: shift => shift.closedAtUtc },
+      { key: 'openingAmount', label: 'Fondo inicial / 初始资金', type: 'currency', width: 0.8, value: shift => shift.openingAmount },
+      { key: 'expected', label: 'Cierre esperado / 预期结余', type: 'currency', width: 0.9, value: shift => shift.expectedClosingAmount },
+      { key: 'actual', label: 'Cierre real / 实际结余', type: 'currency', width: 0.85, value: shift => shift.status === 'Cerrado' ? shift.actualClosingAmount : null },
+      { key: 'difference', label: 'Diferencia / 差额', type: 'currency', width: 0.8, value: shift => shift.status === 'Cerrado' ? shift.differenceAmount : null },
+      { key: 'status', label: 'Estado / 状态', width: 0.7, value: shift => shift.status }
     ]
   }), [t]);
 
@@ -354,7 +355,7 @@ export const CashShiftPage: React.FC = () => {
           <article className="cash-card">
             <div className="cash-card__heading">
               <div>
-                <h2>{currentShift.shiftNumber}</h2>
+                <h2>{formatShiftFolio(currentShift.shiftNumber)}</h2>
                 <p>{t('cashierAndOpening', { user: currentShift.userUsername || '—', date: safeDate(currentShift.openedAtUtc, dateFormatter) })}</p>
               </div>
               <span className="cash-status cash-status--open">● {t('shiftStatusOpen')}</span>
@@ -449,7 +450,7 @@ export const CashShiftPage: React.FC = () => {
               const diff = shift.differenceAmount ?? 0;
               return (
                 <tr key={shift.id || Math.random()}>
-                  <td><strong>{shift.shiftNumber || '—'}</strong></td>
+                  <td><strong>{formatShiftFolio(shift.shiftNumber)}</strong></td>
                   <td>{shift.userUsername || '—'}</td>
                   <td>{safeDate(shift.openedAtUtc, dateFormatter)}</td>
                   <td>{shift.closedAtUtc ? safeDate(shift.closedAtUtc, dateFormatter) : '—'}</td>

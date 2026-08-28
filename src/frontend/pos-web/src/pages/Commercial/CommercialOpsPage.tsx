@@ -85,14 +85,14 @@ export const CommercialOpsPage: React.FC<{ mode?: CommercialMode }> = ({ mode = 
     dateRange: { startDate: appliedHistoryFilters.startDate, endDate: appliedHistoryFilters.endDate },
     filters: historyExportFilters,
     columns: [
-      { key: 'idVenta', label: 'Id Venta', type: 'number', width: 0.7, value: item => item.idVenta },
-      { key: 'reference', label: 'Recibo / Referencia', width: 1.05, value: item => item.referenceNumber },
-      { key: 'date', label: 'Fecha', type: 'datetime', width: 1.1, value: item => item.createdAtUtc },
-      { key: 'movement', label: 'Movimiento', width: 1.05, value: item => transactionTypeLabel(item.transactionType) },
-      { key: 'paymentMethod', label: 'Método de pago', width: 0.9, value: item => paymentMethodLabel(item.paymentMethod) },
-      { key: 'amount', label: 'Monto pagado', type: 'currency', width: 0.85, value: item => item.amount },
-      { key: 'customer', label: 'Cliente', width: 1.25, value: item => item.customerDisplayName || 'Público General' },
-      { key: 'user', label: 'Usuario', width: 0.85, value: item => item.userUsername || '—' }
+      { key: 'idVenta', label: 'Id Venta / 单号', type: 'number', width: 0.8, value: item => item.idVenta },
+      { key: 'reference', label: 'Recibo / Referencia / 凭证', width: 1.2, value: item => item.referenceNumber },
+      { key: 'date', label: 'Fecha / 日期', type: 'datetime', width: 1.2, value: item => item.createdAtUtc },
+      { key: 'movement', label: 'Movimiento / 交易类型', width: 1.2, value: item => transactionTypeLabel(item.transactionType) },
+      { key: 'paymentMethod', label: 'Método de Pago / 付款方式', width: 1.1, value: item => paymentMethodLabel(item.paymentMethod) },
+      { key: 'amount', label: 'Monto Pagado / 付款金额', type: 'currency', width: 1, value: item => item.amount },
+      { key: 'customer', label: 'Cliente / 客户', width: 1.4, value: item => item.customerDisplayName || 'Público General' },
+      { key: 'user', label: 'Usuario / 操作员', width: 0.9, value: item => item.userUsername || '—' }
     ]
   }), [appliedHistoryFilters.endDate, appliedHistoryFilters.startDate, historyExportFilters, t]);
 
@@ -105,15 +105,15 @@ export const CommercialOpsPage: React.FC<{ mode?: CommercialMode }> = ({ mode = 
     dateRange: { startDate: appliedHistoryFilters.startDate, endDate: appliedHistoryFilters.endDate },
     filters: historyExportFilters,
     columns: [
-      { key: 'idVenta', label: 'Id Venta', type: 'number', width: 0.7, value: item => item.idVenta },
-      { key: 'receipt', label: 'Núm. Recibo', width: 1, value: item => item.receiptNumber },
-      { key: 'date', label: 'Fecha', type: 'datetime', width: 1.1, value: item => item.createdAtUtc },
-      { key: 'paymentMethod', label: 'Método de pago', width: 0.9, value: item => paymentMethodLabel(item.paymentMethod) },
-      { key: 'amount', label: 'Monto pagado', type: 'currency', width: 0.85, value: item => item.amountPaid },
-      { key: 'previousBalance', label: 'Saldo anterior', type: 'currency', width: 0.9, value: item => item.previousPendingBalance },
-      { key: 'newBalance', label: 'Saldo pendiente', type: 'currency', width: 0.9, value: item => item.newPendingBalance },
-      { key: 'user', label: 'Usuario', width: 0.85, value: item => item.userUsername || '—' },
-      { key: 'notes', label: 'Observaciones', width: 1.3, value: item => item.notes || '—' }
+      { key: 'idVenta', label: 'Id Venta / 单号', type: 'number', width: 0.8, value: item => item.idVenta },
+      { key: 'receipt', label: 'Núm. Recibo / 收据编号', width: 1.1, value: item => item.receiptNumber },
+      { key: 'date', label: 'Fecha / 日期', type: 'datetime', width: 1.2, value: item => item.createdAtUtc },
+      { key: 'paymentMethod', label: 'Método de Pago / 付款方式', width: 1.1, value: item => paymentMethodLabel(item.paymentMethod) },
+      { key: 'amount', label: 'Monto Pagado / 付款金额', type: 'currency', width: 1, value: item => item.amountPaid },
+      { key: 'previousBalance', label: 'Saldo Anterior / 原待付余额', type: 'currency', width: 1.1, value: item => item.previousPendingBalance },
+      { key: 'newBalance', label: 'Saldo Pendiente / 新待付余额', type: 'currency', width: 1.1, value: item => item.newPendingBalance },
+      { key: 'user', label: 'Usuario / 操作员', width: 0.9, value: item => item.userUsername || '—' },
+      { key: 'notes', label: 'Observaciones / 备注', width: 1.4, value: item => item.notes || '—' }
     ]
   }), [appliedHistoryFilters.endDate, appliedHistoryFilters.startDate, historyExportFilters, t]);
 
@@ -124,15 +124,15 @@ export const CommercialOpsPage: React.FC<{ mode?: CommercialMode }> = ({ mode = 
     sheetName: 'Devoluciones',
     orientation: 'landscape',
     columns: [
-      { key: 'returnNumber', label: 'Núm. Devolución', width: 1, value: item => item.returnNumber },
-      { key: 'idVenta', label: 'Id Venta', type: 'number', width: 0.7, value: item => item.idVenta },
-      { key: 'date', label: 'Fecha', type: 'datetime', width: 1.1, value: item => item.createdAtUtc },
-      { key: 'refundMethod', label: 'Método de reembolso', width: 1, value: item => t(refundMethodKey(item.refundMethod)) },
-      { key: 'total', label: 'Total devolución', type: 'currency', width: 0.9, value: item => item.totalRefundAmount },
-      { key: 'appliedBalance', label: 'Aplicado a saldo', type: 'currency', width: 0.9, value: item => item.appliedToPendingBalance },
-      { key: 'refunded', label: 'Monto reembolsado', type: 'currency', width: 0.9, value: item => item.refundedAmount },
-      { key: 'status', label: 'Estado', width: 0.75, value: item => item.status },
-      { key: 'reason', label: 'Motivo', width: 1.4, value: item => item.reason }
+      { key: 'returnNumber', label: 'Núm. Devolución / 退货单号', width: 1.1, value: item => item.returnNumber },
+      { key: 'idVenta', label: 'Id Venta / 单号', type: 'number', width: 0.8, value: item => item.idVenta },
+      { key: 'date', label: 'Fecha / 日期', type: 'datetime', width: 1.2, value: item => item.createdAtUtc },
+      { key: 'refundMethod', label: 'Método de Reembolso / 退款方式', width: 1.2, value: item => t(refundMethodKey(item.refundMethod)) },
+      { key: 'total', label: 'Total Devolución / 退货总额', type: 'currency', width: 1.1, value: item => item.totalRefundAmount },
+      { key: 'appliedBalance', label: 'Aplicado a Saldo / 抵扣尾款', type: 'currency', width: 1.1, value: item => item.appliedToPendingBalance },
+      { key: 'refunded', label: 'Monto Reembolsado / 实退金额', type: 'currency', width: 1.1, value: item => item.refundedAmount },
+      { key: 'status', label: 'Estado / 状态', width: 0.85, value: item => item.status },
+      { key: 'reason', label: 'Motivo / 原因', width: 1.5, value: item => item.reason }
     ]
   }), [t]);
 

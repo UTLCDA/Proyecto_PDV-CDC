@@ -9,4 +9,5 @@ public interface ISaleApplicationService
     Task<SalesSummaryDto> GetSalesSummaryAsync(string? search, string? status, DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken = default);
     Task<SaleDto?> GetSaleByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<SaleDto?> GetSaleByFolioAsync(int idVenta, CancellationToken cancellationToken = default);
+    Task<SaleDto> CancelSaleAsync(Guid saleId, string reason, Guid currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
 }

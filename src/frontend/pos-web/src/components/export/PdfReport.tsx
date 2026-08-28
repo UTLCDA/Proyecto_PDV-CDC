@@ -4,12 +4,27 @@ import { buildExportFileName, downloadBlob, loadOfficialLogoDataUrl, normalizeEx
 import { formatOperationalDateTime } from '../../utils/operationalDate';
 import { exportTheme } from './exportTheme';
 
+let isFontRegistered = false;
+
+const ensureChineseFont = (Font: any) => {
+  if (isFontRegistered) return;
+  Font.register({
+    family: 'Noto Sans SC',
+    src: typeof window !== 'undefined' && window.location?.origin
+      ? `${window.location.origin}/fonts/NotoSansSC-Regular.woff`
+      : 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-400-normal.woff'
+  });
+  isFontRegistered = true;
+};
+
 export const buildPdfReportBlob = async <T,>(config: ExportReportConfig<T>, rows: T[], logo: string) => {
   const renderer = await import('@react-pdf/renderer');
-  const { Document, Image, Page, StyleSheet, Text, View, pdf } = renderer;
+  const { Document, Image, Page, StyleSheet, Text, View, pdf, Font } = renderer;
+  ensureChineseFont(Font);
+
   const columnCount = config.columns.length;
   const styles = StyleSheet.create({
-    page: { paddingTop: 28, paddingHorizontal: 28, paddingBottom: 42, color: exportTheme.text, backgroundColor: exportTheme.surface, fontSize: columnCount > 8 ? 6.5 : 8 },
+    page: { fontFamily: 'Noto Sans SC', paddingTop: 28, paddingHorizontal: 28, paddingBottom: 42, color: exportTheme.text, backgroundColor: exportTheme.surface, fontSize: columnCount > 8 ? 6.5 : 8 },
     header: { flexDirection: 'row', alignItems: 'center', paddingBottom: 12, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: exportTheme.borderSubtle },
     logo: { width: 54, height: 54, objectFit: 'cover', borderRadius: 27, marginRight: 12 },
     company: { fontSize: 15, fontWeight: 700, color: exportTheme.primary },

@@ -1,4 +1,5 @@
 import { AuditLog } from '../types/reports';
+import { formatShiftFolio } from './operationalDate';
 
 export interface AuditMappedEvent {
   module: string;
@@ -52,10 +53,11 @@ export function mapAuditEvent(log: AuditLog): AuditMappedEvent {
   const changes = computeFieldDiffs(parsedOld, parsedNew, payload);
 
   const saleRef = log.idVenta ? `Venta #${log.idVenta}` : '';
+  const formattedEntityId = log.entityId ? formatShiftFolio(log.entityId) : '';
   const entityDisplay = saleRef
     ? `${log.entityName} · ${saleRef}`
-    : log.entityId
-    ? `${log.entityName} · ${log.entityId}`
+    : formattedEntityId
+    ? `${log.entityName} · ${formattedEntityId}`
     : log.entityName;
 
   return {
@@ -163,7 +165,7 @@ function deriveDescription(log: AuditLog, parsedNew: Record<string, unknown> | n
   const user = log.userUsername || 'Sistema';
 
   if (log.notes && !log.notes.startsWith('HTTP')) {
-    const formattedNotes = log.idVenta ? log.notes.replace(/VENTA-[A-Z0-9-]+/gi, `Venta #${log.idVenta}`) : log.notes;
+    const formattedNotes = formatShiftFolio(log.idVenta ? log.notes.replace(/VENTA-[A-Z0-9-]+/gi, `Venta #${log.idVenta}`) : log.notes);
     return `${user}: ${formattedNotes}`;
   }
 

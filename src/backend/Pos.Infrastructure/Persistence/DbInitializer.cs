@@ -42,6 +42,7 @@ public static class DbInitializer
             ("clientes", "ver", "Ver directorio de clientes"),
             ("clientes", "crear", "Dar de alta nuevos clientes"),
             ("clientes", "editar", "Editar información de clientes"),
+            ("clientes", "limite_diario", "Establecer límite diario de venta por cliente"),
             ("comercial", "cotizaciones", "Administrar cotizaciones"),
             ("comercial", "abonos", "Registrar abonos a ventas"),
             ("comercial", "devoluciones", "Procesar devoluciones"),
@@ -63,7 +64,8 @@ public static class DbInitializer
         var permisosCajero = entidadesPermiso.Where(p =>
             p.ClavePermiso is PermissionCodes.Sales.Process
                 or PermissionCodes.Catalog.ProductsView
-                or PermissionCodes.Customers.View).ToList();
+                or PermissionCodes.Customers.View
+                or PermissionCodes.Customers.Create).ToList();
 
         foreach (var permiso in permisosCajero)
         {

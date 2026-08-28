@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../context/AuthContext';
 import { servicioCatalogo } from '../../services/servicioCatalogo';
 import { servicioVentas } from '../../services/servicioVentas';
 import { Cliente } from '../../types/tiposCatalogo';
@@ -15,6 +16,9 @@ const today = getOperationalDateInputValue;
 
 export const SalesHistoryPage: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const { hasPermission } = useAuth();
+  const canCancelSale = hasPermission('ventas', 'cancelar');
+
   const [sales, setSales] = useState<Venta[]>([]);
   const [customers, setCustomers] = useState<Cliente[]>([]);
   const [search, setSearch] = useState('');
@@ -26,6 +30,11 @@ export const SalesHistoryPage: React.FC = () => {
   const [receipt, setReceipt] = useState<Venta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const [cancelSaleTarget, setCancelSaleTarget] = useState<Venta | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+
   const locale = i18n.language.startsWith('zh') ? 'zh-CN' : 'es-MX';
   const money = useMemo(() => new Intl.NumberFormat(locale, { style: 'currency', currency: 'MXN' }), [locale]);
 
@@ -50,10 +59,28 @@ export const SalesHistoryPage: React.FC = () => {
 
   useEffect(() => { void loadSales(); }, [loadSales]);
 
+  const handleConfirmCancelSale = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cancelSaleTarget || !cancelReason.trim()) return;
+    setCancelling(true);
+    setError('');
+    try {
+      await servicioVentas.cancelSale(cancelSaleTarget.id, cancelReason.trim());
+      setCancelSaleTarget(null);
+      setCancelReason('');
+      await loadSales();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cancelar la venta');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const dynamicMetrics = useMemo(() => {
-    const totalCount = sales.length;
-    const totalAmount = sales.reduce((acc, sale) => acc + (sale.totalAmount || 0), 0);
-    const pendingAmount = sales.reduce((acc, sale) => acc + (sale.pendingBalance || 0), 0);
+    const activeSales = sales.filter(s => s.status !== 'Cancelada' && s.status !== 'Cancelled');
+    const totalCount = activeSales.length;
+    const totalAmount = activeSales.reduce((acc, sale) => acc + (sale.totalAmount || 0), 0);
+    const pendingAmount = activeSales.reduce((acc, sale) => acc + (sale.pendingBalance || 0), 0);
     const paidAmount = Math.max(0, totalAmount - pendingAmount);
     return { totalCount, totalAmount, paidAmount, pendingAmount };
   }, [sales]);
@@ -82,14 +109,18 @@ export const SalesHistoryPage: React.FC = () => {
       { label: 'Estado', value: appliedFilters.status || 'Todos' }
     ],
     columns: [
-      { key: 'idVenta', label: 'Id Venta', type: 'number', width: 0.7, value: sale => sale.idVenta },
-      { key: 'date', label: 'Fecha', type: 'datetime', width: 1.25, value: sale => sale.createdAtUtc },
-      { key: 'customer', label: 'Cliente', width: 1.5, value: sale => sale.customerDisplayName || t('generalPublic') },
-      { key: 'paymentType', label: 'Modalidad de Pago', width: 1.15, value: sale => t(paymentTypeKey(sale.paymentType)) },
-      { key: 'status', label: 'Estado', width: 1.05, value: sale => formatBadgeText(sale.status, sale.pendingBalance) },
-      { key: 'total', label: 'Total', type: 'currency', width: 1, value: sale => sale.totalAmount },
-      { key: 'paid', label: 'Pagado', type: 'currency', width: 1, value: sale => Math.max(0, sale.totalAmount - sale.pendingBalance) },
-      { key: 'pending', label: 'Saldo Pendiente', type: 'currency', width: 1, value: sale => sale.pendingBalance }
+      { key: 'idVenta', label: 'Id Venta / 单号', type: 'number', width: 0.7, value: sale => sale.idVenta },
+      { key: 'date', label: 'Fecha / 日期', type: 'datetime', width: 1.25, value: sale => sale.createdAtUtc },
+      { key: 'customer', label: 'Cliente / 客户', width: 1.5, value: sale => sale.customerDisplayName || t('generalPublic') },
+      { key: 'paymentType', label: 'Modalidad de Pago / 付款方式', width: 1.15, value: sale => t(paymentTypeKey(sale.paymentType)) },
+      { key: 'status', label: 'Estado / 状态', width: 1.05, value: sale => formatBadgeText(sale.status, sale.pendingBalance) },
+      { key: 'total', label: 'Total / 合计', type: 'currency', width: 1, value: sale => sale.totalAmount },
+      { key: 'subtotal', label: 'Subtotal / 小计', type: 'currency', width: 1, value: sale => sale.subTotal },
+      { key: 'discount', label: 'Descuento / 折扣', type: 'currency', width: 0.9, value: sale => sale.discountAmount },
+      { key: 'tax', label: 'IVA / 税额', type: 'currency', width: 0.8, value: sale => sale.taxAmount },
+      { key: 'advance', label: 'Anticipo / 预付款', type: 'currency', width: 1, value: sale => sale.advanceAmount },
+      { key: 'balance', label: 'Saldo Pendiente / 余款', type: 'currency', width: 1, value: sale => sale.pendingBalance },
+      { key: 'user', label: 'Usuario / 操作员', width: 0.9, value: sale => sale.userUsername || '—' }
     ]
   }), [appliedFilters, customers, t]);
 
@@ -117,9 +148,73 @@ export const SalesHistoryPage: React.FC = () => {
       <article className="card"><span>⏳ {t('pendingBalance')}</span><strong>{safeFormat(dynamicMetrics.pendingAmount)}</strong></article>
     </div>
     <article className="card sales-history-table-wrap">{loading ? t('loading') : <table className="sales-history-table"><thead><tr><th>{t('folio')}</th><th>{t('date')}</th><th>{t('customer')}</th><th>{t('paymentType')}</th><th>{t('status')}</th><th>{t('total')}</th><th>{t('pendingBalance')}</th><th>{t('actions')}</th></tr></thead>
-      <tbody>{sales.length === 0 && <tr><td colSpan={8} className="sales-history-empty">{t('noSalesInPeriod')}</td></tr>}{sales.map(sale => <tr key={sale.idVenta}><td><strong>{t('saleNumber', { idVenta: sale.idVenta })}</strong></td><td>{new Date(sale.createdAtUtc).toLocaleString(locale)}</td><td>{sale.customerDisplayName || t('generalPublic')}</td><td>{t(paymentTypeKey(sale.paymentType))}</td><td><span className={`badge ${sale.status === 'Cancelada' ? 'badge-danger' : sale.pendingBalance > 0 ? 'badge-warning' : 'badge-success'}`}>{formatBadgeText(sale.status, sale.pendingBalance)}</span></td><td>{safeFormat(sale.totalAmount)}</td><td>{safeFormat(sale.pendingBalance)}</td><td><button className="pos-link-btn" onClick={() => setReceipt(sale)}>👁️ {t('viewReceipt')}</button></td></tr>)}</tbody>
+      <tbody>{sales.length === 0 && <tr><td colSpan={8} className="sales-history-empty">{t('noSalesInPeriod')}</td></tr>}{sales.map(sale => <tr key={sale.idVenta}>
+        <td><strong>{t('saleNumber', { idVenta: sale.idVenta })}</strong></td>
+        <td>{new Date(sale.createdAtUtc).toLocaleString(locale)}</td>
+        <td>{sale.customerDisplayName || t('generalPublic')}</td>
+        <td>{t(paymentTypeKey(sale.paymentType))}</td>
+        <td><span className={`badge ${sale.status === 'Cancelada' || sale.status === 'Cancelled' ? 'badge-danger' : sale.pendingBalance > 0 ? 'badge-warning' : 'badge-success'}`}>{formatBadgeText(sale.status, sale.pendingBalance)}</span></td>
+        <td>{safeFormat(sale.totalAmount)}</td>
+        <td>{safeFormat(sale.pendingBalance)}</td>
+        <td>
+          <button className="pos-link-btn" onClick={() => setReceipt(sale)}>👁️ {t('viewReceipt')}</button>
+          {canCancelSale && sale.status !== 'Cancelada' && sale.status !== 'Cancelled' && sale.status !== 'Devuelta' && (
+            <button
+              type="button"
+              className="pos-link-btn"
+              style={{ color: 'var(--danger)', marginLeft: '0.6rem' }}
+              onClick={() => { setCancelSaleTarget(sale); setCancelReason(''); }}
+              title="Cancelar esta venta (Solo Administrador)"
+            >
+              🚫 {t('cancel')}
+            </button>
+          )}
+        </td>
+      </tr>)}</tbody>
     </table>}</article>
     {receipt && <SaleReceiptModal sale={receipt} onClose={() => setReceipt(null)} />}
+
+    {cancelSaleTarget && (
+      <div className="pos-receipt-backdrop" onMouseDown={e => e.target === e.currentTarget && !cancelling && setCancelSaleTarget(null)}>
+        <div className="pos-customer-modal" style={{ width: 'min(500px, 100%)' }} role="dialog" aria-modal="true">
+          <h2 style={{ color: 'var(--danger)' }}>🚫 Cancelar Venta #{cancelSaleTarget.idVenta}</h2>
+          <p>Esta acción reintegrará las piezas al inventario y ajustará el saldo del Corte de Caja.</p>
+          <form onSubmit={handleConfirmCancelSale} style={{ display: 'grid', gap: '0.85rem', marginTop: '1rem' }}>
+            <label className="pos-field">
+              Motivo de Cancelación *
+              <textarea
+                required
+                rows={3}
+                value={cancelReason}
+                onChange={e => setCancelReason(e.target.value)}
+                placeholder="Ingrese la razón de cancelación (ej. Error de cobro, cliente canceló)..."
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-input)', background: 'var(--background-surface)', color: 'var(--text-main)', resize: 'vertical' }}
+              />
+            </label>
+
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                className="pos-receipt-close"
+                style={{ flex: 1 }}
+                disabled={cancelling}
+                onClick={() => setCancelSaleTarget(null)}
+              >
+                {t('cancel')}
+              </button>
+              <button
+                type="submit"
+                className="action-btn"
+                style={{ flex: 1.5, background: 'var(--danger)', borderColor: 'var(--danger)' }}
+                disabled={cancelling || !cancelReason.trim()}
+              >
+                {cancelling ? 'Cancelando...' : 'Confirmar Cancelación'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
   </section>;
 };
 

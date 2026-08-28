@@ -35,6 +35,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const [descripcion, setDescripcion] = useState('');
   const [categoriaId, setCategoriaId] = useState('');
   const [precioUnitario, setPrecioUnitario] = useState<string>('');
+  const [costoUnitario, setCostoUnitario] = useState<string>('');
   const [precioMayoreo, setPrecioMayoreo] = useState<string>('');
   const [cantidadMinimaMayoreo, setCantidadMinimaMayoreo] = useState<string>('');
   const [unidadMedida, setUnidadMedida] = useState('Pza');
@@ -66,18 +67,19 @@ export const PaginaCatalogoProductos: React.FC = () => {
       { label: 'Categoría', value: categorias.find(category => category.id === filtrosAplicados.categoriaId)?.name || 'Todas' }
     ],
     columns: [
-      { key: 'sku', label: 'SKU', width: 0.8, value: product => product.sku },
-      { key: 'barcode', label: 'Código de Barras', width: 1.1, value: product => product.barcode || '—' },
-      { key: 'name', label: 'Producto', width: 1.7, value: product => product.name },
-      { key: 'category', label: 'Categoría', width: 1, value: product => product.categoryName },
-      { key: 'unit', label: 'Unidad', width: 0.65, value: product => product.unitOfMeasure },
-      { key: 'unitPrice', label: 'Precio Unitario', type: 'currency', width: 0.9, value: product => product.unitPrice },
-      { key: 'wholesalePrice', label: 'Precio Mayoreo', type: 'currency', width: 0.9, value: product => product.wholesalePrice },
-      { key: 'wholesaleMin', label: 'Mínimo Mayoreo', type: 'number', width: 0.8, value: product => product.wholesaleMinQuantity },
-      { key: 'pieces', label: 'Piezas / Contenido', type: 'number', width: 0.8, value: product => product.piecesPerBox || 1 },
-      { key: 'coverage', label: 'Cobertura m²', type: 'number', width: 0.8, value: product => product.boxCoverageSqM || product.coveragePerUnitSqM },
-      { key: 'stock', label: 'Existencias', type: 'number', width: 0.75, value: product => product.availableQuantity },
-      { key: 'status', label: 'Estado', width: 0.7, value: product => product.isActive ? 'Activo' : 'Inactivo' }
+      { key: 'sku', label: 'SKU / 编号', width: 0.8, value: product => product.sku },
+      { key: 'barcode', label: 'Código de Barras / 条形码', width: 1.1, value: product => product.barcode || '—' },
+      { key: 'name', label: 'Producto / 产品', width: 1.7, value: product => product.name },
+      { key: 'category', label: 'Categoría / 类别', width: 1, value: product => product.categoryName },
+      { key: 'unit', label: 'Unidad / 单位', width: 0.65, value: product => product.unitOfMeasure },
+      { key: 'unitCost', label: 'Costo Unitario / 成本单价', type: 'currency', width: 0.9, value: product => product.unitCost || 0 },
+      { key: 'unitPrice', label: 'Precio Menudeo / 零售价', type: 'currency', width: 1.1, value: product => product.unitPrice },
+      { key: 'wholesalePrice', label: 'Precio Mayoreo / 批发价', type: 'currency', width: 0.9, value: product => product.wholesalePrice },
+      { key: 'wholesaleMin', label: 'Mínimo Mayoreo / 最小批发量', type: 'number', width: 0.8, value: product => product.wholesaleMinQuantity },
+      { key: 'pieces', label: 'Piezas / Contenido / 每箱件数', type: 'number', width: 0.8, value: product => product.piecesPerBox || 1 },
+      { key: 'coverage', label: 'Cobertura m² / 覆盖面积', type: 'number', width: 0.8, value: product => product.boxCoverageSqM || product.coveragePerUnitSqM },
+      { key: 'stock', label: 'Existencias / 库存', type: 'number', width: 0.75, value: product => product.availableQuantity },
+      { key: 'status', label: 'Estado / 状态', width: 0.7, value: product => product.isActive ? 'Activo' : 'Inactivo' }
     ]
   }), [categorias, filtrosAplicados]);
 
@@ -120,6 +122,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setDescripcion('');
     setCategoriaId(categorias.length > 0 ? categorias[0].id : '');
     setPrecioUnitario('');
+    setCostoUnitario('');
     setPrecioMayoreo('');
     setCantidadMinimaMayoreo('');
     setUnidadMedida('Pza');
@@ -148,6 +151,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setDescripcion(p.description || '');
     setCategoriaId(p.categoryId || '');
     setPrecioUnitario(p.unitPrice?.toString() || '0');
+    setCostoUnitario(p.unitCost?.toString() || '0');
     setPrecioMayoreo(p.wholesalePrice?.toString() || '0');
     setCantidadMinimaMayoreo(p.wholesaleMinQuantity?.toString() || '10');
     setUnidadMedida(p.unitOfMeasure || 'Pza');
@@ -244,6 +248,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
           description: descripcion,
           categoryId: categoriaId,
           unitPrice: parseFloat(precioUnitario) || 0,
+          unitCost: parseFloat(costoUnitario) || 0,
           wholesalePrice: isBoxUnit ? (parseFloat(precioMayoreo) || 0) : 0,
           wholesaleMinQuantity: isBoxUnit ? (parseFloat(cantidadMinimaMayoreo) || 1) : 1,
           unitOfMeasure: unidadMedida,
@@ -269,6 +274,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
           description: descripcion,
           categoryId: categoriaId,
           unitPrice: parseFloat(precioUnitario) || 0,
+          unitCost: parseFloat(costoUnitario) || 0,
           wholesalePrice: isBoxUnit ? (parseFloat(precioMayoreo) || 0) : 0,
           wholesaleMinQuantity: isBoxUnit ? (parseFloat(cantidadMinimaMayoreo) || 1) : 1,
           unitOfMeasure: unidadMedida,
@@ -700,6 +706,18 @@ export const PaginaCatalogoProductos: React.FC = () => {
                       required
                       value={precioUnitario}
                       onChange={(e) => handleFormattedNumericChange(setPrecioUnitario, e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Costo Neto / Inicial ($ MXN)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="input-field"
+                      value={costoUnitario}
+                      onChange={(e) => handleFormattedNumericChange(setCostoUnitario, e.target.value)}
+                      placeholder="0.00"
                     />
                   </div>
 

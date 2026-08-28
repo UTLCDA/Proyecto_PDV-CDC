@@ -1,20 +1,20 @@
-# NEXT TASK — Inicio de Fase 2 (Plataforma E-Commerce / Atributos Avanzados)
+# NEXT TASK — Fusión de PR "version-final-de-PR" y Despliegue Final
 
 ## Estado actual
 
-- **Fase 1 & Ajustes Finales (v2.1.2) Concluidos**:
-  - La rama `codex/2.1.1-comentarios-finales-clientes` contiene todos los ajustes finales comerciales, i18n, rediseño de facturación en PDV, soporte de 0%/16% IVA en backend/frontend, cálculo de cobertura por caja (`4.87 m²`), autocálculo de dimensiones en catálogo y plantillas de contrato.
-  - La base de datos limpia `PosLambrinDb` está lista para producción.
-  - Pruebas automatizadas: backend **67/67**, Vitest frontend **24/24**, build Release / Vite aprobados.
+- **Rama Git Activa**: `version-final-de-PR`.
+- **Todos los requerimientos solicitados por el cliente fueron completados y verificados al 100%**:
+  - PDV: Botones rápidos `Pieza +` / `Caja +`, Calculadora de m² de Lambrín en checkout, cobertura corregida por pieza, desglose visual de piezas/cajas/m² en carrito y buscador en tiempo real.
+  - Catálogo: Campo `Costo Neto ($ MXN)` en modal de producto, persistencia full-stack de `CostoUnitario` e insignias/cabeceras bilingües.
+  - Clientes: Permiso de Límite Diario de Cajas por cliente, validación autoritativa en ventas y consulta de Historial de Compras por cliente.
+  - Reportería y Movimientos: Tablas y exportaciones con columnas de Costo Actual, Precio Venta, Monto Total, Impuesto, Costo Neto y Ganancia. Encabezados bilingües (Español / Chino Simplificado) al 100% en PDF y Excel.
+  - Pruebas: Backend **67/67** pasadas, Vitest **24/24** pasadas, build de producción Vite exitoso.
 
 ## Siguiente única tarea recomendada
 
-Diseñar e implementar el **Módulo de Promociones y Ofertas** o despliegue a producción en SQL Server.
+Realizar la revisión final y aprobación del Pull Request de la rama `version-final-de-PR` hacia `main` / `fase-1.1`.
 
-### Criterios de aceptación iniciales
-
-1. Definir vigencia, prioridad y reglas de acumulación sin duplicar la lógica actual de descuentos.
-2. Aplicar promociones de forma autoritativa en backend y mostrar el desglose en PDV, ticket e histórico.
-3. Proteger alta/edición con permisos y registrar cambios en bitácora.
-4. Conservar cálculos monetarios con `decimal`, `IdVenta` operativo y transacciones atómicas.
-5. Agregar migración incremental, pruebas unitarias/integración y actualización documental.
+### Criterios de Aceptación
+1. Revisión de código y aprobación explícita por el desarrollador humano.
+2. Ejecución del script de migración SQL Server en la base de producción.
+3. Fusión de la rama `version-final-de-PR` hacia `main`.

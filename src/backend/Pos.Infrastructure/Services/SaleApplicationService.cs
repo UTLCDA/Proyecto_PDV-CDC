@@ -150,6 +150,38 @@ public class SaleApplicationService : ISaleApplicationService
             pricedItems.Add((product, stock, item.Quantity, unitPrice));
         }
 
+        if (customer != null && customer.LimiteCajasDiarias > 0)
+        {
+            decimal boxesInCurrentSale = 0m;
+            foreach (var pi in pricedItems)
+            {
+                var pbox = pi.Product.PiezasPorCaja > 0 ? (decimal)pi.Product.PiezasPorCaja : 1m;
+                boxesInCurrentSale += Math.Ceiling(pi.Quantity / pbox);
+            }
+
+            var todayStartUtc = DateTime.UtcNow.Date;
+            var todaySales = await _dbContext.Sales
+                .Include(s => s.Partidas)
+                    .ThenInclude(p => p.Producto)
+                .Where(s => s.ClienteId == customer.Id && s.FechaCreacionUtc >= todayStartUtc && s.Estado != SaleStatuses.Cancelled)
+                .ToListAsync(cancellationToken);
+
+            decimal boxesSoldToday = 0m;
+            foreach (var pastSale in todaySales)
+            {
+                foreach (var partida in pastSale.Partidas)
+                {
+                    var pbox = partida.Producto != null && partida.Producto.PiezasPorCaja > 0 ? (decimal)partida.Producto.PiezasPorCaja : 1m;
+                    boxesSoldToday += Math.Ceiling(partida.Cantidad / pbox);
+                }
+            }
+
+            if (boxesSoldToday + boxesInCurrentSale > customer.LimiteCajasDiarias)
+            {
+                throw new InvalidOperationException($"El cliente '{customer.NombreMostrar}' ha excedido su límite diario permitido de {customer.LimiteCajasDiarias:G29} cajas. (Vendido hoy: {boxesSoldToday:G29} cajas, intento actual: {boxesInCurrentSale:G29} cajas).");
+            }
+        }
+
         var requestedManualDiscount = request.DiscountAmount + requestedItemDiscounts;
         if (requestedManualDiscount > 0 && !canApplyDiscount)
         {
@@ -254,7 +286,9 @@ public class SaleApplicationService : ISaleApplicationService
                         var updatedMovements = await _dbContext.InventoryMovements
                             .Where(movement => movement.NumeroReferencia == sale.NumeroFolio)
                             .ExecuteUpdateAsync(
-                                setters => setters.SetProperty(movement => movement.IdVenta, generatedIdVenta),
+                                setters => setters
+                                    .SetProperty(movement => movement.IdVenta, generatedIdVenta)
+                                    .SetProperty(movement => movement.Motivo, $"Venta #{generatedIdVenta}"),
                                 token);
 
                         if (updatedItems != sale.Partidas.Count || updatedMovements != movements.Count)
@@ -270,6 +304,7 @@ public class SaleApplicationService : ISaleApplicationService
                         foreach (var movement in movements)
                         {
                             movement.IdVenta = generatedIdVenta;
+                            movement.Motivo = $"Venta #{generatedIdVenta}";
                         }
                     },
                     async token => await _dbContext.Sales.AsNoTracking()
@@ -304,6 +339,7 @@ public class SaleApplicationService : ISaleApplicationService
                 foreach (var movement in movements)
                 {
                     movement.IdVenta = sale.IdVenta;
+                    movement.Motivo = $"Venta #{sale.IdVenta}";
                 }
                 await _dbContext.SaveChangesAsync(cancellationToken);
             }
@@ -412,6 +448,94 @@ public class SaleApplicationService : ISaleApplicationService
             .FirstOrDefaultAsync(item => item.IdVenta == idVenta, cancellationToken);
 
         return sale == null ? null : MapSaleToDto(sale);
+    }
+
+    public async Task<SaleDto> CancelSaleAsync(
+        Guid saleId,
+        string reason,
+        Guid currentUserId,
+        string correlationId,
+        string ipAddress,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ArgumentException("Debe ingresar un motivo para cancelar la venta.");
+        }
+
+        var sale = await _dbContext.Sales
+            .Include(s => s.Partidas)
+                .ThenInclude(p => p.Producto)
+            .FirstOrDefaultAsync(s => s.Id == saleId, cancellationToken);
+
+        if (sale == null)
+        {
+            throw new KeyNotFoundException("No se encontró la venta especificada.");
+        }
+
+        if (sale.Estado == SaleStatuses.Cancelled)
+        {
+            throw new InvalidOperationException("La venta ya se encuentra cancelada.");
+        }
+
+        if (sale.Estado == SaleStatuses.Returned)
+        {
+            throw new InvalidOperationException("No se puede cancelar una venta que ha sido devuelta totalmente.");
+        }
+
+        var cleanReason = reason.Trim();
+        sale.Estado = SaleStatuses.Cancelled;
+        sale.Notas = string.IsNullOrWhiteSpace(sale.Notas)
+            ? $"[CANCELADA]: {cleanReason}"
+            : $"{sale.Notas} | [CANCELADA]: {cleanReason}";
+
+        var productIds = sale.Partidas.Select(p => p.ProductoId).Distinct().ToList();
+        var stocks = await _dbContext.Stocks
+            .Where(s => productIds.Contains(s.ProductoId))
+            .ToDictionaryAsync(s => s.ProductoId, cancellationToken);
+
+        var nowUtc = DateTime.UtcNow;
+        foreach (var item in sale.Partidas)
+        {
+            if (stocks.TryGetValue(item.ProductoId, out var stock))
+            {
+                var prevQty = stock.CantidadDisponible;
+                stock.AgregarStock(item.Cantidad);
+
+                _dbContext.InventoryMovements.Add(new MovimientoInventario
+                {
+                    ProductoId = item.ProductoId,
+                    TipoMovimiento = InventoryMovementTypes.Return,
+                    Cantidad = item.Cantidad,
+                    CantidadAnterior = prevQty,
+                    CantidadNueva = stock.CantidadDisponible,
+                    Motivo = $"Cancelación Venta #{sale.IdVenta}: {cleanReason}",
+                    NumeroReferencia = sale.NumeroFolio,
+                    IdVenta = sale.IdVenta,
+                    UsuarioId = currentUserId,
+                    FechaCreacionUtc = nowUtc
+                });
+            }
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogService.LogAsync(
+            correlationId,
+            currentUserId,
+            "SALE_CANCELLED",
+            "Venta",
+            sale.Id.ToString(),
+            JsonSerializer.Serialize(new { Status = SaleStatuses.Completed, sale.MontoTotal }),
+            JsonSerializer.Serialize(new { Status = SaleStatuses.Cancelled, Reason = cleanReason, sale.MontoTotal }),
+            ipAddress,
+            $"Venta #{sale.IdVenta} cancelada por usuario. Motivo: {cleanReason}",
+            module: "Ventas",
+            eventType: "SALE_CANCELLED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
+
+        return (await GetSaleByIdAsync(sale.Id, cancellationToken))!;
     }
 
     private IQueryable<Venta> BuildSaleQuery() => _dbContext.Sales

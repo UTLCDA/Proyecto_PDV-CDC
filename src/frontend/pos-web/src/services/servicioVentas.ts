@@ -53,5 +53,10 @@ export const servicioVentas = {
     apiClient.request<Venta>('/sales', {
       method: 'POST',
       body: JSON.stringify(request)
+    }),
+  cancelSale: (id: string, reason: string) =>
+    apiClient.request<Venta>(`/sales/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
     })
 };

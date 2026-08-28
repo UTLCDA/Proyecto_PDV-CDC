@@ -102,6 +102,7 @@ public class ProductApplicationTests
         Description: "Lambrin de alta calidad para pruebas",
         CategoryId: categoryId,
         UnitPrice: 450m,
+        UnitCost: 250m,
         WholesalePrice: 380m,
         WholesaleMinQuantity: 10m,
         UnitOfMeasure: "Pza",

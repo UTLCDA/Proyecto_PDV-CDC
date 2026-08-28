@@ -36,15 +36,15 @@ export const InventoryListPage: React.FC = () => {
       { label: 'Stock', value: appliedFilters.isLowStockOnly ? 'Sólo stock bajo' : 'Todas las existencias' }
     ],
     columns: [
-      { key: 'sku', label: 'SKU', width: 0.9, value: stock => stock.productSku },
-      { key: 'product', label: 'Producto', width: 1.8, value: stock => stock.productName },
-      { key: 'category', label: 'Categoría', width: 1.1, value: stock => stock.categoryName },
-      { key: 'location', label: 'Ubicación', width: 1.4, value: stock => stock.location },
-      { key: 'stock', label: 'Existencias', type: 'number', width: 0.8, value: stock => stock.quantityOnHand },
-      { key: 'unit', label: 'Unidad', width: 0.7, value: stock => stock.unitOfMeasure },
-      { key: 'minimum', label: 'Mínimo', type: 'number', width: 0.7, value: stock => stock.minimumAlertThreshold },
-      { key: 'reorder', label: 'Reorden sugerido', type: 'number', width: 0.9, value: stock => stock.reorderQuantity },
-      { key: 'status', label: 'Estado', width: 0.9, value: stock => stock.isOutOfStock ? t('outOfStock') : stock.isLowStock ? t('lowStockAlert') : t('stockOk') }
+      { key: 'sku', label: 'SKU / 编号', width: 0.9, value: stock => stock.productSku },
+      { key: 'product', label: 'Producto / 产品', width: 1.8, value: stock => stock.productName },
+      { key: 'category', label: 'Categoría / 类别', width: 1.1, value: stock => stock.categoryName },
+      { key: 'location', label: 'Ubicación / 仓库位置', width: 1.4, value: stock => stock.location },
+      { key: 'stock', label: 'Existencias / 现货库存', type: 'number', width: 1, value: stock => stock.quantityOnHand },
+      { key: 'unit', label: 'Unidad / 单位', width: 0.7, value: stock => stock.unitOfMeasure },
+      { key: 'minimum', label: 'Mínimo / 最低预警', type: 'number', width: 0.9, value: stock => stock.minimumAlertThreshold },
+      { key: 'reorder', label: 'Reorden Sugerido / 建议补货', type: 'number', width: 1.1, value: stock => stock.reorderQuantity },
+      { key: 'status', label: 'Estado / 状态', width: 0.9, value: stock => stock.isOutOfStock ? t('outOfStock') : stock.isLowStock ? t('lowStockAlert') : t('stockOk') }
     ]
   }), [appliedFilters, t]);
 

@@ -42,6 +42,7 @@ public static class PermissionCodes
         public const string View = "clientes:ver";
         public const string Create = "clientes:crear";
         public const string Edit = "clientes:editar";
+        public const string DailyLimit = "clientes:limite_diario";
     }
 
     public static class Commercial
@@ -85,6 +86,7 @@ public static class PermissionCodes
         Customers.View,
         Customers.Create,
         Customers.Edit,
+        Customers.DailyLimit,
         Commercial.Quotes,
         Commercial.Installments,
         Commercial.Returns,

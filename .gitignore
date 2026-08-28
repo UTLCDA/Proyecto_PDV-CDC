@@ -37,3 +37,10 @@ TestResults/
 *.lcov
 logs/
 *.log
+log_error_build*.txt
+
+# Python & Temporary Files
+__pycache__/
+~$*
+~WRL*.tmp
+publish/

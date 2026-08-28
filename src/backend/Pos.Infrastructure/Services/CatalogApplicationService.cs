@@ -216,6 +216,7 @@ public class CatalogApplicationService : ICatalogApplicationService
             Descripcion = request.Description.Trim(),
             CategoriaId = request.CategoryId,
             PrecioUnitario = request.UnitPrice,
+            CostoUnitario = request.UnitCost,
             PrecioMayoreo = request.WholesalePrice,
             CantidadMinimaMayoreo = request.WholesaleMinQuantity,
             UnidadMedida = NormalizeUnitOfMeasure(request.UnitOfMeasure),
@@ -293,6 +294,7 @@ public class CatalogApplicationService : ICatalogApplicationService
         product.Descripcion = request.Description.Trim();
         product.CategoriaId = request.CategoryId;
         product.PrecioUnitario = request.UnitPrice;
+        product.CostoUnitario = request.UnitCost;
         product.PrecioMayoreo = request.WholesalePrice;
         product.CantidadMinimaMayoreo = request.WholesaleMinQuantity;
         product.UnidadMedida = NormalizeUnitOfMeasure(request.UnitOfMeasure);
@@ -435,6 +437,7 @@ public class CatalogApplicationService : ICatalogApplicationService
             CodigoPostal = values.PostalCode,
             TipoCliente = values.CustomerType,
             PorcentajeDescuentoEspecial = values.Discount,
+            LimiteCajasDiarias = request.DailyBoxLimit,
             Notas = values.Notes,
             EstaActivo = true,
             FechaCreacionUtc = DateTime.UtcNow
@@ -489,6 +492,7 @@ public class CatalogApplicationService : ICatalogApplicationService
         customer.CodigoPostal = values.PostalCode;
         customer.TipoCliente = values.CustomerType;
         customer.PorcentajeDescuentoEspecial = values.Discount;
+        customer.LimiteCajasDiarias = request.DailyBoxLimit;
         customer.Notas = values.Notes;
         if (canChangeStatus)
         {
@@ -539,6 +543,7 @@ public class CatalogApplicationService : ICatalogApplicationService
             p.CategoriaId,
             p.Categoria?.Nombre ?? string.Empty,
             p.PrecioUnitario,
+            p.CostoUnitario,
             p.PrecioMayoreo,
             p.CantidadMinimaMayoreo,
             p.UnidadMedida,
@@ -579,6 +584,7 @@ public class CatalogApplicationService : ICatalogApplicationService
             c.CodigoPostal,
             c.TipoCliente,
             c.PorcentajeDescuentoEspecial,
+            c.LimiteCajasDiarias,
             c.Notas,
             c.EstaActivo
         );

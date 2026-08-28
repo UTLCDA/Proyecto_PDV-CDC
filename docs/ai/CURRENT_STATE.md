@@ -1,13 +1,36 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
-## Iteración aprobada — Despliegue Local en IIS y Validación de API Operativa (2026-08-21)
+## Iteración Final aprobada — Release PR "version-final-de-PR" (2026-08-28)
 
-- **Rama Git Activa**: `codex/2.1.1-comentarios-finales-clientes`.
-- **Despliegue Local en IIS**:
-  - **API Backend (.NET 9)**: Instalado y activo en IIS (`http://localhost:5000/api/v1/health`). Estado validado por el usuario: `{"estado": "Operativo", "nombreServicio": "WPC Bajío POS API"}`.
-  - **Instalador Automatizado**: Desarrollado `install_local_iis.py` que habilita IIS mediante DISM, instala ASP.NET Core Hosting Bundle 9.0, asigna identidad `LocalSystem` a AppPools y otorga permisos `sysadmin` en SQL Server AAM.
-  - **Frontend SPA (React + Vite)**: Desplegado en IIS (`http://localhost:80`) con soporte para enrutamiento SPA mediante `web.config`.
-- **Suite de Pruebas**: **67/67 pruebas backend** (xUnit) y **24/24 pruebas frontend** (Vitest). Compilación Vite con 0 errores.
+- **Rama Git Activa**: `version-final-de-PR` (creada a petición explícita del cliente para entregables finales).
+- **Módulo Punto de Venta (PDV)**:
+  - Botones de selección rápida renombrados a `Pieza +` (1 pieza) y `Caja +` (1 caja = `piecesPerBox` piezas).
+  - Buscador en tiempo real de tarjetas de catálogo arriba de `📦 Catálogo rápido`.
+  - Habilitado rol Cajero (`rolCajero`) para registrar clientes nuevos desde caja (`clientes:crear`) con restricción estricta de no edición (`clientes:editar`).
+  - Desglose visual de piezas y cajas en el carrito de compras (ej. `23 Pzas (2 Cjas + 3 Pzas) · $290.00 · 10.01 m²`).
+  - Corrección del cálculo de Cobertura en carrito y totales para que multiplique por la cobertura individual por pieza (`coveragePerUnitSqM`).
+  - Integración de **📐 Calculadora Modal de m² de Lambrín** mediante el botón `📐 Calculadora m²` en la sección de cobro (`pos-checkout`), con ventana modal flotante, desglose de piezas necesarias/cajas equivalentes y adición al carrito en 1 clic.
+  - Imágenes de productos en catálogo rápido ampliadas a 92px.
+- **Módulo Catálogo de Productos y Movimientos**:
+  - Inclusión del campo `Costo Neto / Inicial ($ MXN)` (`unitCost`) en la Sección 3 del modal de Alta/Edición de Productos.
+  - Persistencia full-stack de `CostoUnitario` en SQL Server y APIs del backend.
+  - Alimentación directa de las columnas de Costo Neto (COGS) y Ganancia en la tabla de Movimientos de Inventario.
+  - Cabeceras bilingües en la tabla del catálogo (`Precio Menudeo / 零售价` y `Precio Mayoreo / 批发价`) e insignias visuales de cobertura (`📐 X.XXX m²/pza` y `📦 Caja: X.XX m²`).
+- **Módulo Clientes y Permisos de Usuarios**:
+  - Permiso `clientes:limite_diario` para configurar un límite máximo diario de cajas vendidas por cliente.
+  - Modales de cliente en PDV y Directorio de Clientes adaptados con campo de Límite Diario de Cajas.
+  - Validación autoritativa en `SaleApplicationService` que verifica el límite acumulado de ventas del día antes de autorizar la transacción.
+  - Modal de **Historial de Compras de Cliente** disponible en la lista de clientes.
+- **Módulo de Movimientos de Inventario y Reportería**:
+  - Cancelación de Ventas exclusiva para Administradores (`ventas:cancelar`) desde el Historial de Ventas con restitución automática de existencias, bitácora de auditoría y recalculo del esperado en el Corte de Caja.
+  - Formato limpio de folios operacionales 1 a 1: Columna Motivo en Movimientos muestra `Venta #X` en lugar de GUID. Folios de turno de caja muestran `CAJA-YYYYMMDD-1` (secuencial incremental diario) en la tarjeta principal (`cash-card`), tabla de historial y bitácora de auditoría.
+  - Columnas financieras en Movimientos de Inventario: Costo Actual (`unitCost`), Precio Actual de Venta (`unitPrice`), Monto de Pago (`totalAmount`), Impuesto (`taxAmount`), Costo Neto / COGS (`netCost`) y Ganancia (`profit`).
+  - Corrección del fallback de IVA: ventas no facturadas muestran `$0.00` de impuesto.
+  - Exportaciones PDF y Excel con 100% de encabezados bilingües en **Español y Chino Simplificado** con registro singleton de fuentes CJK (`Noto Sans SC`) para generación ultrarrápida y sin caracteres garabateados.
+- **Suite de Pruebas y Compilación**:
+  - Backend (xUnit): **67/67 pruebas autoritativas pasadas al 100%**.
+  - Frontend (Vitest & Vite): **24/24 pruebas pasadas al 100%**, build de producción `tsc && vite build` ejecutado exitosamente en `dist/`.
+  - Migración EF Core versionada: `20260828020937_AddCustomerDailyLimitAndProductCost`.
 
 ## Iteración aprobada — Pie de Comprobante WPC Bajío, Corrección de CI y Sincronización de Puertos (2026-08-18)
 

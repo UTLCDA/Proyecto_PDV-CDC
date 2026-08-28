@@ -16,6 +16,7 @@ export interface Producto {
   categoryId: string;
   categoryName: string;
   unitPrice: number;
+  unitCost: number;
   wholesalePrice: number;
   wholesaleMinQuantity: number;
   unitOfMeasure: string;
@@ -45,6 +46,7 @@ export interface PeticionCrearProducto {
   description: string;
   categoryId: string;
   unitPrice: number;
+  unitCost?: number;
   wholesalePrice: number;
   wholesaleMinQuantity: number;
   unitOfMeasure: string;
@@ -68,6 +70,7 @@ export interface PeticionActualizarProducto {
   description: string;
   categoryId: string;
   unitPrice: number;
+  unitCost?: number;
   wholesalePrice: number;
   wholesaleMinQuantity: number;
   unitOfMeasure: string;
@@ -101,6 +104,7 @@ export interface Cliente {
   postalCode: string;
   customerType: string;
   specialDiscountPercentage: number;
+  dailyBoxLimit: number;
   notes: string;
   isActive: boolean;
 }
@@ -118,6 +122,7 @@ export interface PeticionCrearCliente {
   postalCode: string;
   customerType: string;
   specialDiscountPercentage: number;
+  dailyBoxLimit: number;
   notes: string;
 }
 

@@ -63,7 +63,8 @@ export const QuoteListPage: React.FC = () => {
         postalCode: '',
         notes: '',
         customerType: quickCustomerType,
-        specialDiscountPercentage: 0
+        specialDiscountPercentage: quickCustomerType === 'Mayorista' ? 5 : 0,
+        dailyBoxLimit: 0
       });
       const optionData = await commercialService.getQuoteOptions();
       setOptions(optionData);
@@ -97,17 +98,17 @@ export const QuoteListPage: React.FC = () => {
       { label: 'Estado', value: appliedFilters.status || 'Todos' }
     ],
     columns: [
-      { key: 'folio', label: 'Cotización', width: 0.9, value: quote => quote.quoteNumber },
-      { key: 'customer', label: 'Cliente', width: 1.5, value: quote => quote.customerDisplayName || t('generalPublic') },
-      { key: 'products', label: 'Productos', type: 'number', width: 0.7, value: quote => quote.items.length },
-      { key: 'created', label: 'Fecha de creación', type: 'datetime', width: 1.15, value: quote => quote.createdAtUtc },
-      { key: 'expiration', label: 'Vencimiento', type: 'date', width: 1, value: quote => quote.expirationDateUtc },
-      { key: 'subtotal', label: 'Subtotal', type: 'currency', width: 0.9, value: quote => quote.subTotal },
-      { key: 'discount', label: 'Descuento', type: 'currency', width: 0.9, value: quote => quote.discountAmount },
-      { key: 'tax', label: 'IVA', type: 'currency', width: 0.8, value: quote => quote.taxAmount },
-      { key: 'total', label: 'Total', type: 'currency', width: 0.9, value: quote => quote.totalAmount },
-      { key: 'status', label: 'Estado', width: 0.8, value: quote => t(quoteStatusKey(quote.status)) },
-      { key: 'user', label: 'Usuario', width: 0.9, value: quote => quote.userUsername || '—' }
+      { key: 'folio', label: 'Cotización / 报价单号', width: 1, value: quote => quote.quoteNumber },
+      { key: 'customer', label: 'Cliente / 客户', width: 1.5, value: quote => quote.customerDisplayName || t('generalPublic') },
+      { key: 'products', label: 'Productos / 产品件数', type: 'number', width: 0.9, value: quote => quote.items.length },
+      { key: 'created', label: 'Fecha Creación / 创建日期', type: 'datetime', width: 1.2, value: quote => quote.createdAtUtc },
+      { key: 'expiration', label: 'Vencimiento / 有效期至', type: 'date', width: 1.1, value: quote => quote.expirationDateUtc },
+      { key: 'subtotal', label: 'Subtotal / 小计', type: 'currency', width: 0.9, value: quote => quote.subTotal },
+      { key: 'discount', label: 'Descuento / 折扣', type: 'currency', width: 0.9, value: quote => quote.discountAmount },
+      { key: 'tax', label: 'IVA / 税额', type: 'currency', width: 0.8, value: quote => quote.taxAmount },
+      { key: 'total', label: 'Total / 合计', type: 'currency', width: 1, value: quote => quote.totalAmount },
+      { key: 'status', label: 'Estado / 状态', width: 0.9, value: quote => t(quoteStatusKey(quote.status)) },
+      { key: 'user', label: 'Usuario / 操作员', width: 0.9, value: quote => quote.userUsername || '—' }
     ]
   }), [appliedFilters, t]);
 

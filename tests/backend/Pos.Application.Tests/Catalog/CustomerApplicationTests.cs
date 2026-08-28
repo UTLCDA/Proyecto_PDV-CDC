@@ -82,6 +82,7 @@ public class CustomerApplicationTests
         "37000",
         "Mayorista",
         5m,
+        0m,
         "Cliente de prueba");
 
     private static PosDbContext CreateContext()

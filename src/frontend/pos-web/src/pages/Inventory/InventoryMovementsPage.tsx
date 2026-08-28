@@ -30,7 +30,7 @@ const movementBadge = (movementType: string) => {
 };
 
 export const InventoryMovementsPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [search, setSearch] = useState('');
   const [movementType, setMovementType] = useState('');
@@ -75,6 +75,9 @@ export const InventoryMovementsPage: React.FC = () => {
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [evidenceImage]);
 
+  const locale = i18n.language.startsWith('zh') ? 'zh-CN' : 'es-MX';
+  const money = useMemo(() => new Intl.NumberFormat(locale, { style: 'currency', currency: 'MXN' }), [locale]);
+
   const exportConfig = useMemo<ExportReportConfig<InventoryMovement>>(() => ({
     moduleName: t('inventoryMovementsTitle'),
     title: 'Movimientos de Inventario',
@@ -88,16 +91,20 @@ export const InventoryMovementsPage: React.FC = () => {
       { label: 'Tipo de movimiento', value: appliedFilters.movementType ? t(movementLabelKey(appliedFilters.movementType)) : 'Todos' }
     ],
     columns: [
-      { key: 'date', label: 'Fecha', type: 'datetime', width: 1.15, value: movement => movement.createdAtUtc },
-      { key: 'sku', label: 'SKU', width: 0.8, value: movement => movement.productSku },
-      { key: 'product', label: 'Producto', width: 1.6, value: movement => movement.productName },
-      { key: 'type', label: 'Tipo', width: 0.9, value: movement => { const key = movementLabelKey(movement.movementType); return key ? t(key) : movement.movementType; } },
-      { key: 'quantity', label: 'Cantidad', type: 'number', width: 0.7, value: movement => movement.quantity },
-      { key: 'previous', label: 'Cantidad Anterior', type: 'number', width: 0.9, value: movement => movement.previousQuantity },
-      { key: 'new', label: 'Cantidad Nueva', type: 'number', width: 0.9, value: movement => movement.newQuantity },
-      { key: 'reason', label: 'Motivo', width: 1.7, value: movement => movement.reason },
-      { key: 'reference', label: 'Referencia', width: 1.1, value: movement => movement.idVenta ? `Venta #${movement.idVenta}` : movement.referenceNumber || '—' },
-      { key: 'user', label: 'Usuario', width: 0.9, value: movement => movement.userUsername || '—' }
+      { key: 'date', label: 'Fecha / 日期', type: 'datetime', width: 1.15, value: movement => movement.createdAtUtc },
+      { key: 'sku', label: 'SKU / 编号', width: 0.8, value: movement => movement.productSku },
+      { key: 'product', label: 'Producto / 产品', width: 1.5, value: movement => movement.productName },
+      { key: 'type', label: 'Tipo / 类型', width: 0.9, value: movement => { const key = movementLabelKey(movement.movementType); return key ? t(key) : movement.movementType; } },
+      { key: 'quantity', label: 'Cantidad / 数量', type: 'number', width: 0.7, value: movement => movement.quantity },
+      { key: 'unitCost', label: 'Costo Actual / 成本单价', type: 'currency', width: 0.9, value: movement => movement.unitCost ?? 0 },
+      { key: 'unitPrice', label: 'Precio Venta / 销售单价', type: 'currency', width: 0.9, value: movement => movement.unitPrice ?? 0 },
+      { key: 'totalAmount', label: 'Monto Total / 总付款', type: 'currency', width: 1, value: movement => movement.totalAmount ?? 0 },
+      { key: 'taxAmount', label: 'Impuesto / 税额', type: 'currency', width: 1, value: movement => movement.taxAmount ?? 0 },
+      { key: 'netCost', label: 'Costo Neto / 净成本', type: 'currency', width: 0.9, value: movement => movement.netCost ?? 0 },
+      { key: 'profit', label: 'Ganancia / 利润', type: 'currency', width: 0.9, value: movement => movement.profit ?? 0 },
+      { key: 'reason', label: 'Motivo / 原因', width: 1.4, value: movement => movement.idVenta && (movement.reason?.startsWith('Venta folio:') || movement.reason?.startsWith('VENTA-')) ? `Venta #${movement.idVenta}` : movement.reason },
+      { key: 'reference', label: 'Referencia / 参考', width: 1, value: movement => movement.idVenta ? `Venta #${movement.idVenta}` : movement.referenceNumber || '—' },
+      { key: 'user', label: 'Usuario / 操作员', width: 0.9, value: movement => movement.userUsername || '—' }
     ]
   }), [appliedFilters, t]);
 
@@ -137,20 +144,50 @@ export const InventoryMovementsPage: React.FC = () => {
       {loading ? <div className="inventory-empty-state">{t('loading')}</div> : <div className="inventory-table-wrap">
         <table className="inventory-history-table">
           <thead><tr>
-            <th>{t('date')}</th><th>{t('productCatalog')}</th><th>{t('type')}</th><th>{t('quantity')}</th>
-            <th>{t('previousQuantity')}</th><th>{t('newQuantity')}</th><th>{t('physicalEvidence')}</th><th>{t('reason')}</th><th>{t('reference')}</th><th>{t('user')}</th>
+            <th>Fecha / 日期</th>
+            <th>Producto / 产品</th>
+            <th>Tipo / 类型</th>
+            <th>Cantidad / 数量</th>
+            <th>Costo Actual / 成本单价</th>
+            <th>Precio Venta / 销售单价</th>
+            <th>Monto Total / 总付款</th>
+            <th>Impuesto / 税额</th>
+            <th>Costo Neto / 净成本</th>
+            <th>Ganancia / 利润</th>
+            <th>{t('physicalEvidence')}</th>
+            <th>Motivo / 原因</th>
+            <th>Referencia / 参考</th>
+            <th>Usuario / 操作员</th>
           </tr></thead>
           <tbody>
-            {movements.length === 0 && <tr><td colSpan={10} className="inventory-empty-state">{t('noInventoryMovements')}</td></tr>}
+            {movements.length === 0 && <tr><td colSpan={14} className="inventory-empty-state">{t('noInventoryMovements')}</td></tr>}
             {movements.map(movement => {
               const labelKey = movementLabelKey(movement.movementType);
+              const uCost = movement.unitCost ?? 0;
+              const uPrice = movement.unitPrice ?? 0;
+              const tot = movement.totalAmount ?? (movement.quantity * uPrice);
+              const tax = movement.taxAmount ?? 0;
+              const net = movement.netCost ?? (movement.quantity * uCost);
+              const profit = movement.profit ?? (tot - net);
+              const displayReason = movement.idVenta && (movement.reason?.startsWith('Venta folio:') || movement.reason?.startsWith('VENTA-')) ? `Venta #${movement.idVenta}` : movement.reason;
+
               return <tr key={movement.id}>
                 <td>{new Date(movement.createdAtUtc).toLocaleString()}</td>
                 <td><strong>{movement.productName}</strong><small>{movement.productSku}</small></td>
                 <td><span className={`badge ${movementBadge(movement.movementType)}`}>{labelKey ? t(labelKey) : movement.movementType}</span></td>
-                <td>{movement.quantity}</td><td>{movement.previousQuantity}</td><td><strong>{movement.newQuantity}</strong></td>
+                <td><strong>{movement.quantity}</strong></td>
+                <td>{money.format(uCost)}</td>
+                <td>{money.format(uPrice)}</td>
+                <td><strong>{money.format(tot)}</strong></td>
+                <td>{money.format(tax)}</td>
+                <td>{money.format(net)}</td>
+                <td style={{ color: profit >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 700 }}>
+                  {money.format(profit)}
+                </td>
                 <td>{movement.evidenceImageUrl ? <button className="inventory-evidence-thumbnail-button" type="button" onClick={() => setEvidenceImage(movement.evidenceImageUrl ?? null)} aria-label={t('viewPhysicalEvidence')}><img className="inventory-evidence-thumbnail" src={movement.evidenceImageUrl} alt={t('physicalEvidence')} /></button> : '—'}</td>
-                <td>{movement.reason}</td><td>{movement.idVenta ? <strong>{t('saleNumber', { idVenta: movement.idVenta })}</strong> : movement.referenceNumber || '—'}</td><td>{movement.userUsername || '—'}</td>
+                <td>{displayReason}</td>
+                <td>{movement.idVenta ? <strong>{t('saleNumber', { idVenta: movement.idVenta })}</strong> : movement.referenceNumber || '—'}</td>
+                <td>{movement.userUsername || '—'}</td>
               </tr>;
             })}
           </tbody>

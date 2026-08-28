@@ -29,17 +29,44 @@ export const PaginaPuntoVenta: React.FC = () => {
   const [manualDiscount, setManualDiscount] = useState('');
   const [notes, setNotes] = useState('');
   const [manualCode, setManualCode] = useState('');
+  const [cardSearch, setCardSearch] = useState('');
   const [receipt, setReceipt] = useState<Venta | null>(null);
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
+  const [isNewCustomerModalOpen, setIsNewCustomerModalOpen] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState({
+    firstName: '',
+    lastName: '',
+    companyName: '',
+    email: '',
+    phone: '',
+    customerType: 'Particular',
+    dailyBoxLimit: '0'
+  });
+  const [savingNewCustomer, setSavingNewCustomer] = useState(false);
   const [requiresInvoice, setRequiresInvoice] = useState(false);
   const [hasOpenShift, setHasOpenShift] = useState(true);
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [calcProductId, setCalcProductId] = useState('');
+  const [calcTargetM2, setCalcTargetM2] = useState('');
+  const [isCalculatorModalOpen, setIsCalculatorModalOpen] = useState(false);
 
   const canDiscount = hasPermission('ventas', 'descuento');
+  const canCreateCustomer = hasPermission('clientes', 'crear');
   const locale = i18n.language.startsWith('zh') ? 'zh-CN' : 'es-MX';
   const money = useMemo(() => new Intl.NumberFormat(locale, { style: 'currency', currency: 'MXN' }), [locale]);
+
+  const filteredProducts = useMemo(() => {
+    if (!cardSearch.trim()) return products;
+    const term = cardSearch.trim().toLowerCase();
+    return products.filter(p =>
+      p.name.toLowerCase().includes(term) ||
+      p.sku.toLowerCase().includes(term) ||
+      p.barcode.toLowerCase().includes(term) ||
+      (p.material && p.material.toLowerCase().includes(term))
+    );
+  }, [products, cardSearch]);
 
   const loadData = async () => {
     try {
@@ -88,12 +115,12 @@ export const PaginaPuntoVenta: React.FC = () => {
       ? product.wholesalePrice
       : product.unitPrice;
 
-  const getProductUnitCoverage = (product: Producto) => {
-    if (product.boxCoverageSqM && product.boxCoverageSqM > 0) return product.boxCoverageSqM;
-    if (product.unitOfMeasure === 'Caja' || (product.piecesPerBox && product.piecesPerBox > 1)) {
-      return (product.piecesPerBox || 1) * (product.coveragePerUnitSqM || 0);
+  const getPieceCoverage = (product: Producto): number => {
+    if (product.coveragePerUnitSqM && product.coveragePerUnitSqM > 0) return product.coveragePerUnitSqM;
+    if (product.boxCoverageSqM && product.piecesPerBox && product.piecesPerBox > 0) {
+      return product.boxCoverageSqM / product.piecesPerBox;
     }
-    return product.coveragePerUnitSqM || 0;
+    return 0;
   };
 
   const subtotal = cart.reduce((total, item) => total + item.quantity * effectivePrice(item.product, item.quantity), 0);
@@ -102,7 +129,17 @@ export const PaginaPuntoVenta: React.FC = () => {
   const appliedDiscount = Math.max(customerDiscount, Number.isFinite(requestedDiscount) ? requestedDiscount : 0);
   const taxAmount = requiresInvoice ? Math.round(subtotal * 0.16 * 100) / 100 : 0;
   const totalAmount = Math.max(0, subtotal - appliedDiscount + taxAmount);
-  const coverage = cart.reduce((total, item) => total + item.quantity * getProductUnitCoverage(item.product), 0);
+  const coverage = cart.reduce((total, item) => total + item.quantity * getPieceCoverage(item.product), 0);
+
+  const selectedCalcProduct = products.find(p => p.id === calcProductId) || (products.length > 0 ? products[0] : null);
+  const calcPieceCoverage = selectedCalcProduct ? getPieceCoverage(selectedCalcProduct) : 0;
+  const calcTargetNum = parseFloat(calcTargetM2) || 0;
+  const calcNeededPieces = calcPieceCoverage > 0 && calcTargetNum > 0 ? Math.ceil(calcTargetNum / calcPieceCoverage) : 0;
+  const calcPpb = selectedCalcProduct?.piecesPerBox && selectedCalcProduct.piecesPerBox > 0 ? selectedCalcProduct.piecesPerBox : 1;
+  const calcBoxesEq = Math.ceil(calcNeededPieces / calcPpb);
+  const calcRealCoverage = (calcNeededPieces * calcPieceCoverage).toFixed(2);
+  const calcPrice = selectedCalcProduct ? effectivePrice(selectedCalcProduct, calcNeededPieces) : 0;
+  const calcTotalCost = calcNeededPieces * calcPrice;
 
   const findAndAddProduct = (code: string) => {
     const term = code.trim().toLocaleLowerCase();
@@ -112,10 +149,10 @@ export const PaginaPuntoVenta: React.FC = () => {
       setNotice({ type: 'error', text: t('productCodeNotFound', { code }) });
       return;
     }
-    addProductToCart(product);
+    addProductToCart(product, 1);
   };
 
-  const addProductToCart = (product: Producto) => {
+  const addProductToCart = (product: Producto, qtyToAdd = 1) => {
     if (product.isQuoteOnly) {
       setNotice({ type: 'error', text: t('quoteOnlyProduct', { product: product.name }) });
       return;
@@ -125,13 +162,14 @@ export const PaginaPuntoVenta: React.FC = () => {
       return;
     }
     const existing = cart.find(item => item.product.id === product.id);
-    if (existing && existing.quantity + 1 > product.availableQuantity) {
+    const newQty = (existing?.quantity || 0) + qtyToAdd;
+    if (newQty > product.availableQuantity) {
       setNotice({ type: 'error', text: t('stockLimitReached', { quantity: product.availableQuantity }) });
       return;
     }
     setCart(current => existing
-      ? current.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)
-      : [...current, { product, quantity: 1 }]);
+      ? current.map(item => item.product.id === product.id ? { ...item, quantity: newQty } : item)
+      : [...current, { product, quantity: qtyToAdd }]);
     setNotice(null);
   };
 
@@ -170,6 +208,42 @@ export const PaginaPuntoVenta: React.FC = () => {
     findAndAddProduct(manualCode);
     setManualCode('');
     searchInputRef.current?.focus();
+  };
+
+  const handleSaveNewCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCustomerForm.firstName.trim() || !newCustomerForm.lastName.trim() || !newCustomerForm.email.trim() || !newCustomerForm.phone.trim()) {
+      setNotice({ type: 'error', text: 'Por favor complete todos los campos obligatorios del cliente.' });
+      return;
+    }
+    try {
+      setSavingNewCustomer(true);
+      const created = await servicioCatalogo.createCustomer({
+        firstName: newCustomerForm.firstName.trim(),
+        lastName: newCustomerForm.lastName.trim(),
+        companyName: newCustomerForm.companyName.trim() || undefined,
+        email: newCustomerForm.email.trim(),
+        phone: newCustomerForm.phone.trim().replace(/\D/g, ''),
+        address: 'N/A',
+        city: 'León',
+        state: 'Guanajuato',
+        postalCode: '37000',
+        customerType: newCustomerForm.customerType,
+        specialDiscountPercentage: 0,
+        dailyBoxLimit: Number(newCustomerForm.dailyBoxLimit || 0),
+        notes: 'Cliente registrado desde PDV'
+      });
+      const updatedCustomers = await servicioCatalogo.getCustomers();
+      setCustomers(updatedCustomers);
+      setSelectedCustomerId(created.id);
+      setIsNewCustomerModalOpen(false);
+      setNewCustomerForm({ firstName: '', lastName: '', companyName: '', email: '', phone: '', customerType: 'Particular', dailyBoxLimit: '0' });
+      setNotice({ type: 'success', text: `Cliente ${created.displayName} dado de alta con éxito.` });
+    } catch (err) {
+      setNotice({ type: 'error', text: errorMessage(err, 'Error al registrar cliente.') });
+    } finally {
+      setSavingNewCustomer(false);
+    }
   };
 
   const processSale = async () => {
@@ -257,41 +331,128 @@ export const PaginaPuntoVenta: React.FC = () => {
 
     <div className="pos-layout">
       <article className="pos-card">
-        <div className="pos-card__heading"><div><h2>📦 {t('quickCatalog')}</h2><p>{t('quickCatalogHint')}</p></div><strong>{products.length}</strong></div>
+        <div className="pos-card__heading">
+          <div>
+            <h2>📦 {t('quickCatalog')}</h2>
+            <p>{t('quickCatalogHint')}</p>
+          </div>
+          <strong>{filteredProducts.length}</strong>
+        </div>
+
+        <div className="pos-card-search">
+          <input
+            type="search"
+            value={cardSearch}
+            onChange={e => setCardSearch(e.target.value)}
+            placeholder="🔍 Buscar producto en catálogo rápido (SKU, Nombre, Material)..."
+            aria-label="Buscar producto en catálogo rápido"
+          />
+        </div>
+
         <div className="pos-products">
-          {products.map(product => {
+          {filteredProducts.map(product => {
             const unavailable = product.availableQuantity <= 0 || product.isQuoteOnly;
-            return <button key={product.id} className={`pos-product ${unavailable ? 'pos-product--unavailable' : ''}`} onClick={() => addProductToCart(product)}>
-              {product.imageUrl ? <img src={product.imageUrl} alt={product.name} /> : <span className="pos-product__placeholder">📷</span>}
-              <span className="pos-product__details">
-                <small>{product.sku}</small><strong>{product.name}</strong>
-                <span>{product.coveragePerUnitSqM} m²/{product.unitOfMeasure} · {product.piecesPerBox || 1} {t('piecesPerBoxShort')}</span>
-                <b>{money.format(product.unitPrice)}</b>
-                <em className={product.availableQuantity > 0 ? '' : 'is-empty'}>{product.isQuoteOnly ? t('quoteOnly') : t('availableStock', { quantity: product.availableQuantity })}</em>
-              </span>
-            </button>;
+            const ppb = product.piecesPerBox && product.piecesPerBox > 0 ? product.piecesPerBox : 1;
+
+            return (
+              <div key={product.id} className={`pos-product ${unavailable ? 'pos-product--unavailable' : ''}`}>
+                <div className="pos-product__main" onClick={() => addProductToCart(product, 1)}>
+                  {product.imageUrl ? <img src={product.imageUrl} alt={product.name} /> : <span className="pos-product__placeholder">📷</span>}
+                  <span className="pos-product__details">
+                    <small>{product.sku}</small>
+                    <strong>{product.name}</strong>
+                    <span>{product.coveragePerUnitSqM} m²/Pza · {ppb} pzas/caja</span>
+                    <b>{money.format(product.unitPrice)}</b>
+                    <em className={product.availableQuantity > 0 ? '' : 'is-empty'}>
+                      {product.isQuoteOnly ? t('quoteOnly') : t('availableStock', { quantity: product.availableQuantity })}
+                    </em>
+                  </span>
+                </div>
+                <div className="pos-product__cart-btns">
+                  <button
+                    type="button"
+                    className="pos-btn-p"
+                    disabled={unavailable}
+                    title="Agregar 1 Pieza al carrito"
+                    onClick={(e) => { e.stopPropagation(); addProductToCart(product, 1); }}
+                  >
+                    Pieza +
+                  </button>
+
+                  <button
+                    type="button"
+                    className="pos-btn-c"
+                    disabled={unavailable}
+                    title={`Agregar 1 Caja (${ppb} pzas) al carrito`}
+                    onClick={(e) => { e.stopPropagation(); addProductToCart(product, ppb); }}
+                  >
+                    Caja +
+                  </button>
+                </div>
+              </div>
+            );
           })}
         </div>
       </article>
 
       <aside className="pos-card pos-checkout">
-        <div className="pos-card__heading"><div><h2>🧾 {t('shoppingCart')}</h2><p>{t('cartItemsCount', { count: cart.length })}</p></div>{cart.length > 0 && <button className="pos-link-btn" onClick={() => setCart([])}>{t('clearCart')}</button>}</div>
+        <div className="pos-card__heading">
+          <div><h2>🧾 {t('shoppingCart')}</h2><p>{t('cartItemsCount', { count: cart.length })}</p></div>
+          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="action-btn"
+              style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+              onClick={() => setIsCalculatorModalOpen(true)}
+              title="Calculadora de m² de Lambrín"
+            >
+              📐 Calculadora m²
+            </button>
+            {cart.length > 0 && <button className="pos-link-btn" onClick={() => setCart([])}>{t('clearCart')}</button>}
+          </div>
+        </div>
         <label className="pos-field">{t('selectCustomer')}
-          <select value={selectedCustomerId} onChange={event => setSelectedCustomerId(event.target.value)}>
-            <option value="">{t('generalPublic')}</option>
-            {customers.map(customer => <option key={customer.id} value={customer.id}>{customer.displayName} ({customer.customerType})</option>)}
-          </select>
+          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+            <select style={{ flex: 1 }} value={selectedCustomerId} onChange={event => setSelectedCustomerId(event.target.value)}>
+              <option value="">{t('generalPublic')}</option>
+              {customers.map(customer => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.displayName} ({customer.customerType}){customer.dailyBoxLimit > 0 ? ` [Límite: ${customer.dailyBoxLimit} cjas/día]` : ''}
+                </option>
+              ))}
+            </select>
+            {canCreateCustomer && (
+              <button
+                type="button"
+                className="action-btn"
+                style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                onClick={() => setIsNewCustomerModalOpen(true)}
+                title="Dar de alta nuevo cliente"
+              >
+                ➕ Cliente
+              </button>
+            )}
+          </div>
         </label>
 
         <div className="pos-cart-list">
           {cart.length === 0 ? <div className="pos-empty">{t('emptyCartHint')}</div> : cart.map(item => {
             const price = effectivePrice(item.product, item.quantity);
+            const ppb = item.product.piecesPerBox && item.product.piecesPerBox > 0 ? item.product.piecesPerBox : 1;
+            const boxes = Math.floor(item.quantity / ppb);
+            const remPzas = item.quantity % ppb;
+            const breakdownStr = ppb > 1
+              ? `${item.quantity} Pzas (${boxes > 0 ? `${boxes} Cjas` : ''}${boxes > 0 && remPzas > 0 ? ' + ' : ''}${remPzas > 0 || boxes === 0 ? `${remPzas} Pzas` : ''})`
+              : `${item.quantity} Pzas`;
+
             return <div className="pos-cart-item" key={item.product.id}>
               {item.product.imageUrl && <img src={item.product.imageUrl} alt="" />}
               <div>
                 <small className="pos-cart-item__sku">{item.product.sku}</small>
                 <strong>{item.product.name}</strong>
-                <small>{item.product.unitOfMeasure} · {money.format(price)} · {(item.quantity * getProductUnitCoverage(item.product)).toFixed(2)} m²</small>
+                <small style={{ color: 'var(--primary-main)', fontWeight: 700 }}>
+                  {breakdownStr} · {money.format(price)} · {(item.quantity * getPieceCoverage(item.product)).toFixed(2)} m²
+                </small>
               </div>
               <div className="pos-quantity-control">
                 <button type="button" onClick={() => changeQuantity(item.product.id, -1)} aria-label={t('decreaseQuantity')}>−</button>
@@ -303,6 +464,7 @@ export const PaginaPuntoVenta: React.FC = () => {
             </div>;
           })}
         </div>
+
 
         <div className="pos-totals">
           <div className="pos-totals__invoice-row" onClick={() => setRequiresInvoice(prev => !prev)}>
@@ -322,7 +484,7 @@ export const PaginaPuntoVenta: React.FC = () => {
           <span>{t('subtotal')}<b>{money.format(subtotal)}</b></span>
           {appliedDiscount > 0 && <span className="pos-discount">{t('discount')}<b>-{money.format(appliedDiscount)}</b></span>}
           {requiresInvoice && <span>{t('tax')}<b>{money.format(taxAmount)}</b></span>}
-          {coverage > 0 && <span>{t('coverage')}<b>{coverage.toFixed(2)} m² <small style={{ fontWeight: 400, color: 'var(--primary-main)' }}>(📦 ~{cart.reduce((sum, item) => sum + Math.ceil(item.quantity / ((item.product.unitOfMeasure === 'Caja' || item.product.boxCoverageSqM) ? 1 : (item.product.piecesPerBox || 9))), 0)} {t('boxesEstimated')})</small></b></span>}
+          {coverage > 0 && <span>{t('coverage')}<b>{coverage.toFixed(2)} m² <small style={{ fontWeight: 400, color: 'var(--primary-main)' }}>(📦 ~{cart.reduce((sum, item) => sum + Math.ceil(item.quantity / ((item.product.piecesPerBox && item.product.piecesPerBox > 0) ? item.product.piecesPerBox : 1)), 0)} {t('boxesEstimated')})</small></b></span>}
           <span className="pos-total">{t('total')}<b>{money.format(totalAmount)}</b></span>
         </div>
 
@@ -362,6 +524,153 @@ export const PaginaPuntoVenta: React.FC = () => {
       <div className="pos-customer-options">{customers.map(customer => <button type="button" key={customer.id} onClick={() => { setSelectedCustomerId(customer.id); setCustomerModalOpen(false); }}>{customer.displayName}<small>{customer.customerType} · {customer.phone}</small></button>)}</div>
       <button type="button" className="pos-receipt-close" onClick={() => { setCustomerModalOpen(false); setPaymentType('FullPayment'); }}>{t('cancel')}</button>
     </div></div>}
+
+    {isNewCustomerModalOpen && (
+      <div className="pos-receipt-backdrop" onMouseDown={e => e.target === e.currentTarget && setIsNewCustomerModalOpen(false)}>
+        <div className="pos-customer-modal" style={{ width: 'min(500px, 100%)' }} role="dialog" aria-modal="true">
+          <h2>➕ Dar de alta nuevo cliente</h2>
+          <p>Complete los datos para registrar el cliente desde la caja.</p>
+          <form onSubmit={handleSaveNewCustomer} style={{ display: 'grid', gap: '0.75rem', marginTop: '1rem' }}>
+            <label className="pos-field">Nombre(s) *
+              <input required value={newCustomerForm.firstName} onChange={e => setNewCustomerForm(prev => ({ ...prev, firstName: e.target.value }))} placeholder="Ej. Juan" />
+            </label>
+            <label className="pos-field">Apellido(s) *
+              <input required value={newCustomerForm.lastName} onChange={e => setNewCustomerForm(prev => ({ ...prev, lastName: e.target.value }))} placeholder="Ej. Pérez" />
+            </label>
+            <label className="pos-field">Empresa / Negocio
+              <input value={newCustomerForm.companyName} onChange={e => setNewCustomerForm(prev => ({ ...prev, companyName: e.target.value }))} placeholder="Ej. Decoraciones Bajío" />
+            </label>
+            <label className="pos-field">Correo electrónico *
+              <input required type="email" value={newCustomerForm.email} onChange={e => setNewCustomerForm(prev => ({ ...prev, email: e.target.value }))} placeholder="cliente@correo.com" />
+            </label>
+            <label className="pos-field">Teléfono *
+              <input required type="tel" value={newCustomerForm.phone} onChange={e => setNewCustomerForm(prev => ({ ...prev, phone: e.target.value }))} placeholder="4771234567" />
+            </label>
+            <label className="pos-field">Tipo de cliente
+              <select value={newCustomerForm.customerType} onChange={e => setNewCustomerForm(prev => ({ ...prev, customerType: e.target.value }))}>
+                <option value="Particular">Particular</option>
+                <option value="Mayorista">Mayorista</option>
+                <option value="Arquitecto/Constructor">Arquitecto/Constructor</option>
+              </select>
+            </label>
+            <label className="pos-field">Límite diario de cajas (0 = Sin límite)
+              <input type="number" min="0" step="1" value={newCustomerForm.dailyBoxLimit} onChange={e => setNewCustomerForm(prev => ({ ...prev, dailyBoxLimit: e.target.value }))} placeholder="0" />
+            </label>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <button type="button" className="pos-receipt-close" style={{ flex: 1 }} onClick={() => setIsNewCustomerModalOpen(false)}>Cancelar</button>
+              <button type="submit" className="action-btn" style={{ flex: 1 }} disabled={savingNewCustomer}>{savingNewCustomer ? 'Guardando...' : 'Guardar y Seleccionar'}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+
+    {isCalculatorModalOpen && (
+      <div className="pos-receipt-backdrop" onMouseDown={e => e.target === e.currentTarget && setIsCalculatorModalOpen(false)}>
+        <div className="pos-customer-modal" style={{ width: 'min(520px, 100%)' }} role="dialog" aria-modal="true">
+          <h2>📐 Calculadora de m² de Lambrín</h2>
+          <p>Seleccione un producto e ingrese la superficie en m² para calcular las piezas necesarias.</p>
+
+          <form style={{ display: 'grid', gap: '0.85rem', marginTop: '1rem' }} onSubmit={e => e.preventDefault()}>
+            <label className="pos-field">Seleccionar Producto
+              <select value={calcProductId} onChange={e => setCalcProductId(e.target.value)}>
+                <option value="">-- Seleccionar producto para calcular --</option>
+                {products.map(p => (
+                  <option key={p.id} value={p.id}>{p.sku} - {p.name}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="pos-field">Superficie requerida a cubrir (m²)
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Ej. 15.5"
+                  value={calcTargetM2}
+                  onChange={e => setCalcTargetM2(e.target.value)}
+                  autoFocus
+                />
+                <span style={{ fontWeight: 700, color: 'var(--primary-main)' }}>m²</span>
+              </div>
+            </label>
+
+            {selectedCalcProduct && (
+              <div style={{
+                display: 'flex',
+                gap: '0.75rem',
+                flexWrap: 'wrap',
+                padding: '0.6rem 0.85rem',
+                background: 'var(--background-container)',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.8rem',
+                color: 'var(--text-secondary)'
+              }}>
+                <span>📐 Cobertura/Pieza: <strong>{calcPieceCoverage.toFixed(3)} m²</strong></span>
+                <span>📦 Piezas por Caja: <strong>{calcPpb} pzas</strong></span>
+              </div>
+            )}
+
+            {calcNeededPieces > 0 && selectedCalcProduct && (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+                padding: '0.85rem',
+                background: 'var(--background-cream)',
+                border: '1px solid var(--border-hover)',
+                borderRadius: 'var(--radius-md)'
+              }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.6rem' }}>
+                  <div style={{ padding: '0.5rem 0.75rem', background: 'var(--background-surface)', border: '1px solid var(--border-subtle)', borderRadius: '6px' }}>
+                    <small style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Piezas Necesarias</small>
+                    <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>🧩 {calcNeededPieces} Pzas</strong>
+                  </div>
+                  <div style={{ padding: '0.5rem 0.75rem', background: 'var(--background-surface)', border: '1px solid var(--border-subtle)', borderRadius: '6px' }}>
+                    <small style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Cajas Equivalentes</small>
+                    <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>📦 ~{calcBoxesEq} Cjas</strong>
+                  </div>
+                  <div style={{ padding: '0.5rem 0.75rem', background: 'var(--background-surface)', border: '1px solid var(--border-subtle)', borderRadius: '6px' }}>
+                    <small style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Cobertura Real</small>
+                    <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>📐 {calcRealCoverage} m²</strong>
+                  </div>
+                  <div style={{ padding: '0.5rem 0.75rem', background: 'var(--background-surface)', border: '1px solid var(--border-subtle)', borderRadius: '6px' }}>
+                    <small style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Costo Estimado</small>
+                    <strong style={{ fontSize: '0.95rem', color: 'var(--success)' }}>{money.format(calcTotalCost)}</strong>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                className="pos-receipt-close"
+                style={{ flex: 1 }}
+                onClick={() => setIsCalculatorModalOpen(false)}
+              >
+                Cancelar
+              </button>
+              {calcNeededPieces > 0 && selectedCalcProduct && (
+                <button
+                  type="button"
+                  className="action-btn"
+                  style={{ flex: 1.5 }}
+                  onClick={() => {
+                    addProductToCart(selectedCalcProduct, calcNeededPieces);
+                    setIsCalculatorModalOpen(false);
+                    setCalcTargetM2('');
+                  }}
+                >
+                  🛒 Agregar {calcNeededPieces} Pzas ({money.format(calcTotalCost)})
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
   </section>;
 };
 

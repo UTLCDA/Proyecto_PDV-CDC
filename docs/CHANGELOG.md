@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0] - 2026-08-28
+
+### Entrega Final PR - Rama `version-final-de-PR`
+- **Punto de Venta (PDV)**:
+  - Botones de selección rápida renombrados a `Pieza +` (1 pieza) y `Caja +` (1 caja = `piecesPerBox` piezas).
+  - Buscador de tarjetas de catálogo en tiempo real arriba de `📦 Catálogo rápido`.
+  - Habilitado el rol Cajero para registrar clientes nuevos desde caja (`clientes:crear`), con restricción estricta de no edición (`clientes:editar`).
+  - Desglose visual explícito de piezas, cajas y m² en los elementos del carrito de compras (`23 Pzas (2 Cjas + 3 Pzas) · $290.00 · 10.01 m²`).
+  - Corrección del cálculo de cobertura en carrito y totales para multiplicar por la cobertura individual por pieza (`coveragePerUnitSqM`).
+  - Integración de **📐 Calculadora de m² de Lambrín** en la tarjeta de cobro (`pos-checkout`) con estimación de piezas necesarias, cajas equivalentes y botón de adición directa al carrito en 1 clic.
+  - Imágenes de catálogo rápido en PDV ampliadas a 92px.
+- **Catálogo de Productos y Costo Neto**:
+  - Incorporación del campo `Costo Neto / Inicial ($ MXN)` (`unitCost`) en el modal de alta y edición de productos.
+  - Persistencia full-stack de `CostoUnitario` que alimenta automáticamente la columna de Costo Neto (COGS) y el cálculo de Ganancia en los Movimientos de Inventario.
+  - Cabeceras bilingües en la tabla del catálogo (`Precio Menudeo / 零售价` y `Precio Mayoreo / 批发价`) e insignias de cobertura por pieza y caja.
+- **Control de Clientes y Límite Diario de Cajas**:
+  - Permiso `clientes:limite_diario` y campo `LimiteCajasDiarias` en la entidad `Cliente`.
+  - Validación autoritativa en `SaleApplicationService` que verifica ventas previas del día y bloquea transacciones que superen el límite de cajas del cliente.
+  - Modal de **Historial de Compras de Cliente** disponible en el directorio de clientes.
+- **Movimientos de Inventario y Reportería Bilingüe**:
+  - Remoción de cadenas GUID crudas en la interfaz visual: Columna Motivo en Movimientos de Inventario despliega el folio operativo identity `Venta #X`, y los turnos de caja muestran `CAJA-YYYYMMDD-1` (folio incremental secuencial por día) en la tarjeta principal `cash-card`, listado de cortes y bitácora de auditoría.
+  - Cancelación de Ventas exclusiva para Administradores (`ventas:cancelar`), con reintegración automática de existencias a `Stocks`, bitácora de auditoría y desfalco/recalculo en tiempo real del balance de Corte de Caja.
+  - Ajuste en la visualización de impuesto: ventas no facturadas muestran `$0.00` de impuesto.
+  - Exportaciones PDF y Excel con 100% de encabezados bilingües en **Español y Chino Simplificado** con registro singleton de fuentes CJK para renderizado ultrarrápido y sin mojibake.
+- **Pruebas y Verificación**:
+  - Pruebas Backend xUnit: **67/67** pasadas.
+  - Pruebas Frontend Vitest: **24/24** pasadas.
+  - Compilación Vite de producción: Exitosa con 0 errores.
+
 ## [2.0.0] - 2026-08-12
 
 ### IVA Transparente en PDV y Cotizaciones

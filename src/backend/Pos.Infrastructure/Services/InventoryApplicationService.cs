@@ -117,7 +117,12 @@ public class InventoryApplicationService : IInventoryApplicationService
             .Take(take)
             .ToListAsync(cancellationToken);
 
-        return movements.Select(MapMovementToDto).ToList();
+        var saleIds = movements.Where(m => m.IdVenta.HasValue).Select(m => m.IdVenta!.Value).Distinct().ToList();
+        var invoiceSaleIds = saleIds.Count > 0
+            ? (await _dbContext.Sales.Where(s => saleIds.Contains(s.IdVenta) && s.MontoIva > 0).Select(s => s.IdVenta).ToListAsync(cancellationToken)).ToHashSet()
+            : new HashSet<int>();
+
+        return movements.Select(m => MapMovementToDto(m, invoiceSaleIds)).ToList();
     }
 
     public async Task<InventoryMovementDto> RegisterMovementAsync(RegisterMovementDto request, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default)
@@ -266,8 +271,20 @@ public class InventoryApplicationService : IInventoryApplicationService
         );
     }
 
-    private static InventoryMovementDto MapMovementToDto(MovimientoInventario m)
+    private static InventoryMovementDto MapMovementToDto(MovimientoInventario m, HashSet<int>? invoiceSaleIds = null)
     {
+        var unitPrice = m.Producto?.PrecioUnitario ?? 0m;
+        var unitCost = m.Producto?.CostoUnitario ?? 0m;
+        var totalAmount = m.Cantidad * unitPrice;
+        var isInvoiceSale = m.IdVenta.HasValue && (invoiceSaleIds?.Contains(m.IdVenta.Value) ?? false);
+        var taxAmount = isInvoiceSale ? Math.Round(totalAmount * 0.16m, 2) : 0m;
+        var netCost = m.Cantidad * unitCost;
+        var profit = totalAmount - netCost;
+
+        var displayReason = m.IdVenta.HasValue && (m.Motivo.StartsWith("Venta folio:", StringComparison.OrdinalIgnoreCase) || m.Motivo.StartsWith("VENTA-", StringComparison.OrdinalIgnoreCase))
+            ? $"Venta #{m.IdVenta.Value}"
+            : m.Motivo;
+
         return new InventoryMovementDto(
             m.Id,
             m.IdVenta,
@@ -278,7 +295,13 @@ public class InventoryApplicationService : IInventoryApplicationService
             m.Cantidad,
             m.CantidadAnterior,
             m.CantidadNueva,
-            m.Motivo,
+            unitCost,
+            unitPrice,
+            totalAmount,
+            taxAmount,
+            netCost,
+            profit,
+            displayReason,
             m.NumeroReferencia,
             string.IsNullOrWhiteSpace(m.EvidenceImageUrl) ? null : m.EvidenceImageUrl,
             m.Usuario?.NombreUsuario,

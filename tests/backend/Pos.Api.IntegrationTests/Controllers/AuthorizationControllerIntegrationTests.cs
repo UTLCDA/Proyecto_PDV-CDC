@@ -52,7 +52,7 @@ public class AuthorizationControllerIntegrationTests : IClassFixture<CustomWebAp
         Assert.Equal(HttpStatusCode.Forbidden, (await _client.GetAsync("/api/v1/inventory")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await _client.GetAsync("/api/v1/users")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await _client.GetAsync("/api/v1/roles")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await _client.GetAsync("/api/v1/cashshifts/current")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.GetAsync("/api/v1/cashshifts/current")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await _client.GetAsync("/api/v1/reports/sales-summary")).StatusCode);
     }
 

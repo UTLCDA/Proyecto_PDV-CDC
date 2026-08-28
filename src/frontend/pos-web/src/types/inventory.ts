@@ -24,6 +24,12 @@ export interface InventoryMovement {
   quantity: number;
   previousQuantity: number;
   newQuantity: number;
+  unitCost?: number;
+  unitPrice?: number;
+  totalAmount?: number;
+  taxAmount?: number;
+  netCost?: number;
+  profit?: number;
   reason: string;
   referenceNumber: string;
   evidenceImageUrl?: string | null;

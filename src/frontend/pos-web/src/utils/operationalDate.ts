@@ -84,3 +84,12 @@ export const formatOperationalDateTime = (
   dateStyle: 'medium',
   timeStyle: 'short'
 }).format(value instanceof Date ? value : new Date(value));
+
+export const formatShiftFolio = (folio?: string | null): string => {
+  if (!folio) return '—';
+  const trimmed = folio.trim();
+  if (/^CAJA-\d{8}-\d+$/i.test(trimmed)) {
+    return trimmed;
+  }
+  return trimmed.replace(/^CAJA-(\d{8})-(?:\d{6}-)?[A-Za-z0-9]+$/gi, 'CAJA-$1-1');
+};

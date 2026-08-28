@@ -17,6 +17,7 @@ public class Cliente : EntidadBase
 
     public string TipoCliente { get; set; } = CustomerTypes.Retail;
     public decimal PorcentajeDescuentoEspecial { get; set; }
+    public decimal LimiteCajasDiarias { get; set; } = 0m;
     public string Notas { get; set; } = string.Empty;
 
     public string NombreMostrar => string.IsNullOrWhiteSpace(NombreEmpresa)

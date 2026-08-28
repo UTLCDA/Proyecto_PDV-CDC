@@ -127,12 +127,12 @@ export const AuditLogPage: React.FC = () => {
         { label: 'Filtro por IdVenta', value: appliedFilters.idVenta }
       ],
       columns: [
-        { key: 'date', label: 'Fecha y Hora', type: 'datetime', width: 1.2, value: log => log.createdAtUtc },
-        { key: 'user', label: 'Usuario', width: 1, value: log => log.userUsername || t('systemUser') },
-        { key: 'module', label: 'Módulo', width: 1, value: log => mapAuditEvent(log).module },
-        { key: 'activity', label: 'Actividad', width: 1.8, value: log => mapAuditEvent(log).title },
-        { key: 'description', label: 'Descripción', width: 2.5, value: log => mapAuditEvent(log).description },
-        { key: 'result', label: 'Resultado', width: 1, value: log => mapAuditEvent(log).statusText }
+        { key: 'date', label: 'Fecha y Hora / 日期时间', type: 'datetime', width: 1.25, value: log => log.createdAtUtc },
+        { key: 'user', label: 'Usuario / 操作员', width: 1.1, value: log => log.userUsername || t('systemUser') },
+        { key: 'module', label: 'Módulo / 模块', width: 1.1, value: log => mapAuditEvent(log).module },
+        { key: 'activity', label: 'Actividad / 活动', width: 1.8, value: log => mapAuditEvent(log).title },
+        { key: 'description', label: 'Descripción / 说明', width: 2.5, value: log => mapAuditEvent(log).description },
+        { key: 'result', label: 'Resultado / 结果', width: 1.1, value: log => mapAuditEvent(log).statusText }
       ]
     }),
     [appliedFilters, t]
