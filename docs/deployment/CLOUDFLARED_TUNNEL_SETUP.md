@@ -24,6 +24,24 @@ Esta guía documenta el procedimiento paso a paso para exponer de manera segura 
 
 ---
 
+### 📦 Paso 0: Actualizar y Recompilar Frontend para IIS
+
+Antes de habilitar el túnel, asegúrate de compilar la última versión del frontend (que incluye la detección dinámica de URLs del túnel) y publicarla en IIS:
+
+```powershell
+# 1. Bajar últimos cambios en main
+git checkout main
+git pull origin main
+
+# 2. Recompilar paquete de producción
+npm --prefix src/frontend/pos-web run build
+
+# 3. Copiar archivos al directorio de IIS
+Copy-Item -Path "src/frontend/pos-web/dist/*" -Destination "C:\inetpub\wwwroot\pos-web" -Recurse -Force
+```
+
+---
+
 ### 🛠️ Paso 1: Instalación de `cloudflared` en Windows
 
 Abra PowerShell como **Administrador** e instale el ejecutable oficial de Cloudflare:
@@ -32,7 +50,10 @@ Abra PowerShell como **Administrador** e instale el ejecutable oficial de Cloudf
 # Opción A: Instalación vía Winget
 winget install Cloudflare.cloudflared --accept-source-agreements --accept-package-agreements
 
-# Opción B: Verificación de versión instalada
+# Opción B (Recomendada si winget solicita confirmación interactiva UAC): Descarga directa del binario oficial
+Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile "C:\Windows\System32\cloudflared.exe"
+
+# Verificación de versión instalada
 cloudflared --version
 ```
 

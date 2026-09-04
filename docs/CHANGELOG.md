@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.1 HotFix] - 2026-09-04
+
+### Corregido / Optimizado
+- **Resolución Dinámica de URL Base de API para Túneles Cloudflare y Dispositivos Móviles**: En `apiClient.ts`, se reemplazó la validación rígida `port === '5173'` por detección dinámica. Bajo cualquier conexión HTTPS o túnel de Cloudflare (`trycloudflare.com`, `pos.wpcbajio.com`), se utiliza la ruta relativa `/api/v1` para evitar bloqueos por *Mixed Content* (HTTPS solicitando HTTP) e intentos erróneos de conectarse a `localhost:5000` desde teléfonos móviles o computadoras remotas.
+- **Protección contra Bloqueo de UI (Timeout de 15s)**: Se integró `AbortController` con timeout de 15 segundos en `apiClient.request()` para evitar que la pantalla de inicio de sesión se quede congelada en *"Autenticando..."* ante fallas de red.
+- **Soporte de Host en Vite**: Se habilitó `allowedHosts: true` en `vite.config.ts` para admitir el tráfico entrante desde túneles Cloudflare.
+- **Guía de Despliegue de Túnel Cloudflare Actualizada**: Inclusión de paso previo de compilación y copiado a IIS en `docs/deployment/CLOUDFLARED_TUNNEL_SETUP.md`.
+
 ## [2.4.0 Feature] - 2026-08-28
 
 ### Añadido / Corregido

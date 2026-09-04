@@ -2,15 +2,27 @@ import { AuthResponse } from '../types/auth';
 
 const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
-    if (window.location.port === '5173') {
-      return '/api/v1'; // Dev proxy Vite
+    const { hostname, port, protocol } = window.location;
+
+    // 1. Si estamos bajo HTTPS o en un túnel de Cloudflare, usar siempre /api/v1 relativo
+    // para evitar bloqueo de Mixed Content (HTTPS a HTTP) y enrutar mediante el túnel
+    if (protocol === 'https:' || hostname.includes('trycloudflare.com') || hostname.includes('cloudflare')) {
+      if (hostname === 'pos.wpcbajio.com') {
+        return 'https://api.wpcbajio.com/api/v1';
+      }
+      return '/api/v1';
     }
-    return 'http://localhost:5000/api/v1'; // Production backend API
+
+    // 2. Si estamos en desarrollo con Vite (cualquier puerto, ej. 5173, 5174), usar proxy /api/v1
+    if (port && port !== '80' && port !== '5000') {
+      return '/api/v1';
+    }
+
+    // 3. Fallback directo en IIS local sin proxy inverso
+    return 'http://localhost:5000/api/v1';
   }
   return '/api/v1';
 };
-
-const API_BASE = getApiBaseUrl();
 
 class ApiClient {
   private token: string | null = null;
@@ -43,34 +55,48 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers
-    });
+    const baseUrl = getApiBaseUrl();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    if (!response.ok) {
-      if (response.status === 401 && allowRefresh && !endpoint.startsWith('/auth/')) {
-        const refreshed = await this.tryRefreshSession();
-        if (refreshed) {
-          return this.request<T>(endpoint, options, false);
+    try {
+      const response = await fetch(`${baseUrl}${endpoint}`, {
+        ...options,
+        headers,
+        signal: options.signal || controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        if (response.status === 401 && allowRefresh && !endpoint.startsWith('/auth/')) {
+          const refreshed = await this.tryRefreshSession();
+          if (refreshed) {
+            return this.request<T>(endpoint, options, false);
+          }
         }
-      }
-      if (response.status === 403) {
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('lambrin-access-denied', {
-            detail: { endpoint, status: 403 }
-          }));
+        if (response.status === 403) {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('lambrin-access-denied', {
+              detail: { endpoint, status: 403 }
+            }));
+          }
         }
+        const errorData = await response.json().catch(() => ({ message: 'Error de red o servidor' }));
+        throw new Error(errorData.message || `HTTP Error ${response.status}`);
       }
-      const errorData = await response.json().catch(() => ({ message: 'Error de red o servidor' }));
-      throw new Error(errorData.message || `HTTP Error ${response.status}`);
-    }
 
-    if (response.status === 204) {
-      return null as T;
-    }
+      if (response.status === 204) {
+        return null as T;
+      }
 
-    return response.json();
+      return response.json();
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        throw new Error('Tiempo de espera agotado al conectar con el servidor (15s). Verifica la conexión.');
+      }
+      throw err;
+    }
   }
 
   async login(emailOrUsername: string, password: string): Promise<AuthResponse> {
