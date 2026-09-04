@@ -71,7 +71,13 @@ BEGIN
 END;
 "
 
-# Si existe el archivo de esquema en el directorio actual, aplicarlo
+# Si no existe el archivo de esquema en el directorio actual, descargarlo automáticamente
+if [ ! -f "clean_init.sql" ]; then
+    echo "📥 Descargando clean_init.sql desde el repositorio..."
+    curl -fsSL https://raw.githubusercontent.com/UTLCDA/Proyecto_PDV-CDC/fix/cloudflare-tunnel-mobile-support/scratch/clean_init.sql -o clean_init.sql 2>/dev/null || \
+    curl -fsSL https://raw.githubusercontent.com/UTLCDA/Proyecto_PDV-CDC/main/scratch/clean_init.sql -o clean_init.sql
+fi
+
 if [ -f "clean_init.sql" ]; then
     echo "📋 Aplicando esquema de 26 tablas y semillas desde clean_init.sql..."
     /opt/mssql-tools18/bin/sqlcmd -S localhost -U wpcadminaam -P "Aaron2804#" -d PosLambrinDb -C -i "clean_init.sql"
@@ -115,8 +121,8 @@ systemctl enable pos-api.service
 echo "🌐 [6/6] Configurando Nginx Reverse Proxy para Cloudflare..."
 cat << 'EOF' > /etc/nginx/sites-available/pos-api
 server {
-    listen 80;
-    server_name api.wpcbajio.com;
+    listen 80 default_server;
+    server_name api.wpcbajio.com _;
 
     location / {
         proxy_pass         http://127.0.0.1:5000;
