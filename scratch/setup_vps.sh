@@ -26,6 +26,9 @@ systemctl enable docker || true
 MSSQL_SA_PASSWORD="Aaron2804#MasterSA"
 echo "🗄️ [2/5] Desplegando Microsoft SQL Server 2022 (Express Edition)..."
 
+systemctl stop mssql-server 2>/dev/null || true
+systemctl disable mssql-server 2>/dev/null || true
+pkill -f sqlservr 2>/dev/null || true
 mkdir -p /var/opt/mssql
 docker stop mssql-server 2>/dev/null || true
 docker rm mssql-server 2>/dev/null || true
