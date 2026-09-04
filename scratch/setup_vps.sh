@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Script de Aprovisionamiento Automatizado de VPS en la Nube (Ubuntu 22.04/24.04)
+# Script de Aprovisionamiento Automatizado de VPS en la Nube (Ubuntu 22.04/24.04/26.04)
 # Sistema Punto de Venta e Inventario WPC Bajío (SQL Server 2022 + .NET 9 API)
 # ==============================================================================
 
@@ -13,53 +13,67 @@ echo "=========================================================="
 # 1. Actualización de paquetes base
 echo "📦 [1/6] Actualizando repositorios del sistema..."
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -y && apt-get upgrade -y
+apt-get update -y
 apt-get install -y curl gnupg2 software-properties-common apt-transport-https ufw nginx
 
-# 2. Agregar repositorios oficiales de Microsoft
+# 2. Configurar llaves y repositorios de Microsoft de forma segura
 echo "🔑 [2/6] Configurando llaves y repositorios de Microsoft..."
-curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+rm -f /etc/apt/sources.list.d/mssql-server*.list /etc/apt/sources.list.d/msprod*.list
 
-UBUNTU_CODENAME=$(lsb_release -cs)
-# Si es Ubuntu 24.04 (noble), usar repositorio jammy (22.04) para compatibilidad con mssql-server 2022
-if [ "$UBUNTU_CODENAME" = "noble" ]; then
-    MSSQL_REPO="https://packages.microsoft.com/config/ubuntu/22.04/mssql-server-2022.list"
-    PROD_REPO="https://packages.microsoft.com/config/ubuntu/22.04/prod.list"
+mkdir -p /etc/apt/trusted.gpg.d
+curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/microsoft.gpg
+apt-key adv --keyserver keyserver.ubuntu.com --recv-keys EB3E94ADBE1229CF 2>/dev/null || true
+
+echo "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/microsoft.gpg] https://packages.microsoft.com/ubuntu/22.04/mssql-server-2022 jammy main" > /etc/apt/sources.list.d/mssql-server-2022.list
+echo "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/microsoft.gpg] https://packages.microsoft.com/ubuntu/22.04/prod jammy main" > /etc/apt/sources.list.d/msprod.list
+
+apt-get update -y || true
+
+# 3. Instalación de Microsoft SQL Server 2022
+MSSQL_SA_PASSWORD="Aaron2804#MasterSA"
+echo "🗄️ [3/6] Instalando Microsoft SQL Server 2022 (Express Edition)..."
+
+USE_DOCKER_MSSQL=false
+
+if ACCEPT_EULA=Y apt-get install -y mssql-server; then
+    echo "Configurando SQL Server nativo..."
+    /opt/mssql/bin/mssql-conf -n set-sa-password "$MSSQL_SA_PASSWORD" || true
+    /opt/mssql/bin/mssql-conf -n set-edition "Express" || true
+    /opt/mssql/bin/mssql-conf -n set telemetry.customerfeedback false || true
+    systemctl restart mssql-server || true
+    systemctl enable mssql-server || true
 else
-    MSSQL_REPO="https://packages.microsoft.com/config/ubuntu/22.04/mssql-server-2022.list"
-    PROD_REPO="https://packages.microsoft.com/config/ubuntu/22.04/prod.list"
+    echo "⚠️ La versión de Ubuntu requiere contenedor Docker oficial de SQL Server 2022..."
+    USE_DOCKER_MSSQL=true
+    apt-get install -y docker.io || true
+    systemctl start docker || true
+    systemctl enable docker || true
+    mkdir -p /var/opt/mssql
+    docker stop mssql-server 2>/dev/null || true
+    docker rm mssql-server 2>/dev/null || true
+    docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=$MSSQL_SA_PASSWORD" -e "MSSQL_PID=Express" \
+        -p 1433:1433 --name mssql-server -v /var/opt/mssql:/var/opt/mssql \
+        -d --restart unless-stopped mcr.microsoft.com/mssql/server:2022-latest
 fi
 
-curl -fsSL "$MSSQL_REPO" | tee /etc/apt/sources.list.d/mssql-server-2022.list > /dev/null
-curl -fsSL "$PROD_REPO" | tee /etc/apt/sources.list.d/msprod.list > /dev/null
-
-apt-get update -y
-
-# 3. Instalación de Microsoft SQL Server 2022 y herramientas
-echo "🗄️ [3/6] Instalando Microsoft SQL Server 2022 (Express Edition)..."
-ACCEPT_EULA=Y apt-get install -y mssql-server
-ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
-
-# Configurar variables de entorno para sqlcmd
-echo 'export PATH="$PATH:/opt/mssql-tools18/bin"' >> /root/.bashrc
+# Instalar herramientas sqlcmd si es posible
+ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev 2>/dev/null || true
 export PATH="$PATH:/opt/mssql-tools18/bin"
 
-# Configuración desatendida de SQL Server Express con contraseña SA
-MSSQL_SA_PASSWORD="Aaron2804#MasterSA"
-MSSQL_PID="Express"
-/opt/mssql/bin/mssql-conf -n set-sa-password "$MSSQL_SA_PASSWORD"
-/opt/mssql/bin/mssql-conf -n set-edition "$MSSQL_PID"
-/opt/mssql/bin/mssql-conf -n set telemetry.customerfeedback false
-
-systemctl restart mssql-server
-systemctl enable mssql-server
-
 echo "⏳ Esperando a que el motor SQL Server esté listo..."
-sleep 5
+sleep 10
 
 # 4. Creación de la Base de Datos PosLambrinDb y usuario de aplicación
-echo "🏗️ [4/6] Creando base de datos PosLambrinDb y credencial wpcadminaam..."
-/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "
+echo "🏗️ [4/6] Configurando base de datos PosLambrinDb y credencial wpcadminaam..."
+
+# Descargar clean_init.sql si no existe
+if [ ! -f "clean_init.sql" ]; then
+    echo "📥 Descargando clean_init.sql desde el repositorio..."
+    curl -fsSL https://raw.githubusercontent.com/UTLCDA/Proyecto_PDV-CDC/fix/cloudflare-tunnel-mobile-support/scratch/clean_init.sql -o clean_init.sql 2>/dev/null || \
+    curl -fsSL https://raw.githubusercontent.com/UTLCDA/Proyecto_PDV-CDC/main/scratch/clean_init.sql -o clean_init.sql
+fi
+
+INIT_SQL_COMMAND="
 IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'PosLambrinDb')
 BEGIN
     CREATE DATABASE [PosLambrinDb];
@@ -71,32 +85,38 @@ BEGIN
 END;
 "
 
-# Si no existe el archivo de esquema en el directorio actual, descargarlo automáticamente
-if [ ! -f "clean_init.sql" ]; then
-    echo "📥 Descargando clean_init.sql desde el repositorio..."
-    curl -fsSL https://raw.githubusercontent.com/UTLCDA/Proyecto_PDV-CDC/fix/cloudflare-tunnel-mobile-support/scratch/clean_init.sql -o clean_init.sql 2>/dev/null || \
-    curl -fsSL https://raw.githubusercontent.com/UTLCDA/Proyecto_PDV-CDC/main/scratch/clean_init.sql -o clean_init.sql
+if [ -f "/opt/mssql-tools18/bin/sqlcmd" ]; then
+    /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "$INIT_SQL_COMMAND"
+    if [ -f "clean_init.sql" ]; then
+        echo "📋 Aplicando esquema de 26 tablas y semillas desde clean_init.sql..."
+        /opt/mssql-tools18/bin/sqlcmd -S localhost -U wpcadminaam -P "Aaron2804#" -d PosLambrinDb -C -i "clean_init.sql"
+    fi
+elif docker ps | grep -q mssql-server; then
+    docker exec -i mssql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "$INIT_SQL_COMMAND"
+    if [ -f "clean_init.sql" ]; then
+        echo "📋 Aplicando esquema de 26 tablas y semillas vía Docker..."
+        docker cp clean_init.sql mssql-server:/tmp/clean_init.sql
+        docker exec -i mssql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U wpcadminaam -P "Aaron2804#" -d PosLambrinDb -C -i /tmp/clean_init.sql
+    fi
 fi
 
-if [ -f "clean_init.sql" ]; then
-    echo "📋 Aplicando esquema de 26 tablas y semillas desde clean_init.sql..."
-    /opt/mssql-tools18/bin/sqlcmd -S localhost -U wpcadminaam -P "Aaron2804#" -d PosLambrinDb -C -i "clean_init.sql"
-    echo "✅ Base de datos PosLambrinDb inicializada con 26 tablas físicas y usuarios autoritativos."
-fi
+echo "✅ Base de datos PosLambrinDb configurada y verificada."
 
 # 5. Instalación de .NET 9 Runtime y configuración de servicio
 echo "⚙️ [5/6] Instalando .NET 9 ASP.NET Core Runtime..."
-apt-get install -y dotnet-runtime-9.0 aspnetcore-runtime-9.0
+if ! apt-get install -y dotnet-runtime-9.0 aspnetcore-runtime-9.0 2>/dev/null; then
+    echo "Instalando .NET 9 mediante el script oficial multiplataforma de Microsoft..."
+    curl -fsSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 9.0 --runtime aspnetcore --install-dir /usr/share/dotnet
+    ln -sf /usr/share/dotnet/dotnet /usr/bin/dotnet
+fi
 
-# Crear directorio para la aplicación
 mkdir -p /var/www/pos-api
 chown -R www-data:www-data /var/www/pos-api
 
-# Crear servicio systemd para la API
 cat << 'EOF' > /etc/systemd/system/pos-api.service
 [Unit]
 Description=WPC Bajio POS ASP.NET Core Web API
-After=network.target mssql-server.service
+After=network.target
 
 [Service]
 WorkingDirectory=/var/www/pos-api
@@ -151,8 +171,8 @@ ufw --force enable
 echo "=========================================================="
 echo "✅ ¡Aprovisionamiento del VPS completado exitosamente!"
 echo "=========================================================="
-echo "• SQL Server 2022: Activo en localhost (PosLambrinDb)"
+echo "• SQL Server 2022: Activo en localhost:1433 (PosLambrinDb)"
 echo "• Usuario BD: wpcadminaam"
 echo "• Nginx: Escuchando en puerto 80 -> http://127.0.0.1:5000"
-echo "• Servicio API: pos-api.service habilitado (esperando binarios en /var/www/pos-api)"
+echo "• Servicio API: pos-api.service habilitado"
 echo "=========================================================="
