@@ -11,7 +11,7 @@ echo "🚀 Iniciando Aprovisionamiento de VPS para WPC Bajío..."
 echo "=========================================================="
 
 # 0. Limpieza preventiva de listas previas que pudieran causar error GPG
-rm -f /etc/apt/sources.list.d/mssql* /etc/apt/sources.list.d/msprod*
+rm -f /etc/apt/sources.list.d/*mssql* /etc/apt/sources.list.d/*msprod* /etc/apt/sources.list.d/*microsoft* /etc/apt/trusted.gpg.d/microsoft.gpg
 
 # 1. Actualización de paquetes base del sistema
 echo "📦 [1/5] Actualizando repositorios del sistema e instalando herramientas..."
