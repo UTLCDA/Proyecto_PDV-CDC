@@ -112,19 +112,25 @@
 }
 
 .pos-card-search {
+  display: flex;
+  gap: 0.5rem;
   margin: 0.75rem 0 0.25rem;
 }
 
+.pos-card-search select,
 .pos-card-search input {
-  width: 100%;
+  flex: 1;
+  width: 50%;
   padding: 0.55rem 0.8rem;
   border: 1px solid var(--border-input);
   border-radius: var(--radius-md);
   background: var(--background-surface);
   color: var(--text-main);
   font-size: 0.85rem;
+  box-sizing: border-box;
 }
 
+.pos-card-search select:focus,
 .pos-card-search input:focus {
   border-color: var(--primary-main);
   outline: none;

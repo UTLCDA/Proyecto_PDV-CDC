@@ -5,6 +5,20 @@ export interface Categoria {
   description: string;
   parentCategoryId?: string;
   subCategories: Categoria[];
+  isActive?: boolean;
+}
+
+export interface PeticionCrearCategoria {
+  name: string;
+  description: string;
+  parentCategoryId?: string | null;
+}
+
+export interface PeticionActualizarCategoria {
+  name: string;
+  description: string;
+  parentCategoryId?: string | null;
+  isActive: boolean;
 }
 
 export interface Producto {
@@ -68,6 +82,8 @@ export interface PeticionCrearProducto {
 }
 
 export interface PeticionActualizarProducto {
+  sku: string;
+  barcode: string;
   name: string;
   description: string;
   categoryId: string;

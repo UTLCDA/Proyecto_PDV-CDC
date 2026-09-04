@@ -40,9 +40,9 @@ export const InventoryListPage: React.FC = () => {
       { key: 'product', label: 'Producto / 产品', width: 1.8, value: stock => stock.productName },
       { key: 'category', label: 'Categoría / 类别', width: 1.1, value: stock => stock.categoryName },
       { key: 'location', label: 'Ubicación / 仓库位置', width: 1.4, value: stock => stock.location },
-      { key: 'stock', label: 'Existencias / 现货库存', type: 'number', width: 1, value: stock => stock.quantityOnHand },
-      { key: 'unit', label: 'Unidad / 单位', width: 0.7, value: stock => stock.unitOfMeasure },
-      { key: 'minimum', label: 'Mínimo / 最低预警', type: 'number', width: 0.9, value: stock => stock.minimumAlertThreshold },
+      { key: 'stock', label: 'Piezas / 现货件数', type: 'number', width: 1, value: stock => stock.quantityOnHand },
+      { key: 'unit', label: 'Unidad / 单位', width: 0.7, value: () => 'Piezas' },
+      { key: 'minimum', label: 'Mínimo (Piezas) / 最低预警', type: 'number', width: 0.9, value: stock => stock.minimumAlertThreshold },
       { key: 'reorder', label: 'Reorden Sugerido / 建议补货', type: 'number', width: 1.1, value: stock => stock.reorderQuantity },
       { key: 'status', label: 'Estado / 状态', width: 0.9, value: stock => stock.isOutOfStock ? t('outOfStock') : stock.isLowStock ? t('lowStockAlert') : t('stockOk') }
     ]
@@ -214,7 +214,7 @@ export const InventoryListPage: React.FC = () => {
                   <th style={{ padding: '0.75rem', width: '70px' }}>{t('productImage')}</th>
                   <th style={{ padding: '0.75rem' }}>SKU / {t('productCatalog')}</th>
                   <th style={{ padding: '0.75rem' }}>{t('location')}</th>
-                  <th style={{ padding: '0.75rem' }}>{t('stockOnHand')}</th>
+                  <th style={{ padding: '0.75rem' }}>Piezas</th>
                   <th style={{ padding: '0.75rem' }}>{t('minThreshold')}</th>
                   <th style={{ padding: '0.75rem' }}>{t('stockStatus')}</th>
                 </tr>
@@ -248,10 +248,10 @@ export const InventoryListPage: React.FC = () => {
                     </td>
                     <td style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>{s.location}</td>
                     <td style={{ padding: '0.75rem', fontWeight: 700, fontSize: '1rem' }}>
-                      {s.quantityOnHand} {s.unitOfMeasure}
+                      {s.quantityOnHand} Piezas
                     </td>
                     <td style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>
-                      {s.minimumAlertThreshold} {s.unitOfMeasure}
+                      {s.minimumAlertThreshold} Piezas
                     </td>
                     <td style={{ padding: '0.75rem' }}>
                       {s.isOutOfStock ? (
@@ -301,7 +301,7 @@ export const InventoryListPage: React.FC = () => {
                   return selectedStock ? (
                     <div className="inventory-current-stock" role="status">
                       <span>{t('currentStock')}</span>
-                      <strong>{selectedStock.quantityOnHand} {selectedStock.unitOfMeasure}</strong>
+                      <strong>{selectedStock.quantityOnHand} Piezas</strong>
                     </div>
                   ) : null;
                 })()}

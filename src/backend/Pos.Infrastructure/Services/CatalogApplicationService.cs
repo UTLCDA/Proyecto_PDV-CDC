@@ -30,7 +30,7 @@ public class CatalogApplicationService : ICatalogApplicationService
     {
         var categories = await _dbContext.Categories
             .Include(c => c.SubCategorias)
-            .Where(c => c.CategoriaPadreId == null)
+            .OrderBy(c => c.Nombre)
             .ToListAsync(cancellationToken);
 
         return categories.Select(MapCategoryToDto).ToList();
@@ -126,6 +126,37 @@ public class CatalogApplicationService : ICatalogApplicationService
         return MapCategoryToDto(category);
     }
 
+    public async Task DeleteCategoryAsync(Guid id, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default)
+    {
+        await EnsureActiveUserAsync(currentUserId, cancellationToken);
+        var category = await _dbContext.Categories.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+        if (category == null)
+        {
+            throw new KeyNotFoundException($"Categoría con ID '{id}' no encontrada.");
+        }
+
+        var oldValues = JsonSerializer.Serialize(new { category.Nombre, category.EstaActivo });
+        category.EstaActivo = !category.EstaActivo;
+        category.FechaActualizacionUtc = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogService.LogAsync(
+            correlationId,
+            currentUserId,
+            "CATEGORY_STATUS_TOGGLED",
+            "Categoria",
+            category.Id.ToString(),
+            oldValues,
+            JsonSerializer.Serialize(new { category.Nombre, category.EstaActivo }),
+            ipAddress,
+            $"Estado de categoría modificado: {category.Nombre} (Activo={category.EstaActivo})",
+            module: "Productos",
+            eventType: "CATEGORY_UPDATED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
+    }
+
     // Products & Full CRUD
     public async Task<List<ProductDto>> GetProductsAsync(string? search, Guid? categoryId, bool? isTopSellerOnly, CancellationToken cancellationToken = default)
     {
@@ -198,7 +229,7 @@ public class CatalogApplicationService : ICatalogApplicationService
         await EnsureActiveUserAsync(currentUserId, cancellationToken);
         var sku = NormalizeSku(request.Sku);
         var barcode = NormalizeBarcode(request.Barcode);
-        await EnsureUniqueProductCodesAsync(sku, barcode, cancellationToken);
+        await EnsureUniqueProductCodesAsync(sku, barcode, null, cancellationToken);
         await ValidateProductDetailsAsync(
             request.Name, request.Description, request.CategoryId, request.UnitPrice, request.WholesalePrice,
             request.WholesaleMinQuantity, request.UnitOfMeasure, request.CoveragePerUnitSqM, request.ImageUrl,
@@ -286,11 +317,17 @@ public class CatalogApplicationService : ICatalogApplicationService
             request.WholesaleMinQuantity, request.UnitOfMeasure, request.CoveragePerUnitSqM, request.ImageUrl,
             request.PiecesPerBox, request.LengthCm, request.HeightCm, request.WidthCm, null,
             request.WidthMm, request.LengthMm, request.ThicknessMm, request.Material, cancellationToken);
-        var oldValues = JsonSerializer.Serialize(new { product.Nombre, product.CategoriaId, product.PrecioUnitario, product.PrecioMayoreo, product.UnidadMedida, product.EstaActivo });
+        var sku = NormalizeSku(request.Sku);
+        var barcode = NormalizeBarcode(request.Barcode);
+        await EnsureUniqueProductCodesAsync(sku, barcode, id, cancellationToken);
+
+        var oldValues = JsonSerializer.Serialize(new { product.Sku, product.Barcode, product.Nombre, product.CategoriaId, product.PrecioUnitario, product.PrecioMayoreo, product.UnidadMedida, product.EstaActivo });
 
         var piezasCaja = request.PiecesPerBox;
         var coberturaCaja = Math.Round(piezasCaja * request.CoveragePerUnitSqM, 4);
 
+        product.Sku = sku;
+        product.Barcode = barcode;
         product.Nombre = request.Name.Trim();
         product.Descripcion = request.Description.Trim();
         product.CategoriaId = request.CategoryId;
@@ -530,7 +567,8 @@ public class CatalogApplicationService : ICatalogApplicationService
             c.Slug,
             c.Descripcion,
             c.CategoriaPadreId,
-            c.SubCategorias.Select(MapCategoryToDto).ToList()
+            c.SubCategorias?.Select(MapCategoryToDto).ToList() ?? new List<CategoryDto>(),
+            c.EstaActivo
         );
     }
 
@@ -642,13 +680,13 @@ public class CatalogApplicationService : ICatalogApplicationService
         }
     }
 
-    private async Task EnsureUniqueProductCodesAsync(string sku, string barcode, CancellationToken cancellationToken)
+    private async Task EnsureUniqueProductCodesAsync(string sku, string barcode, Guid? excludedId, CancellationToken cancellationToken)
     {
-        if (await _dbContext.Products.AnyAsync(product => product.Sku.ToUpper() == sku, cancellationToken))
+        if (await _dbContext.Products.AnyAsync(product => product.Id != excludedId && product.Sku.ToUpper() == sku, cancellationToken))
         {
             throw new InvalidOperationException($"Ya existe un producto con el SKU '{sku}'.");
         }
-        if (await _dbContext.Products.AnyAsync(product => product.Barcode.ToUpper() == barcode.ToUpper(), cancellationToken))
+        if (await _dbContext.Products.AnyAsync(product => product.Id != excludedId && product.Barcode.ToUpper() == barcode.ToUpper(), cancellationToken))
         {
             throw new InvalidOperationException($"Ya existe un producto con el código de barras '{barcode}'.");
         }
@@ -696,11 +734,7 @@ public class CatalogApplicationService : ICatalogApplicationService
 
     private static string NormalizeSku(string value)
     {
-        var sku = NormalizeText(value, "El SKU", 64, required: true).Trim().Replace(' ', '-').ToUpperInvariant();
-        if (!Regex.IsMatch(sku, "^[A-Z0-9._-]{2,64}$"))
-        {
-            throw new ArgumentException("El SKU debe contener al menos 2 caracteres (letras, números, punto, guion o guion bajo).");
-        }
+        var sku = NormalizeText(value, "El SKU", 64, required: true).Trim().ToUpperInvariant();
         return sku;
     }
 

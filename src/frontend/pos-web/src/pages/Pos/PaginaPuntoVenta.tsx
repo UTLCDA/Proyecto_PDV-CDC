@@ -5,7 +5,7 @@ import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import { cashShiftService } from '../../services/cashShiftService';
 import { servicioCatalogo } from '../../services/servicioCatalogo';
 import { ElementoCarrito, servicioVentas } from '../../services/servicioVentas';
-import { Cliente, Producto } from '../../types/tiposCatalogo';
+import { Cliente, Producto, Categoria } from '../../types/tiposCatalogo';
 import { ResumenVentas, Venta } from '../../types/tiposVentas';
 import SaleReceiptModal from '../Sales/SaleReceiptModal';
 import './PaginaPuntoVenta.css';
@@ -30,6 +30,9 @@ export const PaginaPuntoVenta: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [manualCode, setManualCode] = useState('');
   const [cardSearch, setCardSearch] = useState('');
+  const [categories, setCategories] = useState<Categoria[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [productDetailModal, setProductDetailModal] = useState<Producto | null>(null);
   const [receipt, setReceipt] = useState<Venta | null>(null);
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
   const [isNewCustomerModalOpen, setIsNewCustomerModalOpen] = useState(false);
@@ -58,15 +61,19 @@ export const PaginaPuntoVenta: React.FC = () => {
   const money = useMemo(() => new Intl.NumberFormat(locale, { style: 'currency', currency: 'MXN' }), [locale]);
 
   const filteredProducts = useMemo(() => {
-    if (!cardSearch.trim()) return products;
+    let list = products;
+    if (selectedCategoryId) {
+      list = list.filter(p => p.categoryId === selectedCategoryId);
+    }
+    if (!cardSearch.trim()) return list;
     const term = cardSearch.trim().toLowerCase();
-    return products.filter(p =>
+    return list.filter(p =>
       p.name.toLowerCase().includes(term) ||
       p.sku.toLowerCase().includes(term) ||
       p.barcode.toLowerCase().includes(term) ||
       (p.material && p.material.toLowerCase().includes(term))
     );
-  }, [products, cardSearch]);
+  }, [products, selectedCategoryId, cardSearch]);
 
   const loadData = async () => {
     try {
@@ -79,15 +86,17 @@ export const PaginaPuntoVenta: React.FC = () => {
       const startDateIso = `${year}-${month}-${day}T00:00:00.000Z`;
       const endDateIso = `${year}-${month}-${day}T23:59:59.999Z`;
 
-      const [catalog, customerDirectory, summary, currentShift] = await Promise.all([
+      const [catalog, customerDirectory, summary, currentShift, categoryList] = await Promise.all([
         servicioCatalogo.getProducts(),
         servicioCatalogo.getCustomers(),
         servicioVentas.getSalesSummary(undefined, undefined, undefined, startDateIso, endDateIso),
-        cashShiftService.getCurrentShift().catch(() => null)
+        cashShiftService.getCurrentShift().catch(() => null),
+        servicioCatalogo.getCategories().catch(() => [])
       ]);
       setProducts(catalog.filter(product => product.isActive));
       setCustomers(customerDirectory);
       setSalesSummary(summary);
+      setCategories((categoryList || []).filter(c => c.isActive !== false));
       const isShiftOpen = Boolean(currentShift && currentShift.status === 'Abierto');
       setHasOpenShift(isShiftOpen);
       if (!isShiftOpen) {
@@ -104,6 +113,19 @@ export const PaginaPuntoVenta: React.FC = () => {
   useEffect(() => {
     void loadData();
   }, []);
+
+  useEffect(() => {
+    if (!productDetailModal && !isNewCustomerModalOpen && !isCalculatorModalOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setProductDetailModal(null);
+        setIsNewCustomerModalOpen(false);
+        setIsCalculatorModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [productDetailModal, isNewCustomerModalOpen, isCalculatorModalOpen]);
 
   useBarcodeScanner({ onScan: scannedCode => findAndAddProduct(scannedCode) });
 
@@ -340,6 +362,16 @@ export const PaginaPuntoVenta: React.FC = () => {
         </div>
 
         <div className="pos-card-search">
+          <select
+            value={selectedCategoryId}
+            onChange={e => setSelectedCategoryId(e.target.value)}
+            aria-label="Filtrar por categoría"
+          >
+            <option value="">📂 Todas las categorías</option>
+            {categories.map(cat => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+          </select>
           <input
             type="search"
             value={cardSearch}
@@ -356,7 +388,12 @@ export const PaginaPuntoVenta: React.FC = () => {
 
             return (
               <div key={product.id} className={`pos-product ${unavailable ? 'pos-product--unavailable' : ''}`}>
-                <div className="pos-product__main" onClick={() => addProductToCart(product, 1)}>
+                <div
+                  className="pos-product__main"
+                  onClick={() => setProductDetailModal(product)}
+                  title="Clic para ver detalle completo del producto"
+                  style={{ cursor: 'pointer' }}
+                >
                   {product.imageUrl ? <img src={product.imageUrl} alt={product.name} /> : <span className="pos-product__placeholder">📷</span>}
                   <span className="pos-product__details">
                     <small>{product.sku}</small>
@@ -668,6 +705,178 @@ export const PaginaPuntoVenta: React.FC = () => {
               )}
             </div>
           </form>
+        </div>
+      </div>
+    )}
+    {productDetailModal && (
+      <div
+        className="pos-receipt-backdrop"
+        role="dialog"
+        aria-modal="true"
+        onMouseDown={e => e.target === e.currentTarget && setProductDetailModal(null)}
+      >
+        <div
+          className="pos-customer-modal"
+          style={{
+            width: 'min(620px, 96%)',
+            maxHeight: '92vh',
+            overflowY: 'auto',
+            padding: '1.5rem',
+            fontFamily: 'inherit'
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.85rem', gap: '1rem' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
+                <span className="badge badge-info" style={{ fontSize: '0.75rem' }}>
+                  {productDetailModal.categoryName || 'WPC Lambrín'}
+                </span>
+                <span style={{ fontSize: '0.85rem', fontFamily: 'monospace', color: 'var(--primary-main)', fontWeight: 700 }}>
+                  SKU: {productDetailModal.sku}
+                </span>
+                {productDetailModal.barcode && (
+                  <span style={{ fontSize: '0.8rem', fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+                    • Cód: {productDetailModal.barcode}
+                  </span>
+                )}
+              </div>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-main)', lineHeight: 1.35, wordBreak: 'break-word' }}>
+                {productDetailModal.name}
+              </h3>
+            </div>
+            <button
+              type="button"
+              className="pos-receipt-close"
+              style={{ width: '32px', height: '32px', minWidth: '32px', padding: 0, display: 'grid', placeItems: 'center', borderRadius: '50%', cursor: 'pointer', fontSize: '1.1rem' }}
+              onClick={() => setProductDetailModal(null)}
+              aria-label="Cerrar modal"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: '1.25rem', marginTop: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            {productDetailModal.imageUrl ? (
+              <img
+                src={productDetailModal.imageUrl}
+                alt={productDetailModal.name}
+                style={{ width: '140px', height: '140px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-subtle)', background: '#fff', flexShrink: 0 }}
+              />
+            ) : (
+              <div style={{ width: '140px', height: '140px', display: 'grid', placeItems: 'center', background: 'var(--background-container)', borderRadius: '8px', fontSize: '2.5rem', flexShrink: 0 }}>
+                📷
+              </div>
+            )}
+
+            <div style={{ flex: 1, minWidth: '240px', display: 'grid', gap: '0.45rem', fontSize: '0.85rem' }}>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Material: </span>
+                <strong style={{ color: 'var(--text-main)' }}>{productDetailModal.material || 'WPC Madera Plástica'}</strong>
+              </div>
+              {productDetailModal.color && (
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Color / Acabado: </span>
+                  <strong style={{ color: 'var(--text-main)' }}>{productDetailModal.color}</strong>
+                </div>
+              )}
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Dimensiones: </span>
+                <strong style={{ color: 'var(--text-main)' }}>
+                  {productDetailModal.widthCm || (productDetailModal.widthMm ? productDetailModal.widthMm / 10 : 0)} × {productDetailModal.lengthCm || (productDetailModal.lengthMm ? productDetailModal.lengthMm / 10 : 0)} cm
+                </strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Cobertura por Pieza: </span>
+                <strong style={{ color: 'var(--text-main)' }}>{productDetailModal.coveragePerUnitSqM} m²</strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Presentación / Caja: </span>
+                <strong style={{ color: 'var(--text-main)' }}>{productDetailModal.piecesPerBox || 1} piezas</strong>
+                {productDetailModal.boxCoverageSqM ? <span> ({productDetailModal.boxCoverageSqM} m² / caja)</span> : null}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginTop: '1rem', padding: '0.85rem', background: 'var(--background-container)', borderRadius: '8px' }}>
+            <div>
+              <small style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.72rem' }}>Precio Menudeo</small>
+              <strong style={{ fontSize: '1.25rem', color: 'var(--primary-main)' }}>{money.format(productDetailModal.unitPrice)}</strong>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}> / Pza</span>
+            </div>
+            <div>
+              <small style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.72rem' }}>Precio Mayoreo</small>
+              {productDetailModal.wholesalePrice > 0 ? (
+                <>
+                  <strong style={{ fontSize: '1.25rem', color: 'var(--success)' }}>{money.format(productDetailModal.wholesalePrice)}</strong>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}> (Min. {productDetailModal.wholesaleMinQuantity} pzas)</span>
+                </>
+              ) : (
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No aplica mayoreo</span>
+              )}
+            </div>
+          </div>
+
+          <div style={{
+            marginTop: '0.85rem',
+            padding: '0.75rem 1rem',
+            background: productDetailModal.availableQuantity > 0 ? 'var(--success-surface)' : 'var(--danger-surface)',
+            border: `1px solid ${productDetailModal.availableQuantity > 0 ? 'var(--success-border)' : 'var(--danger-border)'}`,
+            borderRadius: '8px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span style={{ fontWeight: 700, color: productDetailModal.availableQuantity > 0 ? 'var(--success)' : 'var(--danger)', fontSize: '0.9rem' }}>
+              {productDetailModal.availableQuantity > 0 ? '🟢 Existencias Disponibles:' : '🔴 Agotado / Sin Existencias'}
+            </span>
+            <strong style={{ fontSize: '1.1rem', color: productDetailModal.availableQuantity > 0 ? 'var(--success)' : 'var(--danger)' }}>
+              {productDetailModal.availableQuantity} Piezas ({Math.floor(productDetailModal.availableQuantity / ((productDetailModal.piecesPerBox && productDetailModal.piecesPerBox > 0) ? productDetailModal.piecesPerBox : 1))} Cajas)
+            </strong>
+          </div>
+
+          {productDetailModal.description && (
+            <div style={{ marginTop: '0.85rem', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.45, background: 'var(--background-cream)', padding: '0.6rem 0.75rem', borderRadius: '6px' }}>
+              <strong>Descripción:</strong> {productDetailModal.description}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '0.65rem', marginTop: '1.25rem' }}>
+            <button
+              type="button"
+              className="pos-receipt-close"
+              style={{ flex: 1, padding: '0.6rem 1rem' }}
+              onClick={() => setProductDetailModal(null)}
+            >
+              Cerrar
+            </button>
+            <button
+              type="button"
+              className="action-btn"
+              disabled={productDetailModal.availableQuantity <= 0 || productDetailModal.isQuoteOnly}
+              style={{ flex: 1.2, padding: '0.6rem 1rem' }}
+              onClick={() => {
+                addProductToCart(productDetailModal, 1);
+                setProductDetailModal(null);
+              }}
+            >
+              ➕ 1 Pieza ({money.format(productDetailModal.unitPrice)})
+            </button>
+            <button
+              type="button"
+              className="action-btn"
+              disabled={productDetailModal.availableQuantity <= 0 || productDetailModal.isQuoteOnly}
+              style={{ flex: 1.3, padding: '0.6rem 1rem' }}
+              onClick={() => {
+                const ppb = productDetailModal.piecesPerBox || 1;
+                addProductToCart(productDetailModal, ppb);
+                setProductDetailModal(null);
+              }}
+            >
+              📦 1 Caja ({productDetailModal.piecesPerBox || 1} pzas)
+            </button>
+          </div>
         </div>
       </div>
     )}

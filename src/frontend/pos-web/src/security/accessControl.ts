@@ -9,6 +9,7 @@ export type AppTab =
   | 'returns'
   | 'contracts'
   | 'catalog'
+  | 'categories'
   | 'inventory'
   | 'inventory-movements'
   | 'customers'
@@ -62,6 +63,12 @@ const tabPermissions: Record<Exclude<AppTab, 'profile'>, readonly string[]> = {
     permissionCodes.catalogProductsCreate,
     permissionCodes.catalogProductsEdit,
     permissionCodes.catalogCategoriesCreate
+  ],
+  categories: [
+    permissionCodes.catalogCategoriesCreate,
+    permissionCodes.catalogProductsCreate,
+    permissionCodes.catalogProductsEdit,
+    permissionCodes.usersAdminister
   ],
   inventory: [permissionCodes.inventoryView],
   'inventory-movements': [permissionCodes.inventoryMovements],

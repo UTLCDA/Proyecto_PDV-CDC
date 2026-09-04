@@ -9,6 +9,7 @@ import ReportsDashboardPage from './pages/Reports/ReportsDashboardPage';
 import QuoteListPage from './pages/Quotes/QuoteListPage';
 import CommercialOpsPage from './pages/Commercial/CommercialOpsPage';
 import ProductListPage from './pages/Products/ProductListPage';
+import CategoryListPage from './pages/Categories/CategoryListPage';
 import CustomerListPage from './pages/Customers/CustomerListPage';
 import InventoryListPage from './pages/Inventory/InventoryListPage';
 import InventoryMovementsPage from './pages/Inventory/InventoryMovementsPage';
@@ -152,6 +153,14 @@ const MainLayout: React.FC = () => {
                 📦 {t('navCatalog')}
               </button>
               )}
+              {canOpenTab('categories') && (
+              <button
+                className={`lang-btn ${currentTab === 'categories' ? 'is-active' : ''}`}
+                onClick={() => setActiveTab('categories')}
+              >
+                📁 {t('navCategories')}
+              </button>
+              )}
               {canOpenTab('inventory') && (
               <button
                 className={`lang-btn ${currentTab === 'inventory' ? 'is-active' : ''}`}
@@ -244,6 +253,7 @@ const MainLayout: React.FC = () => {
             {currentTab === 'returns' && <CommercialOpsPage mode="returns" />}
             {currentTab === 'contracts' && <CommercialOpsPage mode="contracts" />}
             {currentTab === 'catalog' && <ProductListPage />}
+            {currentTab === 'categories' && <CategoryListPage />}
             {currentTab === 'inventory' && <InventoryListPage />}
             {currentTab === 'inventory-movements' && <InventoryMovementsPage />}
             {currentTab === 'customers' && <CustomerListPage />}

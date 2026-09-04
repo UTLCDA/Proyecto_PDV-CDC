@@ -3,6 +3,8 @@ import {
   Producto,
   Categoria,
   Cliente,
+  PeticionCrearCategoria,
+  PeticionActualizarCategoria,
   PeticionCrearProducto,
   PeticionActualizarProducto,
   PeticionCrearCliente,
@@ -17,9 +19,18 @@ export const servicioCatalogo = {
     return response.data;
   },
 
-  createCategory: async (data: { name: string; description: string; parentCategoryId?: string }): Promise<Categoria> => {
+  createCategory: async (data: PeticionCrearCategoria): Promise<Categoria> => {
     const response = await api.post<Categoria>('/categories', data);
     return response.data;
+  },
+
+  updateCategory: async (id: string, data: PeticionActualizarCategoria): Promise<Categoria> => {
+    const response = await api.put<Categoria>(`/categories/${id}`, data);
+    return response.data;
+  },
+
+  deleteCategory: async (id: string): Promise<void> => {
+    await api.request(`/categories/${id}`, { method: 'DELETE' });
   },
 
   // Products

@@ -6,7 +6,8 @@ public record CategoryDto(
     string Slug,
     string Description,
     Guid? ParentCategoryId,
-    List<CategoryDto> SubCategories
+    List<CategoryDto> SubCategories,
+    bool IsActive = true
 );
 
 public record CreateCategoryDto(
@@ -83,6 +84,8 @@ public record CreateProductDto(
 );
 
 public record UpdateProductDto(
+    string Sku,
+    string Barcode,
     string Name,
     string Description,
     Guid CategoryId,

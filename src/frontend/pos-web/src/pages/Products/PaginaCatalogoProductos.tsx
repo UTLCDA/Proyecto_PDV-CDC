@@ -180,10 +180,9 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setModalProductoAbierto(true);
   };
 
-  // Manejo de SKU Libre Captura con Conversión Automática de Espacios a Guiones (-)
+  // Manejo de SKU Libre Captura
   const handleSkuChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const valueWithHyphens = e.target.value.replace(/\s+/g, '-').toUpperCase();
-    setSku(valueWithHyphens);
+    setSku(e.target.value);
   };
 
   // Manejo de Generación Dinámica de Código de Barras e Imagen Base64 Local
@@ -268,6 +267,8 @@ export const PaginaCatalogoProductos: React.FC = () => {
       const isBoxUnit = unidadMedida === 'Caja';
       if (esEdicion && productoEdicionId) {
         await servicioCatalogo.updateProduct(productoEdicionId, {
+          sku: sku.trim(),
+          barcode: codigoBarras.trim(),
           name: nombre,
           description: descripcion,
           categoryId: categoriaId,
@@ -542,7 +543,6 @@ export const PaginaCatalogoProductos: React.FC = () => {
                       value={sku}
                       onChange={handleSkuChange}
                       placeholder="Ej. WPC-INT-TEKA-01"
-                      disabled={esEdicion}
                       style={{ width: '100%', boxSizing: 'border-box' }}
                     />
                   </div>
