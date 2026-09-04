@@ -26,12 +26,27 @@ systemctl enable docker || true
 MSSQL_SA_PASSWORD="Aaron2804#MasterSA"
 echo "🗄️ [2/5] Desplegando Microsoft SQL Server 2022 (Express Edition)..."
 
+# Asegurar memoria swap si el servidor tiene poca RAM libre
+if [ $(free -m | awk '/^Swap:/{print $2}') -eq 0 ]; then
+    echo "💾 Creando archivo swap de 2GB para garantizar memoria a SQL Server..."
+    fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile || true
+    echo '/swapfile none swap sw 0 0' >> /etc/fstab 2>/dev/null || true
+fi
+
 systemctl stop mssql-server 2>/dev/null || true
 systemctl disable mssql-server 2>/dev/null || true
 pkill -f sqlservr 2>/dev/null || true
-mkdir -p /var/opt/mssql
+
+# Limpiar archivos corruptos del intento anterior y dar permisos al usuario mssql (UID 10001)
 docker stop mssql-server 2>/dev/null || true
-docker rm mssql-server 2>/dev/null || true
+docker rm -f mssql-server 2>/dev/null || true
+rm -rf /var/opt/mssql
+mkdir -p /var/opt/mssql/data /var/opt/mssql/log /var/opt/mssql/secrets
+chown -R 10001:0 /var/opt/mssql
+chmod -R 777 /var/opt/mssql
 
 docker run -e "ACCEPT_EULA=Y" \
            -e "MSSQL_SA_PASSWORD=$MSSQL_SA_PASSWORD" \
@@ -42,13 +57,13 @@ docker run -e "ACCEPT_EULA=Y" \
            -d --restart unless-stopped \
            mcr.microsoft.com/mssql/server:2022-latest
 
-echo "⏳ Esperando a que el motor SQL Server esté listo para recibir conexiones..."
-for i in {1..30}; do
+echo "⏳ Esperando a que el motor SQL Server inicialice sus bases de datos..."
+for i in {1..35}; do
     if docker exec mssql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" >/dev/null 2>&1; then
-        echo "✅ Motor SQL Server conectado exitosamente."
+        echo "✅ Motor SQL Server conectado y listo para operar."
         break
     fi
-    sleep 2
+    sleep 3
 done
 
 # 3. Creación de la Base de Datos PosLambrinDb y usuario de aplicación
