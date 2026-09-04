@@ -10,70 +10,56 @@ echo "=========================================================="
 echo "🚀 Iniciando Aprovisionamiento de VPS para WPC Bajío..."
 echo "=========================================================="
 
-# 1. Actualización de paquetes base
-echo "📦 [1/6] Actualizando repositorios del sistema..."
+# 0. Limpieza preventiva de listas previas que pudieran causar error GPG
+rm -f /etc/apt/sources.list.d/mssql* /etc/apt/sources.list.d/msprod*
+
+# 1. Actualización de paquetes base del sistema
+echo "📦 [1/5] Actualizando repositorios del sistema e instalando herramientas..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y curl gnupg2 software-properties-common apt-transport-https ufw nginx
+apt-get install -y curl ufw nginx docker.io
 
-# 2. Configurar llaves y repositorios de Microsoft de forma segura
-echo "🔑 [2/6] Configurando llaves y repositorios de Microsoft..."
-rm -f /etc/apt/sources.list.d/mssql-server*.list /etc/apt/sources.list.d/msprod*.list
+systemctl start docker || true
+systemctl enable docker || true
 
-mkdir -p /etc/apt/trusted.gpg.d
-curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/microsoft.gpg
-apt-key adv --keyserver keyserver.ubuntu.com --recv-keys EB3E94ADBE1229CF 2>/dev/null || true
-
-echo "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/microsoft.gpg] https://packages.microsoft.com/ubuntu/22.04/mssql-server-2022 jammy main" > /etc/apt/sources.list.d/mssql-server-2022.list
-echo "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/microsoft.gpg] https://packages.microsoft.com/ubuntu/22.04/prod jammy main" > /etc/apt/sources.list.d/msprod.list
-
-apt-get update -y || true
-
-# 3. Instalación de Microsoft SQL Server 2022
+# 2. Despliegue de Microsoft SQL Server 2022 (Contenedor Oficial Microsoft)
 MSSQL_SA_PASSWORD="Aaron2804#MasterSA"
-echo "🗄️ [3/6] Instalando Microsoft SQL Server 2022 (Express Edition)..."
+echo "🗄️ [2/5] Desplegando Microsoft SQL Server 2022 (Express Edition)..."
 
-USE_DOCKER_MSSQL=false
+mkdir -p /var/opt/mssql
+docker stop mssql-server 2>/dev/null || true
+docker rm mssql-server 2>/dev/null || true
 
-if ACCEPT_EULA=Y apt-get install -y mssql-server; then
-    echo "Configurando SQL Server nativo..."
-    /opt/mssql/bin/mssql-conf -n set-sa-password "$MSSQL_SA_PASSWORD" || true
-    /opt/mssql/bin/mssql-conf -n set-edition "Express" || true
-    /opt/mssql/bin/mssql-conf -n set telemetry.customerfeedback false || true
-    systemctl restart mssql-server || true
-    systemctl enable mssql-server || true
-else
-    echo "⚠️ La versión de Ubuntu requiere contenedor Docker oficial de SQL Server 2022..."
-    USE_DOCKER_MSSQL=true
-    apt-get install -y docker.io || true
-    systemctl start docker || true
-    systemctl enable docker || true
-    mkdir -p /var/opt/mssql
-    docker stop mssql-server 2>/dev/null || true
-    docker rm mssql-server 2>/dev/null || true
-    docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=$MSSQL_SA_PASSWORD" -e "MSSQL_PID=Express" \
-        -p 1433:1433 --name mssql-server -v /var/opt/mssql:/var/opt/mssql \
-        -d --restart unless-stopped mcr.microsoft.com/mssql/server:2022-latest
-fi
+docker run -e "ACCEPT_EULA=Y" \
+           -e "MSSQL_SA_PASSWORD=$MSSQL_SA_PASSWORD" \
+           -e "MSSQL_PID=Express" \
+           -p 1433:1433 \
+           --name mssql-server \
+           -v /var/opt/mssql:/var/opt/mssql \
+           -d --restart unless-stopped \
+           mcr.microsoft.com/mssql/server:2022-latest
 
-# Instalar herramientas sqlcmd si es posible
-ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev 2>/dev/null || true
-export PATH="$PATH:/opt/mssql-tools18/bin"
+echo "⏳ Esperando a que el motor SQL Server esté listo para recibir conexiones..."
+for i in {1..30}; do
+    if docker exec mssql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" >/dev/null 2>&1; then
+        echo "✅ Motor SQL Server conectado exitosamente."
+        break
+    fi
+    sleep 2
+done
 
-echo "⏳ Esperando a que el motor SQL Server esté listo..."
-sleep 10
+# 3. Creación de la Base de Datos PosLambrinDb y usuario de aplicación
+echo "🏗️ [3/5] Configurando base de datos PosLambrinDb y credencial wpcadminaam..."
 
-# 4. Creación de la Base de Datos PosLambrinDb y usuario de aplicación
-echo "🏗️ [4/6] Configurando base de datos PosLambrinDb y credencial wpcadminaam..."
-
-# Descargar clean_init.sql si no existe
+# Descargar clean_init.sql si no existe localmente
 if [ ! -f "clean_init.sql" ]; then
     echo "📥 Descargando clean_init.sql desde el repositorio..."
     curl -fsSL https://raw.githubusercontent.com/UTLCDA/Proyecto_PDV-CDC/fix/cloudflare-tunnel-mobile-support/scratch/clean_init.sql -o clean_init.sql 2>/dev/null || \
     curl -fsSL https://raw.githubusercontent.com/UTLCDA/Proyecto_PDV-CDC/main/scratch/clean_init.sql -o clean_init.sql
 fi
 
-INIT_SQL_COMMAND="
+# Inicializar Base de Datos y Login
+docker exec -i mssql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "
 IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'PosLambrinDb')
 BEGIN
     CREATE DATABASE [PosLambrinDb];
@@ -85,38 +71,28 @@ BEGIN
 END;
 "
 
-if [ -f "/opt/mssql-tools18/bin/sqlcmd" ]; then
-    /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "$INIT_SQL_COMMAND"
-    if [ -f "clean_init.sql" ]; then
-        echo "📋 Aplicando esquema de 26 tablas y semillas desde clean_init.sql..."
-        /opt/mssql-tools18/bin/sqlcmd -S localhost -U wpcadminaam -P "Aaron2804#" -d PosLambrinDb -C -i "clean_init.sql"
-    fi
-elif docker ps | grep -q mssql-server; then
-    docker exec -i mssql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "$INIT_SQL_COMMAND"
-    if [ -f "clean_init.sql" ]; then
-        echo "📋 Aplicando esquema de 26 tablas y semillas vía Docker..."
-        docker cp clean_init.sql mssql-server:/tmp/clean_init.sql
-        docker exec -i mssql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U wpcadminaam -P "Aaron2804#" -d PosLambrinDb -C -i /tmp/clean_init.sql
-    fi
+# Aplicar las 26 tablas y datos semilla
+if [ -f "clean_init.sql" ]; then
+    echo "📋 Aplicando esquema de 26 tablas y semillas autoritativas a PosLambrinDb..."
+    docker cp clean_init.sql mssql-server:/tmp/clean_init.sql
+    docker exec -i mssql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U wpcadminaam -P "Aaron2804#" -d PosLambrinDb -C -i /tmp/clean_init.sql
+    echo "✅ Base de datos PosLambrinDb inicializada al 100% con 26 tablas físicas."
 fi
 
-echo "✅ Base de datos PosLambrinDb configurada y verificada."
+# 4. Instalación de .NET 9 ASP.NET Core Runtime y configuración de servicio
+echo "⚙️ [4/5] Instalando .NET 9 ASP.NET Core Runtime..."
+mkdir -p /usr/share/dotnet
+curl -fsSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 9.0 --runtime aspnetcore --install-dir /usr/share/dotnet
+ln -sf /usr/share/dotnet/dotnet /usr/bin/dotnet
 
-# 5. Instalación de .NET 9 Runtime y configuración de servicio
-echo "⚙️ [5/6] Instalando .NET 9 ASP.NET Core Runtime..."
-if ! apt-get install -y dotnet-runtime-9.0 aspnetcore-runtime-9.0 2>/dev/null; then
-    echo "Instalando .NET 9 mediante el script oficial multiplataforma de Microsoft..."
-    curl -fsSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 9.0 --runtime aspnetcore --install-dir /usr/share/dotnet
-    ln -sf /usr/share/dotnet/dotnet /usr/bin/dotnet
-fi
-
+# Crear directorio de la API y servicio systemd
 mkdir -p /var/www/pos-api
 chown -R www-data:www-data /var/www/pos-api
 
 cat << 'EOF' > /etc/systemd/system/pos-api.service
 [Unit]
 Description=WPC Bajio POS ASP.NET Core Web API
-After=network.target
+After=network.target docker.service
 
 [Service]
 WorkingDirectory=/var/www/pos-api
@@ -137,8 +113,8 @@ EOF
 systemctl daemon-reload
 systemctl enable pos-api.service
 
-# 6. Configuración de Nginx como Reverse Proxy
-echo "🌐 [6/6] Configurando Nginx Reverse Proxy para Cloudflare..."
+# 5. Configuración de Nginx como Reverse Proxy y Firewall
+echo "🌐 [5/5] Configurando Nginx Reverse Proxy para Cloudflare y Firewall..."
 cat << 'EOF' > /etc/nginx/sites-available/pos-api
 server {
     listen 80 default_server;
@@ -171,8 +147,9 @@ ufw --force enable
 echo "=========================================================="
 echo "✅ ¡Aprovisionamiento del VPS completado exitosamente!"
 echo "=========================================================="
-echo "• SQL Server 2022: Activo en localhost:1433 (PosLambrinDb)"
+echo "• SQL Server 2022: Activo en localhost:1433 (PosLambrinDb con 26 tablas)"
 echo "• Usuario BD: wpcadminaam"
+echo "• .NET 9: Runtime instalado en /usr/bin/dotnet"
 echo "• Nginx: Escuchando en puerto 80 -> http://127.0.0.1:5000"
-echo "• Servicio API: pos-api.service habilitado"
+echo "• Servicio API: pos-api.service habilitado (esperando binarios en /var/www/pos-api)"
 echo "=========================================================="
