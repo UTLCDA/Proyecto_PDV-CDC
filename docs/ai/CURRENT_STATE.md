@@ -1,8 +1,18 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
-## 🟢 ESTADO ACTUAL (28 de Agosto, 2026)
+## 🟢 ESTADO ACTUAL (4 de Septiembre, 2026)
 
-- **Instalación y Despliegue en IIS y SQL Server**: **COMPLETADO AL 100%**
+- **Infraestructura Cloud VPS (Ubuntu 26.04 LTS - 193.46.198.88)**: **APROVISIONADO AL 100%**
+  - **Motor de Base de Datos**: Microsoft SQL Server 2022 Express en contenedor Docker oficial (`mcr.microsoft.com/mssql/server:2022-latest`), con almacenamiento persistente en `/var/opt/mssql`, política de reinicio `unless-stopped` y swap de 2GB para garantizar estabilidad de memoria.
+  - **Base de Datos Unificada**: `PosLambrinDb` creada con 26 tablas físicas autoritativas, migraciones y semillas iniciales (Roles Admin/Cajero, 27 permisos, usuario administrador y cliente público general) aplicadas mediante `clean_init.sql`.
+  - **Credencial de BD**: Usuario `wpcadminaam` con permisos `db_owner` y autenticación SQL Server activa en `localhost:1433`.
+  - **Runtime .NET**: .NET 9 ASP.NET Core Runtime (v9.0.19) instalado en `/usr/share/dotnet` y symlink en `/usr/bin/dotnet`.
+  - **Reverse Proxy Nginx**: Configurado en puerto 80 con reenvío de headers (`Host`, `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`) hacia `http://127.0.0.1:5000` con `client_max_body_size 50M`.
+  - **Servicio Systemd**: `pos-api.service` configurado y habilitado en inicio del sistema para ejecutar la API en `/var/www/pos-api`.
+  - **Seguridad y Firewall (UFW)**: Puertos 22 (SSH), 80 (HTTP) y 443 (HTTPS) habilitados; puerto 1433 de SQL Server aislado internamente en localhost para máxima seguridad.
+  - **Binarios de API Release**: Generados en `dist_vps_api` y empaquetados en `dist_vps_api.tar.gz` (7.2 MB) listos para transferir al VPS.
+
+- **Instalación y Despliegue Local en IIS y SQL Server**: **COMPLETADO AL 100%**
   - **Base de Datos Física**: SQL Server `PosLambrinDb` montada limpia y verificada con Autenticación por Usuario.
     - **Servidor**: `.` (o `localhost`)
     - **Autenticación**: SQL Server Authentication

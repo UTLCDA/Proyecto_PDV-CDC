@@ -1,4 +1,12 @@
-# HANDOFF — Resumen de Transferencia y Estado de Entrega (v2.2.1 HotFix)
+# HANDOFF — Resumen de Transferencia y Estado de Entrega (v2.4.2 VPS Cloud)
+
+## 📌 Milestone: Aprovisionamiento de VPS Cloud (Ubuntu 26.04 - 193.46.198.88)
+- **Base de Datos Central Unificada**: Desplegada en SQL Server 2022 Express vía Docker (`mssql-server`) con persistencia en `/var/opt/mssql`, 26 tablas físicas y semillas iniciales cargadas al 100%.
+- **Runtime .NET 9**: ASP.NET Core Runtime 9.0 instalado en `/usr/share/dotnet` con symlink en `/usr/bin/dotnet`.
+- **Nginx Reverse Proxy**: Configurado en puerto 80 proxying a `http://127.0.0.1:5000` con headers completos de proxy para Cloudflare.
+- **Servicio Systemd**: `pos-api.service` configurado y habilitado.
+- **Firewall UFW**: Activo permitiendo puertos 22 (SSH), 80 (HTTP) y 443 (HTTPS).
+- **Binarios Compilados**: `dist_vps_api.tar.gz` (7.2 MB) generado en modo Release con ConnectionString a `localhost` y usuario `wpcadminaam`.
 
 ## 📌 Feature 2.4.0 — Conversión SKU a Guiones, Campo Color y Ficha Técnica PDF
 - **Estandarización de SKU (Espacios a Guiones `-`)**: Al ingresar espacios en el input del SKU (`PaginaCatalogoProductos.tsx`), se convierten automáticamente en guiones `-` para mantener consistencia.
