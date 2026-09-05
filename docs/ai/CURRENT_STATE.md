@@ -2,15 +2,20 @@
 
 ## 🟢 ESTADO ACTUAL (4 de Septiembre, 2026)
 
-- **Infraestructura Cloud VPS (Ubuntu 26.04 LTS - 193.46.198.88)**: **APROVISIONADO AL 100%**
-  - **Motor de Base de Datos**: Microsoft SQL Server 2022 Express en contenedor Docker oficial (`mcr.microsoft.com/mssql/server:2022-latest`), con almacenamiento persistente en `/var/opt/mssql`, política de reinicio `unless-stopped` y swap de 2GB para garantizar estabilidad de memoria.
-  - **Base de Datos Unificada**: `PosLambrinDb` creada con 26 tablas físicas autoritativas, migraciones y semillas iniciales (Roles Admin/Cajero, 27 permisos, usuario administrador y cliente público general) aplicadas mediante `clean_init.sql`.
-  - **Credencial de BD**: Usuario `wpcadminaam` con permisos `db_owner` y autenticación SQL Server activa en `localhost:1433`.
-  - **Runtime .NET**: .NET 9 ASP.NET Core Runtime (v9.0.19) instalado en `/usr/share/dotnet` y symlink en `/usr/bin/dotnet`.
-  - **Reverse Proxy Nginx**: Configurado en puerto 80 con reenvío de headers (`Host`, `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`) hacia `http://127.0.0.1:5000` con `client_max_body_size 50M`.
-  - **Servicio Systemd**: `pos-api.service` configurado y habilitado en inicio del sistema para ejecutar la API en `/var/www/pos-api`.
-  - **Seguridad y Firewall (UFW)**: Puertos 22 (SSH), 80 (HTTP) y 443 (HTTPS) habilitados; puerto 1433 de SQL Server aislado internamente en localhost para máxima seguridad.
-  - **Binarios de API Release**: Generados en `dist_vps_api` y empaquetados en `dist_vps_api.tar.gz` (7.2 MB) listos para transferir al VPS.
+- **Despliegue Global Cloudflare & VPS Cloud**: **100% OPERATIVO EN PRODUCCIÓN**
+  - **Frontend SPA (Cloudflare Workers/Pages CDN)**:
+    - **URL Producción**: `https://pos.wpcbajio.com` / `https://pos-wpcbajio.aaronarenasmartinez.workers.dev`
+    - **Tecnología**: React 18, Vite 6.4.3, TypeScript, Wrangler Assets con enrutamiento nativo SPA.
+    - **Validación**: Inicio de sesión autenticado, emisión y renovación de tokens JWT, navegación fluida sin recargas.
+  - **Backend API (.NET 9 Web API en VPS Ubuntu 26.04 - 193.46.198.88)**:
+    - **URL Producción**: `https://api.wpcbajio.com/api/v1`
+    - **Servicio Systemd**: `pos-api.service` activo en segundo plano (`active (running)`).
+    - **Proxy Inverso**: Nginx 1.28 con reenvío de encabezados para Cloudflare y límite de carga de 50MB.
+    - **Seguridad**: Firewall UFW activo (puertos 22, 80, 443).
+  - **Base de Datos Central Unificada (SQL Server 2022 Express en Docker)**:
+    - **Motor**: Contenedor oficial `mcr.microsoft.com/mssql/server:2022-latest` con persistencia en `/var/opt/mssql`.
+    - **Base de Datos**: `PosLambrinDb` con 26 tablas físicas autoritativas, roles (`Administrador`, `Cajero`), 27 permisos y semillas de inicio.
+    - **Credencial**: `wpcadminaam` conectando internamente a `localhost:1433`.
 
 - **Instalación y Despliegue Local en IIS y SQL Server**: **COMPLETADO AL 100%**
   - **Base de Datos Física**: SQL Server `PosLambrinDb` montada limpia y verificada con Autenticación por Usuario.

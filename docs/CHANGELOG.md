@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.2 Production Release] - 2026-09-04
+
+### Añadido / Desplegado en Producción
+- **Arquitectura Cloud Global (Cloudflare Edge CDN + Ubuntu VPS)**:
+  - **Frontend SPA**: Desplegado en la red CDN de Cloudflare Pages/Workers (`https://pos.wpcbajio.com` / `https://pos-wpcbajio.aaronarenasmartinez.workers.dev`) utilizando Vite 6.4.3, React 18 y enrutamiento SPA mediante `wrangler.json` (`not_found_handling: single-page-application`).
+  - **Backend Web API (.NET 9)**: Desplegado en VPS Ubuntu 26.04 (`193.46.198.88`) operando como servicio daemon `systemd` (`pos-api.service`) bajo proxy inverso Nginx 1.28 y protegido con UFW Firewall (puertos 22, 80, 443).
+  - **Base de Datos Central Unificada (SQL Server 2022 Express)**: Desplegada en contenedor Docker oficial (`mssql-server`) con almacenamiento persistente en `/var/opt/mssql`, memoria swap de 2GB y base de datos `PosLambrinDb` con 26 tablas físicas autoritativas, roles, permisos y usuario administrador.
+  - **Conectividad Cloudflare SSL/TLS**: Tráfico cifrado HTTPS de extremo a extremo enrutado mediante `https://api.wpcbajio.com/api/v1` con resolución automática en el cliente `apiClient.ts`.
+- **Compatibilidad con Tienda y Sucursales**: Base de datos unificada en la nube para sincronizar inventario, ventas, abonos y catálogo entre el PDV físico y la futura tienda e-commerce.
+
 ## [2.4.1 HotFix] - 2026-09-04
 
 ### Corregido / Optimizado
