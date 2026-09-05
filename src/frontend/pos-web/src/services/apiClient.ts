@@ -1,24 +1,30 @@
 import { AuthResponse } from '../types/auth';
 
 const getApiBaseUrl = (): string => {
+  const customApiUrl = (import.meta as any).env?.VITE_API_URL;
+  if (customApiUrl) {
+    return customApiUrl;
+  }
+
   if (typeof window !== 'undefined') {
     const { hostname, port, protocol } = window.location;
 
-    // 1. Si estamos bajo HTTPS o en un túnel de Cloudflare, usar siempre /api/v1 relativo
-    // para evitar bloqueo de Mixed Content (HTTPS a HTTP) y enrutar mediante el túnel
+    // 1. Dominio de producción o preview en Cloudflare Pages
+    if (hostname === 'pos.wpcbajio.com' || hostname.endsWith('.pages.dev') || hostname.includes('wpcbajio')) {
+      return 'https://api.wpcbajio.com/api/v1';
+    }
+
+    // 2. Si estamos bajo HTTPS o en un túnel de Cloudflare
     if (protocol === 'https:' || hostname.includes('trycloudflare.com') || hostname.includes('cloudflare')) {
-      if (hostname === 'pos.wpcbajio.com') {
-        return 'https://api.wpcbajio.com/api/v1';
-      }
       return '/api/v1';
     }
 
-    // 2. Si estamos en desarrollo con Vite (cualquier puerto, ej. 5173, 5174), usar proxy /api/v1
+    // 3. Si estamos en desarrollo con Vite (cualquier puerto local)
     if (port && port !== '80' && port !== '5000') {
       return '/api/v1';
     }
 
-    // 3. Fallback directo en IIS local sin proxy inverso
+    // 4. Fallback directo en IIS local sin proxy inverso
     return 'http://localhost:5000/api/v1';
   }
   return '/api/v1';
