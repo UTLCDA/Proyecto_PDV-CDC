@@ -146,7 +146,30 @@ using (var scope = app.Services.CreateScope())
     {
         if (context.Database.IsRelational())
         {
-            await context.Database.MigrateAsync();
+            try
+            {
+                await context.Database.ExecuteSqlRawAsync(@"
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Products') AND name = 'CostoUnitario')
+                        ALTER TABLE Products ADD CostoUnitario decimal(18,2) NOT NULL DEFAULT 0;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Products') AND name = 'Color')
+                        ALTER TABLE Products ADD Color nvarchar(100) NOT NULL DEFAULT '';
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Customers') AND name = 'LimiteCajasDiarias')
+                        ALTER TABLE Customers ADD LimiteCajasDiarias decimal(18,2) NOT NULL DEFAULT 0;
+                ");
+            }
+            catch (Exception exSql)
+            {
+                app.Logger.LogWarning(exSql, "No fue posible verificar columnas adicionales en PosLambrinDb.");
+            }
+
+            try
+            {
+                await context.Database.MigrateAsync();
+            }
+            catch (Exception exMig)
+            {
+                app.Logger.LogWarning(exMig, "Migraciones EF Core omitidas o ya aplicadas manualmente.");
+            }
         }
         else
         {
@@ -176,7 +199,9 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Configure HTTP pipeline
+// Configure HTTP pipeline — CORS MUST be first to guarantee headers on all responses & errors
+app.UseCors("AllowFrontend");
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -186,8 +211,6 @@ if (app.Environment.IsDevelopment())
 // Serilog UI Dashboard Endpoint & Basic Auth Middleware (administrador / Aaron096)
 app.UseMiddleware<SerilogAuthMiddleware>();
 app.UseMiddleware<AuditMiddleware>();
-app.UseHttpsRedirection();
-app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
