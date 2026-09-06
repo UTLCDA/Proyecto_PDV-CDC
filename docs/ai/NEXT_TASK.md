@@ -1,27 +1,25 @@
 # NEXT_TASK — Siguiente Tarea Recomendada
 
-## 📌 Tarea Actual Recomendada: Módulo de Carrito de Compras, Cobro en Caja y Punto de Venta (v3.0.0 Feature)
+## 📌 Fase 2: Plataforma E-Commerce, Carrito de Compras y Atención al Cliente (v3.0.0)
 
-### 🎯 Objetivo
-Desarrollar e integrar el flujo principal de venta rápida en la interfaz del Punto de Venta (`💰 Punto de Venta / Caja`):
-- Selección rápida de productos vía escáner de código de barras USB y buscador dinámico.
-- Carrito de compras reactivo con cálculo automático de unidades, cajas completas y aplicación transparente de reglas de precio (Menudeo vs. Mayoreo por caja).
-- Asignación de cliente (General o Registrar/Buscar Cliente Mayorista).
-- Métodos de cobro (Efectivo, Tarjeta, Transferencia, Mixto o Registro de Abonos) y generación de Ticket / Comprobante de Venta.
-
----
-
-### 📋 Criterios de Aceptación
-
-1. **Lectura con Escáner USB**: Al escanear un código de barras en la pantalla de cobro, el producto se agrega o incrementa automáticamente en el carrito.
-2. **Cálculo de Precios e Inventario**: Aplicar regla de mayoreo cuando la cantidad de piezas iguale o supere el contenido de caja. Validar existencias disponibles en stock.
-3. **Flujo de Pago y Ticket**: Generación del registro de venta y apertura del modal/visor de ticket imprimible.
-4. **Pruebas y Auditoría**: Pruebas unitarias/integración al 100% y registro auditado en bitácora de transacciones (`AuditLog`).
+### 🎯 Estado Actual y Contexto
+- **Fase 1 (Punto de Venta e Infraestructura en la Nube)**: **COMPLETADA AL 100% Y OPERANDO EN PRODUCCIÓN**.
+  - Frontend publicado en Cloudflare Edge CDN (`https://pos-wpcbajio.com` / `https://pos-wpcbajio.aaronarenasmartinez.workers.dev`).
+  - Backend .NET 9 Web API operando en VPS Cloud Ubuntu (`https://api.wpcbajio.com/api/v1`).
+  - Base de datos central unificada SQL Server 2022 Express en Docker (`PosLambrinDb`) con 26 tablas físicas.
+  - Autenticación, catálogo de productos, inventario, clientes, turnos de caja, comprobantes e historial validados sin errores de CORS.
+- **Siguiente Paso**: Inicio de la **Fase 2: Plataforma E-Commerce y Carrito de Compras** para clientes finales, sincronizada en tiempo real con el mismo catálogo y stock central de SQL Server en la nube.
 
 ---
 
-### 📚 Archivos Relevantes
-- `src/frontend/pos-web/src/pages/Sales/PointOfSalePage.tsx`
-- `src/backend/Pos.Api/Controllers/v1/SalesController.cs`
-- `src/backend/Pos.Application/Sales/Services/SaleApplicationService.cs`
-- `docs/deployment/CLOUDFLARED_TUNNEL_SETUP.md`
+### 📋 Esperando Indicaciones del Usuario
+El agente se encuentra a la espera del plan de trabajo, requerimientos funcionales y las instrucciones técnicas específicas del desarrollador para arrancar la implementación de la Fase 2.
+
+---
+
+### 📚 Módulos y Referencias Clave
+- `AGENTS.md` (Reglas principales y Definition of Done).
+- `docs/ai/CURRENT_STATE.md` (Estado real en producción).
+- `docs/ai/PROJECT_CONTEXT.md` (Arquitectura monolítica modular y reglas de dominio).
+- `src/backend/Pos.Domain/` (Entidades centrales: Producto, Stock, Venta, Cliente).
+- `src/frontend/` (Aplicaciones cliente).
