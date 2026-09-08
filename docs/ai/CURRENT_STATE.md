@@ -8,6 +8,7 @@
 - **Compilación Nativa en Servidor**: Ejecutado `dotnet publish /root/Proyecto_PDV-CDC/src/backend/Pos.Api/Pos.Api.csproj -c Release -o /var/www/pos-api/`.
 - **Protección de Configuración**: `appsettings.json` en `/var/www/pos-api/` preservado con la cadena de conexión de producción a SQL Server Docker en Linux y JWT de producción.
 - **Nginx Reverse Proxy**: Configurado `client_max_body_size 50M;` en `/etc/nginx/sites-available/pos-api` para eliminar el límite por defecto de 1 MB que causaba errores 413 al cargar imágenes.
+- **Resolución de Error CORS ("Failed to Fetch")**: La directiva CORS en `Program.cs` fue ampliada dinámicamente (`SetIsOriginAllowed`) para autorizar orígenes de desarrollo (`localhost`), aplicaciones en Cloudflare Workers / Pages (`*.workers.dev`, `*.pages.dev`, ej. `https://pos-wpcbajio.aaronarenasmartinez.workers.dev`) y el dominio de producción `*.wpcbajio.com`. Verificado con solicitudes de preflight HTTP OPTIONS recibiendo `204 No Content` con headers `Access-Control-Allow-Origin` y `Access-Control-Allow-Credentials: true`.
 - **Servicio Systemd**: `pos-api.service` reiniciado y validado en ejecución (`active (running)`).
 - **Verificación de Endpoints**: `http://localhost:5000/api/v1/health` y `https://api.wpcbajio.com/api/v1/health` retornando 200 OK con estado `Operativo` y registro en `AuditLogs`.
 
