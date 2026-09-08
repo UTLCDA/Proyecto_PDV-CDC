@@ -32,6 +32,7 @@
   - **Publicación en IIS**:
     - **Backend API (.NET 9)**: Publicado en Release en `C:\inetpub\wwwroot\pos-api` (`http://localhost:5000`).
     - **Frontend SPA (React)**: Publicado en Producción en `C:\inetpub\wwwroot\pos-web` (`http://localhost`).
+    - **HotFix 2.4.2 (Sincronización Automática de Migraciones EF Core)**: Se sincronizó la migración `20260828020937_AddCustomerDailyLimitAndProductCost` en `__EFMigrationsHistory` tanto en base de datos física como preventivamente en `Program.cs` para evitar excepciones por columnas preexistentes (`CostoUnitario`, `Color`, `LimiteCajasDiarias`).
   - **Pruebas y Verificación**: 92 / 92 pruebas ejecutadas y pasando al 100% (68 backend xUnit, 24 frontend Vitest).
 
 ## Iteración Final aprobada — Release PR "version-final-de-PR" (2026-08-28)

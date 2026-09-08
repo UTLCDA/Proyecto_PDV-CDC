@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/Login/LoginPage';
 import PosPanelPage from './pages/Pos/PosPanelPage';
 import SalesHistoryPage from './pages/Sales/SalesHistoryPage';
+import WebOrdersPage from './pages/WebOrders/WebOrdersPage';
 import CashShiftPage from './pages/CashShift/CashShiftPage';
 import ReportsDashboardPage from './pages/Reports/ReportsDashboardPage';
 import QuoteListPage from './pages/Quotes/QuoteListPage';
@@ -87,6 +88,18 @@ const MainLayout: React.FC = () => {
                 onClick={() => setActiveTab('sales')}
               >
                 🧾 {t('navSales')}
+              </button>
+              )}
+              {canOpenTab('web-orders') && (
+              <button
+                className={`lang-btn ${currentTab === 'web-orders' ? 'is-active' : ''}`}
+                onClick={() => setActiveTab('web-orders')}
+                style={{
+                  background: currentTab === 'web-orders' ? 'var(--primary-main)' : undefined,
+                  color: currentTab === 'web-orders' ? '#fff' : undefined
+                }}
+              >
+                📦 Pedidos Web (CDC)
               </button>
               )}
               {canOpenTab('shift') && (
@@ -245,6 +258,7 @@ const MainLayout: React.FC = () => {
           <>
             {currentTab === 'pos' && <PosPanelPage />}
             {currentTab === 'sales' && <SalesHistoryPage />}
+            {currentTab === 'web-orders' && <WebOrdersPage />}
             {currentTab === 'shift' && <CashShiftPage />}
             {currentTab === 'reports' && <ReportsDashboardPage />}
             {currentTab === 'quotes' && <QuoteListPage />}

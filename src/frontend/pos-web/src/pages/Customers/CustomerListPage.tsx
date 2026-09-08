@@ -241,7 +241,33 @@ export const CustomerListPage: React.FC = () => {
         <div className="customers-table-wrap"><table className="customers-table"><thead><tr>
           <th>{t('customerCompany')}</th><th>{t('taxIdLabel')}</th><th>{t('customerContact')}</th><th>{t('customerLocation')}</th><th>{t('customerType')}</th><th>{t('customerDiscount')}</th><th>Límite Cajas/Día</th><th>{t('customerStatus')}</th><th>{t('actions')}</th>
         </tr></thead><tbody>{customers.map(customer => <tr key={customer.id}>
-          <td><strong>{customer.displayName}</strong>{customer.companyName && <small>{customer.companyName}</small>}</td>
+          <td>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+              <strong>{customer.displayName}</strong>
+              {(() => {
+                const isCdcCustomer = customer.notes?.toLowerCase().includes('e-commerce') ||
+                                      customer.notes?.toLowerCase().includes('stripe') ||
+                                      customer.notes?.toLowerCase().includes('cdc');
+                return (
+                  <span
+                    className="badge"
+                    style={{
+                      backgroundColor: isCdcCustomer ? '#2563eb' : '#64748b',
+                      color: '#ffffff',
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      padding: '0.15rem 0.4rem',
+                      borderRadius: '4px'
+                    }}
+                    title={isCdcCustomer ? 'Cliente originado en Tienda en Línea (CDC)' : 'Cliente registrado en mostrador PDV'}
+                  >
+                    {isCdcCustomer ? 'CDC' : 'PDV'}
+                  </span>
+                );
+              })()}
+            </div>
+            {customer.companyName && <small>{customer.companyName}</small>}
+          </td>
           <td><code>{customer.taxId || '—'}</code></td>
           <td><span>{customer.email}</span><small>{customer.phone}</small></td>
           <td><span>{[customer.city, customer.state].filter(Boolean).join(', ') || '—'}</span><small>{customer.postalCode}</small></td>

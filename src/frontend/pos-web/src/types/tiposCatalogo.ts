@@ -67,6 +67,7 @@ export interface PeticionCrearProducto {
   unitOfMeasure: string;
   coveragePerUnitSqM: number;
   imageUrl?: string;
+  imageUrls?: string[];
   piecesPerBox?: number;
   lengthCm?: number;
   heightCm?: number;
@@ -94,6 +95,7 @@ export interface PeticionActualizarProducto {
   unitOfMeasure: string;
   coveragePerUnitSqM: number;
   imageUrl?: string;
+  imageUrls?: string[];
   piecesPerBox?: number;
   lengthCm?: number;
   heightCm?: number;

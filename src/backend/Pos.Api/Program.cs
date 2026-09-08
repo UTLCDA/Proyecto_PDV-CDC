@@ -155,6 +155,14 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE Products ADD Color nvarchar(100) NOT NULL DEFAULT '';
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Customers') AND name = 'LimiteCajasDiarias')
                         ALTER TABLE Customers ADD LimiteCajasDiarias decimal(18,2) NOT NULL DEFAULT 0;
+
+                    IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Products') AND name = 'CostoUnitario')
+                       AND OBJECT_ID(N'[__EFMigrationsHistory]') IS NOT NULL
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM [__EFMigrationsHistory] WHERE [MigrationId] = '20260828020937_AddCustomerDailyLimitAndProductCost')
+                            INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion]) 
+                            VALUES ('20260828020937_AddCustomerDailyLimitAndProductCost', '9.0.0');
+                    END;
                 ");
             }
             catch (Exception exSql)

@@ -80,7 +80,8 @@ public record CreateProductDto(
     string Material,
     string? Color,
     bool IsQuoteOnly,
-    bool IsTopSellerVisible
+    bool IsTopSellerVisible,
+    List<string>? ImageUrls = null
 );
 
 public record UpdateProductDto(
@@ -107,7 +108,8 @@ public record UpdateProductDto(
     string? Color,
     bool IsQuoteOnly,
     bool IsTopSellerVisible,
-    bool IsActive
+    bool IsActive,
+    List<string>? ImageUrls = null
 );
 
 public record CustomerDto(
@@ -144,7 +146,8 @@ public record CreateCustomerDto(
     string CustomerType, // Particular, Mayorista
     decimal SpecialDiscountPercentage,
     decimal DailyBoxLimit,
-    string Notes
+    string Notes,
+    string? Password = null
 );
 
 public record UpdateCustomerDto(

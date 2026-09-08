@@ -1,3 +1,8 @@
+const isStripeSale = (sale: Venta) =>
+  sale.paymentType?.toLowerCase().includes('stripe') ||
+  sale.notes?.toLowerCase().includes('stripe') ||
+  sale.folioNumber?.startsWith('WPC-');
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
@@ -112,7 +117,7 @@ export const SalesHistoryPage: React.FC = () => {
       { key: 'idVenta', label: 'Id Venta / 单号', type: 'number', width: 0.7, value: sale => sale.idVenta },
       { key: 'date', label: 'Fecha / 日期', type: 'datetime', width: 1.25, value: sale => sale.createdAtUtc },
       { key: 'customer', label: 'Cliente / 客户', width: 1.5, value: sale => sale.customerDisplayName || t('generalPublic') },
-      { key: 'paymentType', label: 'Modalidad de Pago / 付款方式', width: 1.15, value: sale => t(paymentTypeKey(sale.paymentType)) },
+      { key: 'paymentType', label: 'Modalidad de Pago / 付款方式', width: 1.15, value: sale => isStripeSale(sale) ? 'STRIPE' : t(paymentTypeKey(sale.paymentType)) },
       { key: 'status', label: 'Estado / 状态', width: 1.05, value: sale => formatBadgeText(sale.status, sale.pendingBalance) },
       { key: 'total', label: 'Total / 合计', type: 'currency', width: 1, value: sale => sale.totalAmount },
       { key: 'subtotal', label: 'Subtotal / 小计', type: 'currency', width: 1, value: sale => sale.subTotal },
@@ -152,13 +157,25 @@ export const SalesHistoryPage: React.FC = () => {
         <td><strong>{t('saleNumber', { idVenta: sale.idVenta })}</strong></td>
         <td>{new Date(sale.createdAtUtc).toLocaleString(locale)}</td>
         <td>{sale.customerDisplayName || t('generalPublic')}</td>
-        <td>{t(paymentTypeKey(sale.paymentType))}</td>
+        <td>
+          {isStripeSale(sale) ? (
+            <span className="badge" style={{ background: '#635BFF', color: '#fff', fontWeight: 700, padding: '0.25rem 0.6rem', borderRadius: '4px' }}>
+              💳 STRIPE
+            </span>
+          ) : (
+            t(paymentTypeKey(sale.paymentType))
+          )}
+        </td>
         <td><span className={`badge ${sale.status === 'Cancelada' || sale.status === 'Cancelled' ? 'badge-danger' : sale.pendingBalance > 0 ? 'badge-warning' : 'badge-success'}`}>{formatBadgeText(sale.status, sale.pendingBalance)}</span></td>
         <td>{safeFormat(sale.totalAmount)}</td>
         <td>{safeFormat(sale.pendingBalance)}</td>
         <td>
           <button className="pos-link-btn" onClick={() => setReceipt(sale)}>👁️ {t('viewReceipt')}</button>
-          {canCancelSale && sale.status !== 'Cancelada' && sale.status !== 'Cancelled' && sale.status !== 'Devuelta' && (
+          {(() => {
+            const isStripe = sale.paymentType?.toLowerCase().includes('stripe') ||
+                             sale.notes?.toLowerCase().includes('stripe') ||
+                             sale.folioNumber?.startsWith('WPC-');
+            return canCancelSale && !isStripe && sale.status !== 'Cancelada' && sale.status !== 'Cancelled' && sale.status !== 'Devuelta' && (
             <button
               type="button"
               className="pos-link-btn"
@@ -168,7 +185,8 @@ export const SalesHistoryPage: React.FC = () => {
             >
               🚫 {t('cancel')}
             </button>
-          )}
+            );
+          })()}
         </td>
       </tr>)}</tbody>
     </table>}</article>

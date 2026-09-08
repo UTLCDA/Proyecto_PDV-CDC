@@ -50,6 +50,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const [anchoCm, setAnchoCm] = useState<string>('');
   const [cantidadInventarioInicial, setCantidadInventarioInicial] = useState<string>('');
   const [imagenUrl, setImagenUrl] = useState<string>('');
+  const [imagenesLista, setImagenesLista] = useState<string[]>([]);
   const [soloCotizacion, setSoloCotizacion] = useState(false);
   const [visibleMasVendido, setVisibleMasVendido] = useState(true);
 
@@ -174,7 +175,9 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setAltoCm(p.heightCm?.toString() || '0');
     setAnchoCm(p.widthCm?.toString() || '0');
     setCantidadInventarioInicial(p.initialInventoryQuantity?.toString() || '0');
-    setImagenUrl(p.imageUrl || '/logo_wpc_bajio.jpeg');
+    const existingImgs = (p.imageUrls && p.imageUrls.length > 0) ? p.imageUrls : (p.imageUrl ? [p.imageUrl] : []);
+    setImagenUrl(p.imageUrl || (existingImgs[0] || '/logo_wpc_bajio.jpeg'));
+    setImagenesLista(existingImgs);
     setSoloCotizacion(p.isQuoteOnly);
     setVisibleMasVendido(p.isTopSellerVisible);
     setModalProductoAbierto(true);
@@ -197,6 +200,89 @@ export const PaginaCatalogoProductos: React.FC = () => {
     } else {
       setCodigoBarrasBase64('');
     }
+  };
+
+  
+  // Compresión en cliente y selección múltiple de imágenes (Relación 1-1 PDV, 1-m CDC)
+  const compressImageFile = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 1200;
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.82));
+          } else {
+            resolve(e.target?.result as string);
+          }
+        };
+        img.onerror = () => resolve(e.target?.result as string);
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleMultipleImagesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const newImgs: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.type.startsWith('image/')) {
+        try {
+          const compressed = await compressImageFile(file);
+          newImgs.push(compressed);
+        } catch (err) {
+          console.error('Error procesando imagen', err);
+        }
+      }
+    }
+    if (newImgs.length > 0) {
+      setImagenesLista(prev => {
+        const combined = [...prev, ...newImgs];
+        setImagenUrl(combined[0] || '');
+        return combined;
+      });
+    }
+    e.target.value = '';
+  };
+
+  const setAsPrincipalImage = (idx: number) => {
+    setImagenesLista(prev => {
+      const target = prev[idx];
+      const rest = prev.filter((_, i) => i !== idx);
+      const reordered = [target, ...rest];
+      setImagenUrl(target);
+      return reordered;
+    });
+  };
+
+  const removeImageAt = (idx: number) => {
+    setImagenesLista(prev => {
+      const updated = prev.filter((_, i) => i !== idx);
+      setImagenUrl(updated[0] || '');
+      return updated;
+    });
   };
 
   // Manejo de Selección e Imagen Base64 / Local Preview (1.2 & 1.2.1)
@@ -278,7 +364,8 @@ export const PaginaCatalogoProductos: React.FC = () => {
           wholesaleMinQuantity: parseFloat(cantidadMinimaMayoreo) || 1,
           unitOfMeasure: unidadMedida,
           coveragePerUnitSqM: parseFloat(coberturaUnidadM2) || 0,
-          imageUrl: imagenUrl,
+          imageUrl: imagenesLista[0] || imagenUrl || '',
+          imageUrls: imagenesLista.length > 0 ? imagenesLista : (imagenUrl ? [imagenUrl] : []),
           piecesPerBox: parseInt(piezasPorCaja) || 1,
           lengthCm: parseFloat(largoCm) || 0,
           heightCm: parseFloat(altoCm) || 0,
@@ -305,7 +392,8 @@ export const PaginaCatalogoProductos: React.FC = () => {
           wholesaleMinQuantity: parseFloat(cantidadMinimaMayoreo) || 1,
           unitOfMeasure: unidadMedida,
           coveragePerUnitSqM: parseFloat(coberturaUnidadM2) || 0,
-          imageUrl: imagenUrl,
+          imageUrl: imagenesLista[0] || imagenUrl || '',
+          imageUrls: imagenesLista.length > 0 ? imagenesLista : (imagenUrl ? [imagenUrl] : []),
           piecesPerBox: parseInt(piezasPorCaja) || 1,
           lengthCm: parseFloat(largoCm) || 0,
           heightCm: parseFloat(altoCm) || 0,
@@ -698,25 +786,68 @@ export const PaginaCatalogoProductos: React.FC = () => {
               <div style={{ padding: '1rem', background: 'var(--background-container)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                 <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--accent-primary)' }}>🖼️ 2. Imagen, Cobertura y Dimensiones</h4>
 
-                <div className="catalog-image-grid" style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr', gap: '1rem', alignItems: 'center' }}>
-                  {/* Vista Previa de Imagen (1.2) */}
-                  <div style={{ textAlign: 'center' }}>
-                    {imagenUrl ? (
-                      <img src={imagenUrl} alt="Preview" style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--accent-primary)' }} />
-                    ) : (
-                      <div style={{ width: '90px', height: '90px', borderRadius: '8px', background: 'var(--background-surface)', border: '1px dashed var(--border-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>Sin Foto</div>
-                    )}
+                <div style={{ marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                    <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                      Cargar Imágenes del Producto (Puedes seleccionar múltiples archivos)
+                    </label>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {imagenesLista.length} {imagenesLista.length === 1 ? 'imagen' : 'imágenes'}
+                    </span>
                   </div>
 
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Cargar Imagen del Producto (Local / Base64)</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="input-field"
-                      onChange={handleImageFileChange}
-                    />
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    className="input-field"
+                    onChange={handleMultipleImagesChange}
+                    style={{ cursor: 'pointer' }}
+                  />
+
+                  <div style={{ marginTop: '0.5rem', padding: '0.6rem 0.8rem', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.2)', fontSize: '0.78rem', color: '#1e40af' }}>
+                    💡 <strong>Relación 1-1 en PDV y 1-m en CDC:</strong> En el catálogo del <strong>PDV</strong> se mostrará únicamente la 1ª imagen (⭐ Principal). En la tienda en línea (<strong>CDC</strong>) se mostrarán todas las fotos para que los clientes exploren los diferentes ángulos del producto.
                   </div>
+
+                  {imagenesLista.length > 0 ? (
+                    <div style={{ display: 'flex', gap: '0.75rem', overflowX: 'auto', padding: '0.75rem 0', alignItems: 'flex-start' }}>
+                      {imagenesLista.map((img, idx) => (
+                        <div key={idx} style={{ position: 'relative', width: '95px', flexShrink: 0, textAlign: 'center', background: 'var(--background-surface)', borderRadius: '8px', padding: '4px', border: idx === 0 ? '2px solid #2563eb' : '1px solid var(--border-subtle)' }}>
+                          <img
+                            src={img}
+                            alt={'Foto ' + (idx + 1)}
+                            style={{ width: '85px', height: '85px', objectFit: 'cover', borderRadius: '6px', display: 'block', margin: '0 auto' }}
+                          />
+                          {idx === 0 ? (
+                            <div style={{ marginTop: '4px', fontSize: '0.68rem', fontWeight: 700, color: '#2563eb' }}>
+                              ⭐ Principal (PDV)
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setAsPrincipalImage(idx)}
+                              className="lang-btn"
+                              style={{ marginTop: '4px', fontSize: '0.65rem', padding: '2px 4px', width: '100%' }}
+                            >
+                              ⭐ Hacer 1ª
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => removeImageAt(idx)}
+                            title="Eliminar foto"
+                            style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: '0.75rem', padding: '1rem', border: '1px dashed var(--border-input)', borderRadius: '8px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                      📷 Sin fotos cargadas para este producto
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.85rem', marginTop: '1rem' }}>

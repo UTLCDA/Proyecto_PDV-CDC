@@ -283,6 +283,40 @@ public class CatalogApplicationService : ICatalogApplicationService
         };
         _dbContext.Stocks.Add(stock);
 
+        // Persist multiple images into ProductImages (1-m relationship)
+        if (request.ImageUrls != null && request.ImageUrls.Count > 0)
+        {
+            var validUrls = request.ImageUrls.Where(u => !string.IsNullOrWhiteSpace(u)).Select(u => u.Trim()).ToList();
+            if (validUrls.Count > 0)
+            {
+                product.ImagenUrl = validUrls[0];
+                int imgIdx = 0;
+                foreach (var u in validUrls)
+                {
+                    _dbContext.ProductImages.Add(new ImagenProducto
+                    {
+                        ProductoId = product.Id,
+                        UrlImagen = u,
+                        EsPrincipal = (imgIdx == 0),
+                        EstaActivo = true,
+                        FechaCreacionUtc = DateTime.UtcNow
+                    });
+                    imgIdx++;
+                }
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(request.ImageUrl))
+        {
+            _dbContext.ProductImages.Add(new ImagenProducto
+            {
+                ProductoId = product.Id,
+                UrlImagen = request.ImageUrl.Trim(),
+                EsPrincipal = true,
+                EstaActivo = true,
+                FechaCreacionUtc = DateTime.UtcNow
+            });
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogService.LogAsync(
@@ -355,6 +389,51 @@ public class CatalogApplicationService : ICatalogApplicationService
         product.VisibleMasVendido = request.IsTopSellerVisible;
         product.EstaActivo = request.IsActive;
         product.FechaActualizacionUtc = DateTime.UtcNow;
+
+        // Persist multiple images into ProductImages (1-m relationship)
+        if (request.ImageUrls != null && request.ImageUrls.Count > 0)
+        {
+            var validUrls = request.ImageUrls.Where(u => !string.IsNullOrWhiteSpace(u)).Select(u => u.Trim()).ToList();
+            if (validUrls.Count > 0)
+            {
+                product.ImagenUrl = validUrls[0];
+                var existingImgs = await _dbContext.ProductImages
+                    .Where(pi => pi.ProductoId == product.Id)
+                    .ToListAsync(cancellationToken);
+                _dbContext.ProductImages.RemoveRange(existingImgs);
+
+                int imgIdx = 0;
+                foreach (var u in validUrls)
+                {
+                    _dbContext.ProductImages.Add(new ImagenProducto
+                    {
+                        ProductoId = product.Id,
+                        UrlImagen = u,
+                        EsPrincipal = (imgIdx == 0),
+                        EstaActivo = true,
+                        FechaCreacionUtc = DateTime.UtcNow
+                    });
+                    imgIdx++;
+                }
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(request.ImageUrl))
+        {
+            var existingImgs = await _dbContext.ProductImages
+                .Where(pi => pi.ProductoId == product.Id)
+                .ToListAsync(cancellationToken);
+            if (existingImgs.Count == 0)
+            {
+                _dbContext.ProductImages.Add(new ImagenProducto
+                {
+                    ProductoId = product.Id,
+                    UrlImagen = request.ImageUrl.Trim(),
+                    EsPrincipal = true,
+                    EstaActivo = true,
+                    FechaCreacionUtc = DateTime.UtcNow
+                });
+            }
+        }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -603,7 +682,9 @@ public class CatalogApplicationService : ICatalogApplicationService
             p.SoloCotizacion,
             p.VisibleMasVendido,
             p.EstaActivo,
-            p.Imagenes.Select(img => img.UrlImagen).ToList(),
+            p.Imagenes != null && p.Imagenes.Count > 0
+                ? p.Imagenes.OrderByDescending(img => img.EsPrincipal).Select(img => img.UrlImagen).ToList()
+                : (!string.IsNullOrWhiteSpace(p.ImagenUrl) ? new List<string> { p.ImagenUrl } : new List<string>()),
             availableQuantity
         );
     }
