@@ -1,30 +1,60 @@
-# HANDOFF — Resumen de Transferencia y Estado de Entrega (v2.4.2 Producción Cloudflare & VPS)
+# HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
 ## 📌 Hito Cumplido: Producción 100% Operativa en la Nube
-- **Frontend SPA**: Desplegado en Cloudflare (`https://pos.wpcbajio.com` / `https://pos-wpcbajio.aaronarenasmartinez.workers.dev`) con Vite 6.4.3, React 18, y enrutamiento SPA mediante Wrangler Assets.
+- **Frontend SPA**: Desplegado en Cloudflare (`https://pos-wpcbajio.aaronarenasmartinez.workers.dev` / `https://pos.wpcbajio.com`) con Vite 6.4.3, React 18, y enrutamiento SPA mediante Wrangler Assets.
 - **Backend .NET 9**: Operando en VPS Ubuntu 26.04 (`193.46.198.88`) bajo Nginx y `systemd` (`pos-api.service`) accesible vía `https://api.wpcbajio.com/api/v1`.
 - **SQL Server 2022 Express**: Corriendo en contenedor Docker (`mssql-server`) con persistencia en `/var/opt/mssql`, base unificada `PosLambrinDb` y 26 tablas físicas autoritativas.
 - **Validación**: Autenticación JWT y acceso al panel administrativo validados con éxito en tiempo real.
 
-## 📌 Feature 2.4.0 — Conversión SKU a Guiones, Campo Color y Ficha Técnica PDF
-- **Estandarización de SKU (Espacios a Guiones `-`)**: Al ingresar espacios en el input del SKU (`PaginaCatalogoProductos.tsx`), se convierten automáticamente en guiones `-` para mantener consistencia.
-- **Campo de Color y Persistencia BD**: Añadido campo **Color / Tono** en formulario modal de productos, C# Domain (`Product.cs`, `Producto.cs`), DTOs y columna `Color` en SQL Server `PosLambrinDb`.
-- **Descarga de Ficha Técnica PDF (`technicalSheetGenerator.tsx`)**: Nueva acción en tabla de catálogo **`📄 Ficha Técnica`**. Genera un PDF membretado con datos del producto, SKU, Color, código de barras, especificaciones de cobertura m² (pieza/caja), precios (menudeo, mayoreo, caja completa) y la regla comercial explicada para el cliente.
+## 📌 HotFix — Carga de Imágenes HEIC, Compresión Canvas y Edición de Productos
+1. **Soporte de Imágenes HEIC / HEIF**: Integrada librería `heic2any` con importación dinámica para convertir fotos de iPhone/iPad a JPEG automáticamente sin bloquear la carga.
+2. **Compresión Canvas y Eliminación del Límite de 2 MB**: Utilidad reutilizable `imageProcessor.ts` (máx. 1200px, JPEG 82%) optimiza fotos a ~100–250 KB Base64.
+3. **Edición y Reemplazo de Imágenes en Productos**: Modal de edición refleja foto actual, permite reemplazarla o eliminarla ("✕ Quitar foto").
+4. **Evidencia Física en Inventarios**: Soporte HEIC y auto-compresión para fotos de evidencia.
 
-## 📌 Feature 2.3.0 — SKU Libre Captura y Código de Barras Dinámico en Base64
-- **SKU de Libre Captura**: Se modificó la etiqueta a `SKU *` y se removió el autocompletado/restrcción del prefijo `WPC-` en el formulario modal de productos (`PaginaCatalogoProductos.tsx`).
-- **Generador de Código de Barras Code 128 (`barcodeGenerator.ts`)**: Se creó una utilidad en Canvas que toma cualquier código de barras ingresado o escaneado y genera la imagen del código de barras en tiempo real.
-- **Espacio de Previsualización y Almacenamiento Base64**: Se incorporó un contenedor dentro del modal de producto que renderiza visualmente la imagen del código de barras, guarda el string Base64 (`data:image/png;base64,...`) localmente e incluye la opción de descarga en PNG para impresión de etiquetas.
+## 📌 Feature — Conversión SKU a Guiones, Campo Color y Ficha Técnica PDF
+- **Estandarización de SKU**: Al ingresar espacios en el SKU, se convierten automáticamente en guiones `-`.
+- **Campo de Color y Persistencia BD**: Campo Color en formulario, dominio C# y columna `Color` en SQL Server `PosLambrinDb`.
+- **Descarga de Ficha Técnica PDF (`technicalSheetGenerator.tsx`)**: Acción `📄 Ficha Técnica` en tabla con desglose de precios y regla comercial.
 
-## 📌 HotFix 2.2.3 — Restricción de Módulo de Transacciones a Cajero
-- **Control de Acceso al Histórico de Transacciones**: Se corrigió el permiso asignado a la pestaña `💳 Transacciones` ("Histórico de Transacciones y Movimientos de Pago") y al controlador backend `/api/v1/payments/transactions` para requerir el permiso ejecutivo de reportes (`reportes:ver_ventas`).
-- **Comportamiento por Rol**: El **Rol Cajero** ya no puede ver la pestaña de Transacciones en el menú superior ni acceder al endpoint. Los **Administradores** mantienen el acceso completo.
+## 📌 Feature — SKU Libre Captura y Código de Barras Dinámico en Base64
+- **SKU de Libre Captura**: Sin prefijo forzado `WPC-`.
+- **Generador de Código de Barras Code 128 (`barcodeGenerator.ts`)**: Generación en tiempo real en Canvas, renderizado visual, guardado en Base64 y descarga de etiqueta PNG.
 
-## 📌 HotFix 2.2.1 — Acentos y Edición de Roles
-- **Codificación de Acentos (Unicode UTF-8 / NVARCHAR)**: Se ejecutó actualización masiva en SQL Server `PosLambrinDb` para asegurar la correcta codificación de acentos (`Acceso total al sistema WPC Bajío`, `Operación del Punto de Venta y Cobro en Caja`, `Gerente General WPC Bajío`, `Público en General`).
-- **Edición de Roles**: Confirmada la funcionalidad del Administrador para cambiar el rol asignado a cualquier usuario y gestionar los permisos del sistema.
+## 📌 Control de Acceso y Roles
+- **Transacciones restringidas a Cajero**: Pestaña `💳 Transacciones` y endpoint `/api/v1/payments/transactions` requieren `reportes:ver_ventas`.
+- **Codificación de Acentos y Edición de Roles**: Unicode NVARCHAR verificado en `PosLambrinDb` y gestión de permisos/roles.
 
-## 📌 Funcionalidades Entregadas en v2.2.0
+## Despliegue y Compilación en VPS de Producción
+1. **Instalación de .NET 9 SDK**:
+   - Instalado SDK versión `9.0.317 linux-x64` en el servidor VPS (`193.46.198.88`) en `/usr/share/dotnet`.
+2. **Clonado del Repositorio**:
+   - Repositorio clonado en `/root/Proyecto_PDV-CDC` sobre la rama `version-final-de-PR` (commit `26fc950`).
+3. **Compilación y Publicación**:
+   - Ejecutado `dotnet publish /root/Proyecto_PDV-CDC/src/backend/Pos.Api/Pos.Api.csproj -c Release -o /var/www/pos-api/`.
+4. **Protección de Configuración**:
+   - `appsettings.json` preservado intacto con credenciales de SQL Server 2022 y JWT de producción.
+5. **Nginx Reverse Proxy**:
+   - Añadido `client_max_body_size 50M;` a `/etc/nginx/sites-available/pos-api` y recargado Nginx para evitar el error `413 Request Entity Too Large`.
+6. **Estado del Servicio**:
+   - `pos-api.service` reiniciado y respondiendo 200 OK en `https://api.wpcbajio.com/api/v1/health`.
+
+## Resumen del HotFix Realizado
+1. **Soporte de Imágenes HEIC / HEIF**:
+   - Integrada librería `heic2any` con importación dinámica para convertir fotos tomadas en iPhones/iPads a JPEG automáticamente en el cliente sin bloquear la carga.
+2. **Compresión Canvas y Eliminación del Límite de 2 MB**:
+   - Creación de utilidad reutilizable [`imageProcessor.ts`](file:///d:/Proyecto_PDV-CDC/src/frontend/pos-web/src/utils/imageProcessor.ts) que redimensiona fotos a máximo 1200px y las comprime a JPEG calidad 82%.
+   - Fotos pesadas de 5 MB a 20 MB se comprimen a ~100–250 KB en Base64, evitando errores de memoria, límites de red y saturación de la base de datos.
+3. **Edición y Reemplazo de Imágenes en Productos**:
+   - En [`PaginaCatalogoProductos.tsx`](file:///d:/Proyecto_PDV-CDC/src/frontend/pos-web/src/pages/Products/PaginaCatalogoProductos.tsx), el modal de edición ahora refleja correctamente la foto actual del producto, permite cambiarla por una nueva (con cualquier formato/peso) o eliminarla con el botón "✕ Quitar foto".
+4. **Evidencia Física en Inventarios**:
+   - Actualizado [`InventoryListPage.tsx`](file:///d:/Proyecto_PDV-CDC/src/frontend/pos-web/src/pages/Inventory/InventoryListPage.tsx) para usar el mismo procesador con soporte HEIC y auto-compresión.
+5. **Suite de Pruebas**:
+   - Vitest: 27/27 pasadas (100%).
+   - Build Vite: Exitoso con `heic2any` dividido en chunk independiente.
+
+## Resumen de Cambios Previos en PR
+>>>>>>> version-final-de-PR
 1. **Punto de Venta (PDV)**:
    - Botones rápidos renombrados a `Pieza +` y `Caja +`.
    - Filtro de búsqueda rápida integrado arriba de `📦 Catálogo rápido`.

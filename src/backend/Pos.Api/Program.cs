@@ -123,15 +123,31 @@ builder.Services.AddAuthorization(options =>
             .Any(claim => salesPermissions.Contains(claim.Value))));
 });
 
-// CORS for React Frontend
+// CORS for React Frontend (Localhost, Cloudflare Workers/Pages, and Production Domains)
+var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.SetIsOriginAllowed(_ => true)
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        policy.SetIsOriginAllowed(origin =>
+        {
+            if (string.IsNullOrWhiteSpace(origin)) return false;
+            if (configuredOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)) return true;
+            if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+            {
+                var host = uri.Host.ToLowerInvariant();
+                return host == "localhost" ||
+                       host == "127.0.0.1" ||
+                       host == "wpcbajio.com" ||
+                       host.EndsWith(".wpcbajio.com") ||
+                       host.EndsWith(".workers.dev") ||
+                       host.EndsWith(".pages.dev");
+            }
+            return false;
+        })
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
     });
 });
 

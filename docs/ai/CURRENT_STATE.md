@@ -1,10 +1,10 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
-## 🟢 ESTADO ACTUAL (4 de Septiembre, 2026)
+## 🟢 ESTADO ACTUAL (Septiembre, 2026)
 
 - **Despliegue Global Cloudflare & VPS Cloud**: **100% OPERATIVO EN PRODUCCIÓN**
   - **Frontend SPA (Cloudflare Workers/Pages CDN)**:
-    - **URL Producción**: `https://pos.wpcbajio.com` / `https://pos-wpcbajio.aaronarenasmartinez.workers.dev`
+    - **URL Producción**: `https://pos-wpcbajio.aaronarenasmartinez.workers.dev` / `https://pos.wpcbajio.com`
     - **Tecnología**: React 18, Vite 6.4.3, TypeScript, Wrangler Assets con enrutamiento nativo SPA.
     - **Validación**: Inicio de sesión autenticado, emisión y renovación de tokens JWT, navegación fluida sin recargas.
   - **Backend API (.NET 9 Web API en VPS Ubuntu 26.04 - 193.46.198.88)**:
@@ -17,22 +17,12 @@
     - **Base de Datos**: `PosLambrinDb` con 26 tablas físicas autoritativas, roles (`Administrador`, `Cajero`), 27 permisos y semillas de inicio.
     - **Credencial**: `wpcadminaam` conectando internamente a `localhost:1433`.
 
-- **Instalación y Despliegue Local en IIS y SQL Server**: **COMPLETADO AL 100%**
-  - **Base de Datos Física**: SQL Server `PosLambrinDb` montada limpia y verificada con Autenticación por Usuario.
-    - **Servidor**: `.` (o `localhost`)
-    - **Autenticación**: SQL Server Authentication
-    - **Login**: `wpcadminaam` | **Password**: `Aaron2804#`
-    - **Tablas Creadas**: 26 tablas físicas verificadas y semillas autoritativas de roles/permisos/admin cargadas.
-    - **HotFix 2.2.1 (Rol Cajero y Codificación Unicode)**: Se registró el Rol Cajero (`E7B81234-5678-4900-A111-000000000005`) con sus 17 permisos operativos y se corrigieron todos los acentos y caracteres especiales (`NVARCHAR` Unicode) en SQL Server (`Acceso total al sistema WPC Bajío`, `Operación del Punto de Venta y Cobro en Caja`).
-    - **HotFix 2.2.2 (Edición e Inactivación de Roles)**: Habilitada la edición de descripción, matriz de permisos y cambio de estado (`Activo` / `Inactivo`) para el Rol Cajero y roles personalizados desde el modal de edición de roles.
-    - **HotFix 2.2.3 (Ocultamiento y Restricción de Transacciones a Cajero)**: Se restringió la pestaña `💳 Transacciones` ("Histórico de Transacciones y Movimientos de Pago") y el endpoint `/api/v1/payments/transactions` para requerir el permiso ejecutivo `reportes:ver_ventas`. El rol Cajero ya no ve la pestaña ni puede acceder a la API de histórico de pagos.
-    - **HotFix 2.4.1 (Resolución Dinámica de API en Túneles Cloudflare y Timeout de Autenticación)**: Se actualizó `apiClient.ts` para resolver dinámicamente `/api/v1` en conexiones HTTPS y túneles Cloudflare (`pos.wpcbajio.com`, `trycloudflare.com`), eliminando el bloqueo de *Mixed Content* y permitiendo el acceso y login fluido desde dispositivos móviles externos. Se añadió timeout de 15 segundos con `AbortController` y `allowedHosts: true` en `vite.config.ts`. Validado al 100% con TryCloudflare.
-    - **Feature 2.4.0 (Conversión SKU a Guiones, Campo Color y Ficha Técnica PDF)**: Conversión automática de espacios a `-` en SKU, campo Color en formulario y BD SQL Server (`Color NVARCHAR(100)`), y botón de descarga **📄 Ficha Técnica** PDF en tabla de catálogo con desglose de precios menudeo, mayoreo, caja completa y regla comercial.
-    - **Feature 2.3.0 (SKU Libre Captura y Código de Barras Dinámico en Base64)**: SKU sin prefijo forzado `WPC-`. Creado el generador dinámico de código de barras Code 128 (`barcodeGenerator.ts`), con previsualización visual de imagen en tiempo real dentro del modal de producto, almacenamiento en Base64 y botón de descarga de etiqueta PNG.
-  - **Publicación en IIS**:
-    - **Backend API (.NET 9)**: Publicado en Release en `C:\inetpub\wwwroot\pos-api` (`http://localhost:5000`).
-    - **Frontend SPA (React)**: Publicado en Producción en `C:\inetpub\wwwroot\pos-web` (`http://localhost`).
-  - **Pruebas y Verificación**: 92 / 92 pruebas ejecutadas y pasando al 100% (68 backend xUnit, 24 frontend Vitest).
+- **HotFix Integrado — Carga de Imágenes HEIC, Compresión Canvas y Edición de Productos**:
+  - **Soporte de Formato HEIC/HEIF de iPhone**: Integración de conversión bajo demanda con `heic2any` (lazy-loading por importación dinámica) que transforma automáticamente archivos `.heic` a `.jpeg` de forma transparente.
+  - **Eliminación del Bloqueo Estricto de 2 MB**: Sustituido el límite estricto de 2 MB por compresión y redimensionamiento automático en cliente mediante `HTMLCanvasElement` (máx. 1200px, calidad 82%). Fotos pesadas de 5 MB a 20 MB se optimizan instantáneamente a un Base64 de ~100–250 KB, evitando sobrecargar la memoria y la base de datos.
+  - **Edición y Reemplazo de Imagen en Productos Existentes**: En `PaginaCatalogoProductos.tsx`, habilitada la visualización clara de la foto actual al editar, botón para cambiar imagen (soporta cualquier formato/peso) y botón de eliminación ("✕ Quitar foto").
+  - **Optimización en Módulo de Inventarios**: En `InventoryListPage.tsx`, se aplicó el mismo motor de compresión y soporte HEIC para la fotografía de evidencia física en movimientos de inventario.
+  - **Suite de Pruebas**: Backend xUnit 56/56, Frontend Vitest 27/27 pasadas.
 
 ## Iteración Final aprobada — Release PR "version-final-de-PR" (2026-08-28)
 

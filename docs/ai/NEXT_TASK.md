@@ -1,25 +1,20 @@
-# NEXT_TASK — Siguiente Tarea Recomendada
+# NEXT TASK — Siguiente Tarea Recomendada
 
-## 📌 Fase 2: Plataforma E-Commerce, Carrito de Compras y Atención al Cliente (v3.0.0)
+## 📌 Estado Actual
 
-### 🎯 Estado Actual y Contexto
-- **Fase 1 (Punto de Venta e Infraestructura en la Nube)**: **COMPLETADA AL 100% Y OPERANDO EN PRODUCCIÓN**.
-  - Frontend publicado en Cloudflare Edge CDN (`https://pos-wpcbajio.com` / `https://pos-wpcbajio.aaronarenasmartinez.workers.dev`).
-  - Backend .NET 9 Web API operando en VPS Cloud Ubuntu (`https://api.wpcbajio.com/api/v1`).
-  - Base de datos central unificada SQL Server 2022 Express en Docker (`PosLambrinDb`) con 26 tablas físicas.
-  - Autenticación, catálogo de productos, inventario, clientes, turnos de caja, comprobantes e historial validados sin errores de CORS.
-- **Siguiente Paso**: Inicio de la **Fase 2: Plataforma E-Commerce y Carrito de Compras** para clientes finales, sincronizada en tiempo real con el mismo catálogo y stock central de SQL Server en la nube.
+- **Rama Git Activa**: `main` (con todos los cambios de `version-final-de-PR` sincronizados y unificados).
+- **Funcionalidades Verificadas**:
+  - HotFix de carga de imágenes HEIC/HEIF y compresión Canvas (< 250 KB Base64) integrado.
+  - Edición y reemplazo de fotos en productos existentes operativa sin bloqueo de 2 MB.
+  - Punto de Venta (PDV), Calculadora de m², Cancelación de Ventas, Límite diario de cajas a clientes y exportaciones bilingües CJK verificadas.
+  - Generador dinámico de códigos de barras, fichas técnicas PDF y soporte para SKU con libre captura.
+  - Backend API en VPS `193.46.198.88` y Frontend en Cloudflare Workers / Pages sincronizados.
 
----
+## 📌 Siguiente Tarea Recomendada
 
-### 📋 Esperando Indicaciones del Usuario
-El agente se encuentra a la espera del plan de trabajo, requerimientos funcionales y las instrucciones técnicas específicas del desarrollador para arrancar la implementación de la Fase 2.
+Revisión y ejecución de las mejoras pendientes al Catálogo de Productos y PDV (sorting de columnas, color, tipografía aumentada, paginación con categoría por defecto, baja lógica) o inicio de la Fase 2 (E-Commerce y Carrito de compras).
 
----
-
-### 📚 Módulos y Referencias Clave
-- `AGENTS.md` (Reglas principales y Definition of Done).
-- `docs/ai/CURRENT_STATE.md` (Estado real en producción).
-- `docs/ai/PROJECT_CONTEXT.md` (Arquitectura monolítica modular y reglas de dominio).
-- `src/backend/Pos.Domain/` (Entidades centrales: Producto, Stock, Venta, Cliente).
-- `src/frontend/` (Aplicaciones cliente).
+### Criterios de Aceptación
+1. Validar suite completa de pruebas unitarias y de integración sobre `main`.
+2. Confirmar sincronización con ramas remotas.
+3. Avanzar con las tareas priorizadas por el desarrollador.
