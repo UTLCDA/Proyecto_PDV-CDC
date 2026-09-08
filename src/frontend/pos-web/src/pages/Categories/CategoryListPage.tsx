@@ -5,6 +5,8 @@ import { servicioCatalogo } from '../../services/servicioCatalogo';
 import { Categoria, PeticionActualizarCategoria, PeticionCrearCategoria } from '../../types/tiposCatalogo';
 import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
+import { useTableSort } from '../../hooks/useTableSort';
+import { SortableTh } from '../../components/common/SortableTh';
 import './CategoryListPage.css';
 
 interface CategoryForm {
@@ -184,6 +186,16 @@ export const CategoryListPage: React.FC = () => {
     return parent ? parent.name : '—';
   };
 
+  const { sortedData: sortedCategories, sortKey, sortDirection, handleSort } = useTableSort(filteredCategories, {
+    valueExtractors: {
+      name: cat => cat.name,
+      slug: cat => cat.slug,
+      description: cat => cat.description || '',
+      parentCategory: cat => getParentName(cat.parentCategoryId),
+      isActive: cat => cat.isActive !== false ? 1 : 0
+    }
+  });
+
   return (
     <div className="categories-page">
       <div className="card categories-header">
@@ -239,16 +251,26 @@ export const CategoryListPage: React.FC = () => {
             <table className="categories-table">
               <thead>
                 <tr>
-                  <th>Categoría</th>
-                  <th>Slug / Clave</th>
-                  <th>Descripción</th>
-                  <th>Categoría Padre</th>
-                  <th>Estado</th>
+                  <SortableTh columnKey="name" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+                    Categoría
+                  </SortableTh>
+                  <SortableTh columnKey="slug" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+                    Slug / Clave
+                  </SortableTh>
+                  <SortableTh columnKey="description" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+                    Descripción
+                  </SortableTh>
+                  <SortableTh columnKey="parentCategory" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+                    Categoría Padre
+                  </SortableTh>
+                  <SortableTh columnKey="isActive" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+                    Estado
+                  </SortableTh>
                   <th style={{ textAlign: 'right' }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredCategories.map(cat => {
+                {sortedCategories.map(cat => {
                   const isActive = cat.isActive !== false;
                   return (
                     <tr key={cat.id}>

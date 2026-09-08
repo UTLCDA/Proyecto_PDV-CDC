@@ -6,6 +6,8 @@ import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
 import { getOperationalDateInputValue, toOperationalUtcBoundary } from '../../utils/operationalDate';
 import { loadAllPagesForExport } from '../../utils/pagedExport';
+import { useTableSort } from '../../hooks/useTableSort';
+import { SortableTh } from '../../components/common/SortableTh';
 import './InventoryListPage.css';
 
 const today = getOperationalDateInputValue;
@@ -40,6 +42,24 @@ export const InventoryMovementsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [evidenceImage, setEvidenceImage] = useState<string | null>(null);
+
+  const { sortedData: sortedMovements, sortKey, sortDirection, handleSort } = useTableSort(movements, {
+    valueExtractors: {
+      createdAtUtc: m => m.createdAtUtc,
+      product: m => `${m.productName} ${m.productSku}`,
+      movementType: m => m.movementType,
+      quantity: m => m.quantity,
+      unitCost: m => m.unitCost ?? 0,
+      unitPrice: m => m.unitPrice ?? 0,
+      totalAmount: m => m.totalAmount ?? (m.quantity * (m.unitPrice ?? 0)),
+      taxAmount: m => m.taxAmount ?? 0,
+      netCost: m => m.netCost ?? (m.quantity * (m.unitCost ?? 0)),
+      profit: m => m.profit ?? ((m.totalAmount ?? (m.quantity * (m.unitPrice ?? 0))) - (m.netCost ?? (m.quantity * (m.unitCost ?? 0)))),
+      reason: m => m.idVenta && (m.reason?.startsWith('Venta folio:') || m.reason?.startsWith('VENTA-')) ? `Venta #${m.idVenta}` : (m.reason || ''),
+      referenceNumber: m => m.idVenta ? `Venta #${m.idVenta}` : (m.referenceNumber || ''),
+      userUsername: m => m.userUsername || ''
+    }
+  });
 
   const loadMovements = useCallback(async () => {
     if (startDate && endDate && startDate > endDate) {
@@ -144,24 +164,50 @@ export const InventoryMovementsPage: React.FC = () => {
       {loading ? <div className="inventory-empty-state">{t('loading')}</div> : <div className="inventory-table-wrap">
         <table className="inventory-history-table">
           <thead><tr>
-            <th>Fecha / 日期</th>
-            <th>Producto / 产品</th>
-            <th>Tipo / 类型</th>
-            <th>Cantidad / 数量</th>
-            <th>Costo Actual / 成本单价</th>
-            <th>Precio Venta / 销售单价</th>
-            <th>Monto Total / 总付款</th>
-            <th>Impuesto / 税额</th>
-            <th>Costo Neto / 净成本</th>
-            <th>Ganancia / 利润</th>
+            <SortableTh columnKey="createdAtUtc" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+              Fecha / 日期
+            </SortableTh>
+            <SortableTh columnKey="product" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+              Producto / 产品
+            </SortableTh>
+            <SortableTh columnKey="movementType" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+              Tipo / 类型
+            </SortableTh>
+            <SortableTh columnKey="quantity" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+              Cantidad / 数量
+            </SortableTh>
+            <SortableTh columnKey="unitCost" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+              Costo Actual / 成本单价
+            </SortableTh>
+            <SortableTh columnKey="unitPrice" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+              Precio Venta / 销售单价
+            </SortableTh>
+            <SortableTh columnKey="totalAmount" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+              Monto Total / 总付款
+            </SortableTh>
+            <SortableTh columnKey="taxAmount" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+              Impuesto / 税额
+            </SortableTh>
+            <SortableTh columnKey="netCost" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+              Costo Neto / 净成本
+            </SortableTh>
+            <SortableTh columnKey="profit" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+              Ganancia / 利润
+            </SortableTh>
             <th>{t('physicalEvidence')}</th>
-            <th>Motivo / 原因</th>
-            <th>Referencia / 参考</th>
-            <th>Usuario / 操作员</th>
+            <SortableTh columnKey="reason" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+              Motivo / 原因
+            </SortableTh>
+            <SortableTh columnKey="referenceNumber" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+              Referencia / 参考
+            </SortableTh>
+            <SortableTh columnKey="userUsername" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+              Usuario / 操作员
+            </SortableTh>
           </tr></thead>
           <tbody>
-            {movements.length === 0 && <tr><td colSpan={14} className="inventory-empty-state">{t('noInventoryMovements')}</td></tr>}
-            {movements.map(movement => {
+            {sortedMovements.length === 0 && <tr><td colSpan={14} className="inventory-empty-state">{t('noInventoryMovements')}</td></tr>}
+            {sortedMovements.map(movement => {
               const labelKey = movementLabelKey(movement.movementType);
               const uCost = movement.unitCost ?? 0;
               const uPrice = movement.unitPrice ?? 0;

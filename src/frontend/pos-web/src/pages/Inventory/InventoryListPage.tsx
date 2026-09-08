@@ -8,6 +8,8 @@ import { permissionCodes } from '../../security/accessControl';
 import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
 import { processAndCompressImage, isImageFile } from '../../utils/imageProcessor';
+import { useTableSort } from '../../hooks/useTableSort';
+import { SortableTh } from '../../components/common/SortableTh';
 import './InventoryListPage.css';
 
 const DEFAULT_WAREHOUSE_LOCATION = 'Bodega Adolfo Lopez Mateos';
@@ -24,6 +26,16 @@ export const InventoryListPage: React.FC = () => {
   const [appliedFilters, setAppliedFilters] = useState({ search: '', isLowStockOnly: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const { sortedData: sortedStocks, sortKey, sortDirection, handleSort } = useTableSort(stocks, {
+    valueExtractors: {
+      product: s => `${s.productName} ${s.productSku}`,
+      location: s => s.location,
+      quantityOnHand: s => s.quantityOnHand,
+      minimumAlertThreshold: s => s.minimumAlertThreshold,
+      status: s => (s.isOutOfStock ? 0 : s.isLowStock ? 1 : 2)
+    }
+  });
 
   const exportConfig = useMemo<ExportReportConfig<Stock>>(() => ({
     moduleName: 'Control de Inventarios WPC Bajío',
@@ -215,20 +227,30 @@ export const InventoryListPage: React.FC = () => {
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-main)', background: 'var(--background-container)' }}>
                   <th style={{ padding: '0.75rem', width: '70px' }}>{t('productImage')}</th>
-                  <th style={{ padding: '0.75rem' }}>SKU / {t('productCatalog')}</th>
-                  <th style={{ padding: '0.75rem' }}>{t('location')}</th>
-                  <th style={{ padding: '0.75rem' }}>Piezas</th>
-                  <th style={{ padding: '0.75rem' }}>{t('minThreshold')}</th>
-                  <th style={{ padding: '0.75rem' }}>{t('stockStatus')}</th>
+                  <SortableTh columnKey="product" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
+                    SKU / {t('productCatalog')}
+                  </SortableTh>
+                  <SortableTh columnKey="location" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
+                    {t('location')}
+                  </SortableTh>
+                  <SortableTh columnKey="quantityOnHand" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
+                    Piezas
+                  </SortableTh>
+                  <SortableTh columnKey="minimumAlertThreshold" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
+                    {t('minThreshold')}
+                  </SortableTh>
+                  <SortableTh columnKey="status" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
+                    {t('stockStatus')}
+                  </SortableTh>
                 </tr>
               </thead>
               <tbody>
-                {stocks.length === 0 && (
+                {sortedStocks.length === 0 && (
                   <tr>
                     <td colSpan={6} className="inventory-empty-state">{t('noInventoryRecords')}</td>
                   </tr>
                 )}
-                {stocks.map((s) => (
+                {sortedStocks.map((s) => (
                   <tr key={s.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                     <td style={{ padding: '0.75rem' }}>
                       {s.productImageUrl ? (

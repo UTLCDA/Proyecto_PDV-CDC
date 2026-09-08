@@ -10,6 +10,8 @@ import { ExportReportConfig } from '../../components/export/exportTypes';
 import { getOperationalDateInputValue, toOperationalUtcBoundary } from '../../utils/operationalDate';
 import { loadAllPagesForExport } from '../../utils/pagedExport';
 import SaleReceiptModal from './SaleReceiptModal';
+import { useTableSort } from '../../hooks/useTableSort';
+import { SortableTh } from '../../components/common/SortableTh';
 import './SalesHistoryPage.css';
 
 const today = getOperationalDateInputValue;
@@ -95,6 +97,19 @@ export const SalesHistoryPage: React.FC = () => {
     return saleStatus;
   };
 
+  const {
+    sortedData: sortedSales,
+    sortKey,
+    sortDirection,
+    handleSort
+  } = useTableSort(sales, {
+    valueExtractors: {
+      customerDisplayName: sale => sale.customerDisplayName || t('generalPublic'),
+      paymentType: sale => t(paymentTypeKey(sale.paymentType)),
+      status: sale => formatBadgeText(sale.status, sale.pendingBalance)
+    }
+  });
+
   const exportConfig = useMemo<ExportReportConfig<Venta>>(() => ({
     moduleName: t('salesHistoryTitle'),
     title: 'Histórico de Ventas',
@@ -147,31 +162,58 @@ export const SalesHistoryPage: React.FC = () => {
       <article className="card"><span>✅ {t('paidAmount')}</span><strong>{safeFormat(dynamicMetrics.paidAmount)}</strong></article>
       <article className="card"><span>⏳ {t('pendingBalance')}</span><strong>{safeFormat(dynamicMetrics.pendingAmount)}</strong></article>
     </div>
-    <article className="card sales-history-table-wrap">{loading ? t('loading') : <table className="sales-history-table"><thead><tr><th>{t('folio')}</th><th>{t('date')}</th><th>{t('customer')}</th><th>{t('paymentType')}</th><th>{t('status')}</th><th>{t('total')}</th><th>{t('pendingBalance')}</th><th>{t('actions')}</th></tr></thead>
-      <tbody>{sales.length === 0 && <tr><td colSpan={8} className="sales-history-empty">{t('noSalesInPeriod')}</td></tr>}{sales.map(sale => <tr key={sale.idVenta}>
-        <td><strong>{t('saleNumber', { idVenta: sale.idVenta })}</strong></td>
-        <td>{new Date(sale.createdAtUtc).toLocaleString(locale)}</td>
-        <td>{sale.customerDisplayName || t('generalPublic')}</td>
-        <td>{t(paymentTypeKey(sale.paymentType))}</td>
-        <td><span className={`badge ${sale.status === 'Cancelada' || sale.status === 'Cancelled' ? 'badge-danger' : sale.pendingBalance > 0 ? 'badge-warning' : 'badge-success'}`}>{formatBadgeText(sale.status, sale.pendingBalance)}</span></td>
-        <td>{safeFormat(sale.totalAmount)}</td>
-        <td>{safeFormat(sale.pendingBalance)}</td>
-        <td>
-          <button className="pos-link-btn" onClick={() => setReceipt(sale)}>👁️ {t('viewReceipt')}</button>
-          {canCancelSale && sale.status !== 'Cancelada' && sale.status !== 'Cancelled' && sale.status !== 'Devuelta' && (
-            <button
-              type="button"
-              className="pos-link-btn"
-              style={{ color: 'var(--danger)', marginLeft: '0.6rem' }}
-              onClick={() => { setCancelSaleTarget(sale); setCancelReason(''); }}
-              title="Cancelar esta venta (Solo Administrador)"
-            >
-              🚫 {t('cancel')}
-            </button>
-          )}
-        </td>
-      </tr>)}</tbody>
-    </table>}</article>
+    <article className="card sales-history-table-wrap">
+      {loading ? t('loading') : (
+        <table className="sales-history-table">
+          <thead>
+            <tr>
+              <SortableTh sortKey="idVenta" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('folio')}</SortableTh>
+              <SortableTh sortKey="createdAtUtc" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('date')}</SortableTh>
+              <SortableTh sortKey="customerDisplayName" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('customer')}</SortableTh>
+              <SortableTh sortKey="paymentType" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('paymentType')}</SortableTh>
+              <SortableTh sortKey="status" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('status')}</SortableTh>
+              <SortableTh sortKey="totalAmount" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('total')}</SortableTh>
+              <SortableTh sortKey="pendingBalance" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('pendingBalance')}</SortableTh>
+              <th>{t('actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedSales.length === 0 && (
+              <tr><td colSpan={8} className="sales-history-empty">{t('noSalesInPeriod')}</td></tr>
+            )}
+            {sortedSales.map(sale => (
+              <tr key={sale.idVenta}>
+                <td><strong>{t('saleNumber', { idVenta: sale.idVenta })}</strong></td>
+                <td>{new Date(sale.createdAtUtc).toLocaleString(locale)}</td>
+                <td>{sale.customerDisplayName || t('generalPublic')}</td>
+                <td>{t(paymentTypeKey(sale.paymentType))}</td>
+                <td>
+                  <span className={`badge ${sale.status === 'Cancelada' || sale.status === 'Cancelled' ? 'badge-danger' : sale.pendingBalance > 0 ? 'badge-warning' : 'badge-success'}`}>
+                    {formatBadgeText(sale.status, sale.pendingBalance)}
+                  </span>
+                </td>
+                <td>{safeFormat(sale.totalAmount)}</td>
+                <td>{safeFormat(sale.pendingBalance)}</td>
+                <td>
+                  <button className="pos-link-btn" onClick={() => setReceipt(sale)}>👁️ {t('viewReceipt')}</button>
+                  {canCancelSale && sale.status !== 'Cancelada' && sale.status !== 'Cancelled' && sale.status !== 'Devuelta' && (
+                    <button
+                      type="button"
+                      className="pos-link-btn"
+                      style={{ color: 'var(--danger)', marginLeft: '0.6rem' }}
+                      onClick={() => { setCancelSaleTarget(sale); setCancelReason(''); }}
+                      title="Cancelar esta venta (Solo Administrador)"
+                    >
+                      🚫 {t('cancel')}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </article>
     {receipt && <SaleReceiptModal sale={receipt} onClose={() => setReceipt(null)} />}
 
     {cancelSaleTarget && (

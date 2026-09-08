@@ -546,3 +546,56 @@ table tbody tr[aria-selected="true"] {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* ==========================================================================
+   Tablas con Ordenamiento Tri-Estado (Sortable Tables)
+   ========================================================================== */
+.th-sortable {
+  cursor: pointer !important;
+  user-select: none !important;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.th-sortable:hover {
+  background-color: var(--background-selected) !important;
+  color: var(--primary-main) !important;
+}
+
+.th-sortable:focus-visible {
+  outline: 2px solid var(--primary-main);
+  outline-offset: -2px;
+}
+
+.th-sortable--active {
+  background-color: var(--background-cream-soft) !important;
+  color: var(--primary-main) !important;
+  font-weight: 700 !important;
+}
+
+.th-sortable__content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.th-sortable__icon {
+  display: inline-block;
+  font-size: 0.85rem;
+  line-height: 1;
+  opacity: 0.4;
+  color: var(--text-muted);
+  transition: transform 0.15s ease, opacity 0.15s ease, color 0.15s ease;
+}
+
+.th-sortable:hover .th-sortable__icon {
+  opacity: 0.85;
+  color: var(--primary-main);
+}
+
+.th-sortable__icon--active {
+  opacity: 1 !important;
+  color: var(--primary-main) !important;
+  font-weight: bold;
+}
+

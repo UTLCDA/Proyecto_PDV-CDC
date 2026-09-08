@@ -8,6 +8,8 @@ import { ExportReportConfig } from '../../components/export/exportTypes';
 import { generateBarcodeBase64, saveBarcodeLocally, getLocalBarcode } from '../../utils/barcodeGenerator';
 import { downloadTechnicalDataSheet } from '../../utils/technicalSheetGenerator';
 import { processAndCompressImage, isImageFile } from '../../utils/imageProcessor';
+import { useTableSort } from '../../hooks/useTableSort';
+import { SortableTh } from '../../components/common/SortableTh';
 import './ProductListPage.css';
 
 export const PaginaCatalogoProductos: React.FC = () => {
@@ -23,6 +25,17 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const [filtrosAplicados, setFiltrosAplicados] = useState({ busqueda: '', categoriaId: '' });
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState('');
+
+  const { sortedData: productosOrdenados, sortKey, sortDirection, handleSort } = useTableSort(productos, {
+    valueExtractors: {
+      sku: p => `${p.name} ${p.sku}`,
+      categoryName: p => p.categoryName || '',
+      unitPrice: p => p.unitPrice || 0,
+      wholesalePrice: p => p.wholesalePrice || 0,
+      piecesPerBox: p => p.piecesPerBox || 1,
+      coveragePerUnitSqM: p => p.coveragePerUnitSqM || p.boxCoverageSqM || 0
+    }
+  });
 
   // Estado Modal Producto
   const [modalProductoAbierto, setModalProductoAbierto] = useState(false);
@@ -421,20 +434,32 @@ export const PaginaCatalogoProductos: React.FC = () => {
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-main)', background: 'var(--background-container)' }}>
                   <th style={{ padding: '0.75rem', width: '70px' }}>{t('productImage')}</th>
-                  <th style={{ padding: '0.75rem' }}>{t('skuProduct')}</th>
-                  <th style={{ padding: '0.75rem' }}>{t('category')}</th>
-                  <th style={{ padding: '0.75rem' }}>{t('unitPrice')}</th>
-                  <th style={{ padding: '0.75rem' }}>{t('wholesalePrice')}</th>
-                  <th style={{ padding: '0.75rem' }}>{t('piecesPerBox')}</th>
-                  <th style={{ padding: '0.75rem' }}>{t('coverageM2')}</th>
+                  <SortableTh columnKey="sku" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
+                    {t('skuProduct')}
+                  </SortableTh>
+                  <SortableTh columnKey="categoryName" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
+                    {t('category')}
+                  </SortableTh>
+                  <SortableTh columnKey="unitPrice" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
+                    {t('unitPrice')}
+                  </SortableTh>
+                  <SortableTh columnKey="wholesalePrice" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
+                    {t('wholesalePrice')}
+                  </SortableTh>
+                  <SortableTh columnKey="piecesPerBox" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
+                    {t('piecesPerBox')}
+                  </SortableTh>
+                  <SortableTh columnKey="coveragePerUnitSqM" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
+                    {t('coverageM2')}
+                  </SortableTh>
                   <th style={{ padding: '0.75rem', textAlign: 'right' }}>{t('actions')}</th>
                 </tr>
               </thead>
               <tbody>
-                {productos.length === 0 && (
+                {productosOrdenados.length === 0 && (
                   <tr><td colSpan={8} className="catalog-empty-state">{t('noCatalogProducts')}</td></tr>
                 )}
-                {productos.map(p => (
+                {productosOrdenados.map(p => (
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                     {/* Columna Miniatura Imagen (2.0) */}
                     <td style={{ padding: '0.75rem' }}>

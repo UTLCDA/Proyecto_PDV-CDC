@@ -1,5 +1,18 @@
 # HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
+## 📌 Hito Cumplido: Ordenamiento de Tablas (Table Sorting de 3 Estados)
+- **Implementación**: Sistema unificado y tipado con `useTableSort.ts` y `SortableTh.tsx`.
+- **Comportamiento**: 1er clic ascendente (↑), 2do clic descendente (↓), 3er clic restablece (⇅).
+- **Módulos Integrados**:
+  1. 🧾 Histórico de Ventas
+  2. 💳 Histórico de Transacciones y Movimientos de Pago
+  3. 📦 Catálogo de Productos WPC Bajío
+  4. 📁 Catálogo de Categorías WPC Bajío
+  5. 🏭 Control de Inventarios WPC Bajío
+  6. 📋 Movimientos de Inventario
+- **Validación Local**: Validado y aprobado por el usuario en entorno interactivo local.
+- **Suite de Pruebas**: Vitest 35/35 pasadas, xUnit 68/68 pasadas.
+
 ## 📌 Hito Cumplido: Producción 100% Operativa en la Nube
 - **Frontend SPA**: Desplegado en Cloudflare (`https://pos-wpcbajio.aaronarenasmartinez.workers.dev` / `https://pos.wpcbajio.com`) con Vite 6.4.3, React 18, y enrutamiento SPA mediante Wrangler Assets.
 - **Backend .NET 9**: Operando en VPS Ubuntu 26.04 (`193.46.198.88`) bajo Nginx y `systemd` (`pos-api.service`) accesible vía `https://api.wpcbajio.com/api/v1`.

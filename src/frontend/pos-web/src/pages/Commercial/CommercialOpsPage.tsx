@@ -13,6 +13,8 @@ import { ExportReportConfig } from '../../components/export/exportTypes';
 import { getOperationalDateInputValue, toOperationalUtcBoundary } from '../../utils/operationalDate';
 import { loadAllPagesForExport } from '../../utils/pagedExport';
 import SaleReceiptModal from '../Sales/SaleReceiptModal';
+import { useTableSort } from '../../hooks/useTableSort';
+import { SortableTh } from '../../components/common/SortableTh';
 import './CommercialOpsPage.css';
 
 const today = getOperationalDateInputValue;
@@ -75,6 +77,32 @@ export const CommercialOpsPage: React.FC<{ mode?: CommercialMode }> = ({ mode = 
     { label: 'Cliente', value: selectedHistoryCustomer || 'Todos' },
     { label: 'Método de pago', value: appliedHistoryFilters.paymentMethod ? paymentMethodLabel(appliedHistoryFilters.paymentMethod) : 'Todos' }
   ], [appliedHistoryFilters, selectedHistoryCustomer]);
+
+  const {
+    sortedData: sortedTransactionHistory,
+    sortKey: txSortKey,
+    sortDirection: txSortDirection,
+    handleSort: handleTxSort
+  } = useTableSort(transactionHistory, {
+    valueExtractors: {
+      customerDisplayName: item => item.customerDisplayName || 'Público General',
+      userUsername: item => item.userUsername || '',
+      paymentMethod: item => paymentMethodLabel(item.paymentMethod),
+      transactionType: item => transactionTypeLabel(item.transactionType)
+    }
+  });
+
+  const {
+    sortedData: sortedInstallmentHistory,
+    sortKey: instSortKey,
+    sortDirection: instSortDirection,
+    handleSort: handleInstSort
+  } = useTableSort(installmentHistory, {
+    valueExtractors: {
+      userUsername: item => item.userUsername || '',
+      paymentMethod: item => paymentMethodLabel(item.paymentMethod)
+    }
+  });
 
   const transactionExportConfig = useMemo<ExportReportConfig<PaymentTransaction>>(() => ({
     moduleName: t('transactionsModuleTitle'),
@@ -408,23 +436,23 @@ Por medio del presente documento, WPC Bajío acuerda la comercialización y sumi
           <button type="button" className="lang-btn" onClick={() => void clearHistoryFilters()}>{t('clearFilters')}</button>
         </form>
         <div className="commercial-history-table-wrap" style={{ overflowX: 'auto' }}>
-          {transactionHistory.length === 0 ? <div className="commercial-empty">{t('noInstallments')}</div> : (
+          {sortedTransactionHistory.length === 0 ? <div className="commercial-empty">{t('noInstallments')}</div> : (
             <table className="customers-table" style={{ width: '100%' }}>
               <thead>
                 <tr>
-                  <th>Folio Venta</th>
-                  <th>N° Recibo / Referencia</th>
-                  <th>{t('date')}</th>
-                  <th>Movimiento</th>
-                  <th>{t('paymentType')}</th>
-                  <th>Monto Pagado</th>
-                  <th>Cliente</th>
-                  <th>{t('user')}</th>
+                  <SortableTh sortKey="idVenta" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Folio Venta</SortableTh>
+                  <SortableTh sortKey="referenceNumber" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>N° Recibo / Referencia</SortableTh>
+                  <SortableTh sortKey="createdAtUtc" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('date')}</SortableTh>
+                  <SortableTh sortKey="transactionType" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Movimiento</SortableTh>
+                  <SortableTh sortKey="paymentMethod" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('paymentType')}</SortableTh>
+                  <SortableTh sortKey="amount" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Monto Pagado</SortableTh>
+                  <SortableTh sortKey="customerDisplayName" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Cliente</SortableTh>
+                  <SortableTh sortKey="userUsername" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('user')}</SortableTh>
                   <th>{t('action')}</th>
                 </tr>
               </thead>
               <tbody>
-                {transactionHistory.map(item => (
+                {sortedTransactionHistory.map(item => (
                   <tr key={item.id}>
                     <td><strong>{t('saleNumber', { idVenta: item.idVenta })}</strong></td>
                     <td><code>{item.referenceNumber}</code></td>
@@ -516,23 +544,23 @@ Por medio del presente documento, WPC Bajío acuerda la comercialización y sumi
           </form>
           <div className="commercial-history-table-wrap" style={{ marginTop: '12px', overflowX: 'auto' }}>
             {showTransactions ? (
-              transactionHistory.length === 0 ? <div className="commercial-empty">{t('noInstallments')}</div> : (
+              sortedTransactionHistory.length === 0 ? <div className="commercial-empty">{t('noInstallments')}</div> : (
                 <table className="customers-table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
-                      <th>Folio Venta</th>
-                      <th>N° Recibo / Referencia</th>
-                      <th>{t('date')}</th>
-                      <th>Movimiento</th>
-                      <th>{t('paymentType')}</th>
-                      <th>Monto Pagado</th>
-                      <th>Cliente</th>
-                      <th>{t('user')}</th>
+                      <SortableTh sortKey="idVenta" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Folio Venta</SortableTh>
+                      <SortableTh sortKey="referenceNumber" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>N° Recibo / Referencia</SortableTh>
+                      <SortableTh sortKey="createdAtUtc" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('date')}</SortableTh>
+                      <SortableTh sortKey="transactionType" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Movimiento</SortableTh>
+                      <SortableTh sortKey="paymentMethod" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('paymentType')}</SortableTh>
+                      <SortableTh sortKey="amount" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Monto Pagado</SortableTh>
+                      <SortableTh sortKey="customerDisplayName" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Cliente</SortableTh>
+                      <SortableTh sortKey="userUsername" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('user')}</SortableTh>
                       <th>{t('action')}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {transactionHistory.map(item => (
+                    {sortedTransactionHistory.map(item => (
                       <tr key={item.id}>
                         <td><strong>{t('saleNumber', { idVenta: item.idVenta })}</strong></td>
                         <td><code>{item.referenceNumber}</code></td>
@@ -561,22 +589,22 @@ Por medio del presente documento, WPC Bajío acuerda la comercialización y sumi
                 </table>
               )
             ) : (
-              installmentHistory.length === 0 ? <div className="commercial-empty">{t('noInstallments')}</div> : (
+              sortedInstallmentHistory.length === 0 ? <div className="commercial-empty">{t('noInstallments')}</div> : (
                 <table className="customers-table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
-                      <th>Folio Venta</th>
-                      <th>N° Recibo</th>
-                      <th>{t('date')}</th>
-                      <th>{t('paymentType')}</th>
-                      <th>{t('amountPaid')}</th>
-                      <th>{t('pendingBalance')}</th>
-                      <th>{t('user')}</th>
+                      <SortableTh sortKey="idVenta" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>Folio Venta</SortableTh>
+                      <SortableTh sortKey="receiptNumber" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>N° Recibo</SortableTh>
+                      <SortableTh sortKey="createdAtUtc" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('date')}</SortableTh>
+                      <SortableTh sortKey="paymentMethod" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('paymentType')}</SortableTh>
+                      <SortableTh sortKey="amountPaid" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('amountPaid')}</SortableTh>
+                      <SortableTh sortKey="newPendingBalance" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('pendingBalance')}</SortableTh>
+                      <SortableTh sortKey="userUsername" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('user')}</SortableTh>
                       <th>{t('action')}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {installmentHistory.map(item => (
+                    {sortedInstallmentHistory.map(item => (
                       <tr key={item.id}>
                         <td><strong>{t('saleNumber', { idVenta: item.idVenta })}</strong></td>
                         <td><code>{item.receiptNumber}</code></td>

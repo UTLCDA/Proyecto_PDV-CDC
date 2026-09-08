@@ -2,6 +2,19 @@
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
 
+- **Mantenimiento y Mejora — Ordenamiento de Columnas en Tablas (Table Sorting de 3 Estados)**:
+  - **Módulos Integrados**:
+    1. 🧾 **Histórico de Ventas** (`SalesHistoryPage.tsx`)
+    2. 💳 **Histórico de Transacciones y Movimientos de Pago** (`CommercialOpsPage.tsx`)
+    3. 📦 **Catálogo de Productos WPC Bajío** (`PaginaCatalogoProductos.tsx`)
+    4. 📁 **Catálogo de Categorías WPC Bajío** (`CategoryListPage.tsx`)
+    5. 🏭 **Control de Inventarios WPC Bajío** (`InventoryListPage.tsx`)
+    6. 📋 **Movimientos de Inventario** (`InventoryMovementsPage.tsx`)
+  - **Comportamiento Operativo**: Clic 1 = Ascendente (`↑`), Clic 2 = Descendente (`↓`), Clic 3 = Sin orden / Restablecer (`⇅`).
+  - **Infraestructura**: Hook reutilizable `useTableSort.ts`, componente accesible `SortableTh.tsx`, estilos dedicados en `index.css`.
+  - **Suite de Pruebas**: Vitest 35/35 (100% pasando), xUnit 68/68 (100% pasando), Vite Build sin errores (`0 errors, 0 warnings`).
+  - **Validación Local Humana**: Aprobada de manera presencial por el usuario tras validación interactiva.
+
 - **Despliegue Global Cloudflare & VPS Cloud**: **100% OPERATIVO EN PRODUCCIÓN**
   - **Frontend SPA (Cloudflare Workers/Pages CDN)**:
     - **URL Producción**: `https://pos-wpcbajio.aaronarenasmartinez.workers.dev` / `https://pos.wpcbajio.com`

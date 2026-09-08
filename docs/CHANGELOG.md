@@ -2,7 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.4.2 Production Release] - 2026-09-04
+## [2.5.0 Feature / Maintenance] - 2026-09-08
+
+### Añadido / Mejorado
+- **Ordenamiento de Columnas de Tres Estados (Tri-State Table Sorting)**:
+  - Implementación del hook universal `useTableSort` y componente reutilizable `SortableTh` que dota de ordenamiento nativo a las tablas del sistema.
+  - Comportamiento de ciclo en 3 estados:
+    - 1er clic: Orden ascendente (`↑`)
+    - 2do clic: Orden descendente (`↓`)
+    - 3er clic: Restablecer orden natural (`⇅`)
+  - Soporte para ordenamiento alfanumérico natural (e.g. `LAM-2` antes de `LAM-10`), fechas ISO / marcas de tiempo UTC, números, valores nulos (al final) y extractores/comparadores personalizados.
+  - Accesibilidad completa con roles ARIA (`aria-sort="ascending|descending|none"`), tooltips informativos y navegación por teclado (Enter y Espacio).
+  - Integración completada y verificada en los 6 módulos clave:
+    1. 🧾 **Histórico de Ventas** (`SalesHistoryPage.tsx`): Id Venta, Fecha, Cliente, Forma de Pago, Estado, Total y Saldo Pendiente.
+    2. 💳 **Histórico de Transacciones y Movimientos de Pago** (`CommercialOpsPage.tsx`): Transacciones y tabla de abonos históricos (Folio, Fecha, Venta, Cliente, Monto, Método, Referencia, Cajero).
+    3. 📦 **Catálogo de Productos WPC Bajío** (`PaginaCatalogoProductos.tsx`): SKU/Producto, Categoría, Precio Menudeo, Precio Mayoreo, Piezas por Caja y Cobertura m².
+    4. 📁 **Catálogo de Categorías WPC Bajío** (`CategoryListPage.tsx`): Categoría, Slug/Clave, Descripción, Categoría Padre y Estado.
+    5. 🏭 **Control de Inventarios WPC Bajío** (`InventoryListPage.tsx`): SKU/Producto, Ubicación, Piezas en existencia, Umbral Mínimo y Estado de existencias.
+    6. 📋 **Movimientos de Inventario** (`InventoryMovementsPage.tsx`): Fecha, Producto, Tipo, Cantidad, Costo Actual, Precio Venta, Monto Total, Impuesto, Costo Neto, Ganancia, Motivo, Referencia y Usuario.
+  - Suite de pruebas de frontend expandida a 35/35 pruebas superadas al 100% con Vitest.
 
 ### Añadido / Desplegado en Producción
 - **Arquitectura Cloud Global (Cloudflare Edge CDN + Ubuntu VPS)**:
