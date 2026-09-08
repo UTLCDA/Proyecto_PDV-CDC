@@ -1,5 +1,16 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
+## 🟢 Compilación y Despliegue del Backend API en VPS de Producción (2026-09-07)
+
+- **Servidor VPS**: `193.46.198.88` (Ubuntu 26.04).
+- **.NET 9 SDK**: Instalado exitosamente en el VPS (`9.0.317 linux-x64`) en `/usr/share/dotnet`.
+- **Repositorio en VPS**: Clonado en `/root/Proyecto_PDV-CDC` sobre la rama `version-final-de-PR` (commit `26fc950`).
+- **Compilación Nativa en Servidor**: Ejecutado `dotnet publish /root/Proyecto_PDV-CDC/src/backend/Pos.Api/Pos.Api.csproj -c Release -o /var/www/pos-api/`.
+- **Protección de Configuración**: `appsettings.json` en `/var/www/pos-api/` preservado con la cadena de conexión de producción a SQL Server Docker en Linux y JWT de producción.
+- **Nginx Reverse Proxy**: Configurado `client_max_body_size 50M;` en `/etc/nginx/sites-available/pos-api` para eliminar el límite por defecto de 1 MB que causaba errores 413 al cargar imágenes.
+- **Servicio Systemd**: `pos-api.service` reiniciado y validado en ejecución (`active (running)`).
+- **Verificación de Endpoints**: `http://localhost:5000/api/v1/health` y `https://api.wpcbajio.com/api/v1/health` retornando 200 OK con estado `Operativo` y registro en `AuditLogs`.
+
 ## 🟢 HotFix Integrado — Carga de Imágenes HEIC, Compresión Canvas y Edición de Productos (2026-09-07)
 
 - **Rama Git Activa**: `version-final-de-PR` (HotFix fusionado y verificado al 100%).

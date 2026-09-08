@@ -4,7 +4,21 @@
 2026-09-07
 
 ## Rama Git Activa
-`version-final-de-PR` (con HotFix integrado)
+`version-final-de-PR` (con HotFix integrado y desplegado en VPS)
+
+## Despliegue y Compilación en VPS de Producción
+1. **Instalación de .NET 9 SDK**:
+   - Instalado SDK versión `9.0.317 linux-x64` en el servidor VPS (`193.46.198.88`) en `/usr/share/dotnet`.
+2. **Clonado del Repositorio**:
+   - Repositorio clonado en `/root/Proyecto_PDV-CDC` sobre la rama `version-final-de-PR` (commit `26fc950`).
+3. **Compilación y Publicación**:
+   - Ejecutado `dotnet publish /root/Proyecto_PDV-CDC/src/backend/Pos.Api/Pos.Api.csproj -c Release -o /var/www/pos-api/`.
+4. **Protección de Configuración**:
+   - `appsettings.json` preservado intacto con credenciales de SQL Server 2022 y JWT de producción.
+5. **Nginx Reverse Proxy**:
+   - Añadido `client_max_body_size 50M;` a `/etc/nginx/sites-available/pos-api` y recargado Nginx para evitar el error `413 Request Entity Too Large`.
+6. **Estado del Servicio**:
+   - `pos-api.service` reiniciado y respondiendo 200 OK en `https://api.wpcbajio.com/api/v1/health`.
 
 ## Resumen del HotFix Realizado
 1. **Soporte de Imágenes HEIC / HEIF**:

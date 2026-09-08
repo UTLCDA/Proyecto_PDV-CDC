@@ -9,6 +9,12 @@
   - Punto de Venta (PDV), Calculadora de m², Cancelación de Ventas, Límite diario de cajas a clientes y exportaciones bilingües CJK verificadas.
   - Suite de pruebas: Backend xUnit 56/56 pasadas, Frontend Vitest 27/27 pasadas, compilación Release exitosa.
 
+- **Estado de Producción (VPS `193.46.198.88`)**:
+  - .NET 9 SDK instalado (`9.0.317 linux-x64`).
+  - Backend compilado in situ en `/var/www/pos-api` desde rama `version-final-de-PR`.
+  - Nginx configurado con `client_max_body_size 50M;` y servicio `pos-api` activo.
+  - Endpoints de salud respondiendo 200 OK en `https://api.wpcbajio.com/api/v1/health`.
+
 ## Siguiente única tarea recomendada
 
 Fusión del Pull Request de la rama `version-final-de-PR` hacia `main` / `fase-1.1` y despliegue a producción.
