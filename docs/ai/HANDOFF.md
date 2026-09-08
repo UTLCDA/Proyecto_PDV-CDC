@@ -1,10 +1,10 @@
-# HANDOFF — Resumen de Trabajo Reciente (HotFix hf/error-subida-imagen-pr)
+# HANDOFF — Resumen de Trabajo Reciente (HotFix de Imágenes en version-final-de-PR)
 
 ## Fecha de Handoff
 2026-09-07
 
 ## Rama Git Activa
-`hf/error-subida-imagen-pr` (desprendida de `version-final-de-PR`)
+`version-final-de-PR` (con HotFix integrado)
 
 ## Resumen del HotFix Realizado
 1. **Soporte de Imágenes HEIC / HEIF**:

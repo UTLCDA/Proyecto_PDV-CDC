@@ -1,21 +1,20 @@
-# NEXT TASK — Validación y Fusión del HotFix de Imágenes a PR
+# NEXT TASK — Despliegue de Release PR "version-final-de-PR" y Fusión a Main
 
 ## Estado actual
 
-- **Rama Git Activa**: `hf/error-subida-imagen-pr` (desprendida de `version-final-de-PR`).
-- **Problema Corregido**:
-  - Soporte completo para formato de imágenes HEIC/HEIF de iPhone con decodificación dinámica.
-  - Supresión del límite estricto de 2 MB mediante auto-compresión y redimensionamiento Canvas a JPEG ligero (~100-250 KB).
-  - Edición, reemplazo y eliminación de imagen en productos existentes habilitada de forma transparente en el modal de catálogo.
-  - Optimización aplicada igualmente a evidencias fotográficas en el módulo de Inventarios.
-  - Pruebas 100% verdes (Vitest 27/27, xUnit 56/56, build Vite exitoso con 0 errores).
+- **Rama Git Activa**: `version-final-de-PR` (con HotFix de imágenes integrado).
+- **Funcionalidades Verificadas**:
+  - Corrección de carga de imágenes HEIC/HEIF y compresión Canvas (< 250 KB Base64) integrada al 100%.
+  - Edición y reemplazo de fotos en productos existentes operativa sin bloqueo de 2 MB.
+  - Punto de Venta (PDV), Calculadora de m², Cancelación de Ventas, Límite diario de cajas a clientes y exportaciones bilingües CJK verificadas.
+  - Suite de pruebas: Backend xUnit 56/56 pasadas, Frontend Vitest 27/27 pasadas, compilación Release exitosa.
 
 ## Siguiente única tarea recomendada
 
-Validar el funcionamiento del modal de producto con una foto HEIC o de alta resolución en la rama `hf/error-subida-imagen-pr` y fusionar mediante Pull Request hacia la rama oficial `version-final-de-PR`.
+Fusión del Pull Request de la rama `version-final-de-PR` hacia `main` / `fase-1.1` y despliegue a producción.
 
 ### Criterios de Aceptación
-1. Verificar subida de una imagen `.heic` o imagen > 2 MB en el modal de creación y edición de productos.
-2. Confirmar que al editar un producto se puede cambiar la foto o eliminarla con "✕ Quitar foto".
-3. Fusionar la rama `hf/error-subida-imagen-pr` en `version-final-de-PR`.
+1. Revisión de código y aprobación final del PR por el desarrollador humano.
+2. Fusión de `version-final-de-PR` en `main`.
+3. Despliegue en IIS local / VPS Ubuntu con base de datos en producción.
 

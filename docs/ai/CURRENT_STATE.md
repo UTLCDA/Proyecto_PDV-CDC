@@ -1,8 +1,8 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
-## 🟢 HotFix — Carga de Imágenes HEIC, Compresión Canvas y Edición de Productos (hf/error-subida-imagen-pr - 2026-09-07)
+## 🟢 HotFix Integrado — Carga de Imágenes HEIC, Compresión Canvas y Edición de Productos (2026-09-07)
 
-- **Rama Git Activa**: `hf/error-subida-imagen-pr` (desprendida de `version-final-de-PR` para corrección quirúrgica sin alterar PR).
+- **Rama Git Activa**: `version-final-de-PR` (HotFix fusionado y verificado al 100%).
 - **Problemas Resueltos**:
   1. **Soporte de Formato HEIC/HEIF de iPhone**: Integración de conversión bajo demanda con `heic2any` (lazy-loading por importación dinámica) que transforma automáticamente archivos `.heic` a `.jpeg` de forma transparente.
   2. **Eliminación del Bloqueo Estricto de 2 MB**: Sustituido el límite estricto de 2 MB por compresión y redimensionamiento automático en cliente mediante `HTMLCanvasElement` (máx. 1200px, calidad 82%). Fotos pesadas de 5 MB a 20 MB se optimizan instantáneamente a un Base64 de ~100–250 KB, evitando sobrecargar la memoria y la base de datos.
