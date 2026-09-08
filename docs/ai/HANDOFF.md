@@ -1,12 +1,26 @@
-# HANDOFF — Resumen de Trabajo Reciente (v2.2.0 - Final PR)
+# HANDOFF — Resumen de Trabajo Reciente (HotFix hf/error-subida-imagen-pr)
 
 ## Fecha de Handoff
-2026-08-28
+2026-09-07
 
 ## Rama Git Activa
-`version-final-de-PR`
+`hf/error-subida-imagen-pr` (desprendida de `version-final-de-PR`)
 
-## Resumen de Cambios Realizados
+## Resumen del HotFix Realizado
+1. **Soporte de Imágenes HEIC / HEIF**:
+   - Integrada librería `heic2any` con importación dinámica para convertir fotos tomadas en iPhones/iPads a JPEG automáticamente en el cliente sin bloquear la carga.
+2. **Compresión Canvas y Eliminación del Límite de 2 MB**:
+   - Creación de utilidad reutilizable [`imageProcessor.ts`](file:///d:/Proyecto_PDV-CDC/src/frontend/pos-web/src/utils/imageProcessor.ts) que redimensiona fotos a máximo 1200px y las comprime a JPEG calidad 82%.
+   - Fotos pesadas de 5 MB a 20 MB se comprimen a ~100–250 KB en Base64, evitando errores de memoria, límites de red y saturación de la base de datos.
+3. **Edición y Reemplazo de Imágenes en Productos**:
+   - En [`PaginaCatalogoProductos.tsx`](file:///d:/Proyecto_PDV-CDC/src/frontend/pos-web/src/pages/Products/PaginaCatalogoProductos.tsx), el modal de edición ahora refleja correctamente la foto actual del producto, permite cambiarla por una nueva (con cualquier formato/peso) o eliminarla con el botón "✕ Quitar foto".
+4. **Evidencia Física en Inventarios**:
+   - Actualizado [`InventoryListPage.tsx`](file:///d:/Proyecto_PDV-CDC/src/frontend/pos-web/src/pages/Inventory/InventoryListPage.tsx) para usar el mismo procesador con soporte HEIC y auto-compresión.
+5. **Suite de Pruebas**:
+   - Vitest: 27/27 pasadas (100%).
+   - Build Vite: Exitoso con `heic2any` dividido en chunk independiente.
+
+## Resumen de Cambios Previos en PR
 1. **Punto de Venta (PDV)**:
    - Botones rápidos renombrados a `Pieza +` y `Caja +`.
    - Filtro de búsqueda rápida integrado arriba de `📦 Catálogo rápido`.

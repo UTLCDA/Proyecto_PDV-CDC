@@ -1,5 +1,18 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
+## 🟢 HotFix — Carga de Imágenes HEIC, Compresión Canvas y Edición de Productos (hf/error-subida-imagen-pr - 2026-09-07)
+
+- **Rama Git Activa**: `hf/error-subida-imagen-pr` (desprendida de `version-final-de-PR` para corrección quirúrgica sin alterar PR).
+- **Problemas Resueltos**:
+  1. **Soporte de Formato HEIC/HEIF de iPhone**: Integración de conversión bajo demanda con `heic2any` (lazy-loading por importación dinámica) que transforma automáticamente archivos `.heic` a `.jpeg` de forma transparente.
+  2. **Eliminación del Bloqueo Estricto de 2 MB**: Sustituido el límite estricto de 2 MB por compresión y redimensionamiento automático en cliente mediante `HTMLCanvasElement` (máx. 1200px, calidad 82%). Fotos pesadas de 5 MB a 20 MB se optimizan instantáneamente a un Base64 de ~100–250 KB, evitando sobrecargar la memoria y la base de datos.
+  3. **Edición y Reemplazo de Imagen en Productos Existentes**: En `PaginaCatalogoProductos.tsx`, habilitada la visualización clara de la foto actual al editar, botón para cambiar imagen (soporta cualquier formato/peso) y botón de eliminación ("✕ Quitar foto"). Se eliminó el forzado del logo por defecto en productos sin imagen.
+  4. **Optimización en Módulo de Inventarios**: En `InventoryListPage.tsx`, se aplicó el mismo motor de compresión y soporte HEIC para la fotografía de evidencia física en movimientos de inventario.
+- **Suite de Pruebas**:
+  - Frontend Vitest: **27/27** pruebas pasadas al 100% (incluyendo suite `imageProcessor.test.ts`).
+  - Frontend Build: Bundle Vite completado con éxito con división de chunks optimizada (`dist/assets/heic2any-*.js`).
+  - Backend xUnit: **56/56** pruebas de dominio y aplicación pasadas al 100%.
+
 ## Iteración Final aprobada — Release PR "version-final-de-PR" (2026-08-28)
 
 - **Rama Git Activa**: `version-final-de-PR` (creada a petición explícita del cliente para entregables finales).

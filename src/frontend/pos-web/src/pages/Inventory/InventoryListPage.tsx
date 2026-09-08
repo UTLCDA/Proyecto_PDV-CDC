@@ -7,10 +7,10 @@ import { useAuth } from '../../context/AuthContext';
 import { permissionCodes } from '../../security/accessControl';
 import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
+import { processAndCompressImage, isImageFile } from '../../utils/imageProcessor';
 import './InventoryListPage.css';
 
 const DEFAULT_WAREHOUSE_LOCATION = 'Bodega Adolfo Lopez Mateos';
-const MAX_EVIDENCE_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
 
 export const InventoryListPage: React.FC = () => {
   const { t } = useTranslation();
@@ -110,25 +110,28 @@ export const InventoryListPage: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleEvidenceImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEvidenceImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      alert(t('invalidEvidenceImageType'));
+    if (!isImageFile(file)) {
+      alert(t('invalidEvidenceImageType') || 'Seleccione un archivo de imagen válido (JPG, PNG, WEBP, HEIC).');
       e.target.value = '';
       return;
     }
 
-    if (file.size > MAX_EVIDENCE_IMAGE_SIZE_BYTES) {
-      alert(t('evidenceImageTooLarge'));
+    try {
+      const compressedBase64 = await processAndCompressImage(file, {
+        maxDimension: 1200,
+        quality: 0.82
+      });
+      setEvidenceImageUrl(compressedBase64);
+    } catch (err: any) {
+      console.error('Error al procesar evidencia:', err);
+      alert(err.message || 'Error al procesar la imagen de evidencia.');
+    } finally {
       e.target.value = '';
-      return;
     }
-
-    const reader = new FileReader();
-    reader.onloadend = () => setEvidenceImageUrl(reader.result as string);
-    reader.readAsDataURL(file);
   };
 
   const handleRegisterMovement = async (e: React.FormEvent) => {
@@ -377,7 +380,7 @@ export const InventoryListPage: React.FC = () => {
                 <input
                   id="inventory-evidence"
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.heic,.heif,.HEIC,.HEIF"
                   className="input-field inventory-file-input"
                   onChange={handleEvidenceImageChange}
                 />

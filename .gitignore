@@ -44,3 +44,6 @@ __pycache__/
 ~$*
 ~WRL*.tmp
 publish/
+dist_vps_api/
+*.zip
+*.tar.gz

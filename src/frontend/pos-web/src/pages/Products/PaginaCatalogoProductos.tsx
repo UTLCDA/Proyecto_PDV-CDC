@@ -5,9 +5,8 @@ import { servicioCatalogo } from '../../services/servicioCatalogo';
 import { useAuth } from '../../context/AuthContext';
 import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
+import { processAndCompressImage, isImageFile } from '../../utils/imageProcessor';
 import './ProductListPage.css';
-
-const MAX_PRODUCT_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
 
 export const PaginaCatalogoProductos: React.FC = () => {
   const { t } = useTranslation();
@@ -55,6 +54,8 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const [descripcionCategoria, setDescripcionCategoria] = useState('');
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [procesandoImagen, setProcesandoImagen] = useState(false);
 
   const exportConfig = useMemo<ExportReportConfig<Producto>>(() => ({
     moduleName: 'Catálogo de Productos WPC Bajío',
@@ -133,6 +134,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setAnchoCm('');
     setCantidadInventarioInicial('');
     setImagenUrl('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setSoloCotizacion(false);
     setVisibleMasVendido(false);
     setModalProductoAbierto(true);
@@ -161,7 +163,8 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setAltoCm(p.heightCm?.toString() || '0');
     setAnchoCm(p.widthCm?.toString() || '0');
     setCantidadInventarioInicial(p.initialInventoryQuantity?.toString() || '0');
-    setImagenUrl(p.imageUrl || '/logo_wpc_bajio.jpeg');
+    setImagenUrl(p.imageUrl || '');
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setSoloCotizacion(p.isQuoteOnly);
     setVisibleMasVendido(p.isTopSellerVisible);
     setModalProductoAbierto(true);
@@ -176,25 +179,39 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setSku(valor);
   };
 
-  // Manejo de Selección e Imagen Base64 / Local Preview (1.2 & 1.2.1)
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Manejo de Selección, Conversión HEIC y Compresión Canvas (Soporta HEIC, JPG, PNG, WEBP sin límite de 2MB)
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        alert(t('invalidProductImageType'));
-        e.target.value = '';
-        return;
+    if (!file) return;
+
+    if (!isImageFile(file)) {
+      alert(t('invalidProductImageType') || 'Seleccione un archivo de imagen válido (JPG, PNG, WEBP, HEIC).');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    setProcesandoImagen(true);
+    try {
+      const compressedBase64 = await processAndCompressImage(file, {
+        maxDimension: 1200,
+        quality: 0.82
+      });
+      setImagenUrl(compressedBase64);
+    } catch (err: any) {
+      console.error('Error al procesar imagen:', err);
+      alert(err.message || 'Error al procesar la imagen seleccionada.');
+    } finally {
+      setProcesandoImagen(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
       }
-      if (file.size > MAX_PRODUCT_IMAGE_SIZE_BYTES) {
-        alert(t('productImageTooLarge'));
-        e.target.value = '';
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagenUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleQuitarImagen = () => {
+    setImagenUrl('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -589,24 +606,52 @@ export const PaginaCatalogoProductos: React.FC = () => {
               <div style={{ padding: '1rem', background: 'var(--background-container)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                 <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--accent-primary)' }}>🖼️ 2. Imagen, Cobertura y Dimensiones</h4>
 
-                <div className="catalog-image-grid" style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr', gap: '1rem', alignItems: 'center' }}>
+                <div className="catalog-image-grid" style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '1.25rem', alignItems: 'center' }}>
                   {/* Vista Previa de Imagen (1.2) */}
                   <div style={{ textAlign: 'center' }}>
-                    {imagenUrl ? (
-                      <img src={imagenUrl} alt="Preview" style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--accent-primary)' }} />
+                    {procesandoImagen ? (
+                      <div style={{ width: '95px', height: '95px', borderRadius: '8px', background: 'var(--background-surface)', border: '1px dashed var(--accent-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-primary)', fontSize: '0.72rem', padding: '0.25rem' }}>
+                        <span style={{ fontSize: '1.2rem', marginBottom: '4px' }}>⏳</span>
+                        Optimizando...
+                      </div>
+                    ) : imagenUrl ? (
+                      <div>
+                        <img src={imagenUrl} alt="Preview" style={{ width: '95px', height: '95px', objectFit: 'cover', borderRadius: '8px', border: '2px solid var(--accent-primary)', display: 'block', margin: '0 auto' }} />
+                        <button
+                          type="button"
+                          onClick={handleQuitarImagen}
+                          className="lang-btn"
+                          style={{ marginTop: '0.4rem', fontSize: '0.72rem', color: '#dc2626', width: '100%', padding: '0.2rem 0.4rem' }}
+                          title="Quitar foto"
+                        >
+                          ✕ Quitar foto
+                        </button>
+                      </div>
                     ) : (
-                      <div style={{ width: '90px', height: '90px', borderRadius: '8px', background: 'var(--background-surface)', border: '1px dashed var(--border-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>Sin Foto</div>
+                      <div style={{ width: '95px', height: '95px', borderRadius: '8px', background: 'var(--background-surface)', border: '1px dashed var(--border-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                        Sin Foto
+                      </div>
                     )}
                   </div>
 
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Cargar Imagen del Producto (Local / Base64)</label>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+                      {esEdicion && imagenUrl ? 'Cambiar Imagen del Producto (Soporta HEIC, JPG, PNG, WEBP)' : 'Cargar Imagen del Producto (Soporta HEIC, JPG, PNG, WEBP)'}
+                    </label>
                     <input
+                      ref={fileInputRef}
                       type="file"
-                      accept="image/*"
+                      accept="image/*,.heic,.heif,.HEIC,.HEIF"
                       className="input-field"
+                      disabled={procesandoImagen}
                       onChange={handleImageFileChange}
+                      style={{ cursor: procesandoImagen ? 'wait' : 'pointer' }}
                     />
+                    <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '0.35rem', lineHeight: '1.3' }}>
+                      {procesandoImagen
+                        ? '⏳ Convirtiendo imagen HEIC y optimizando en calidad alta...'
+                        : '💡 Admite fotos directas desde iPhone (.heic) y cámaras; se comprimen automáticamente para máxima rapidez.'}
+                    </div>
                   </div>
                 </div>
 
