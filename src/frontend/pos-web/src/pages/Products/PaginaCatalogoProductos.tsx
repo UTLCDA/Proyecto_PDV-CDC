@@ -521,10 +521,10 @@ export const PaginaCatalogoProductos: React.FC = () => {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-main)', background: 'var(--background-container)' }}>
-                  <th style={{ padding: '0.75rem', width: '70px' }}>{t('productImage')}</th>
                   <SortableTh columnKey="idProducto" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem', width: '65px' }}>
                     {t('productId')}
                   </SortableTh>
+                  <th style={{ padding: '0.75rem', width: '70px' }}>{t('productImage')}</th>
                   <SortableTh columnKey="sku" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
                     {t('skuProduct')}
                   </SortableTh>
@@ -555,12 +555,27 @@ export const PaginaCatalogoProductos: React.FC = () => {
                 )}
                 {productosOrdenados.map(p => (
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--border-subtle)', opacity: p.isActive ? 1 : 0.65 }}>
-                    {/* Columna Miniatura Imagen (2.0) */}
+                    {/* 1. Columna ID Producto (Identity 1-1) */}
+                    <td style={{ padding: '0.75rem' }}>
+                      <span style={{
+                        fontWeight: 700,
+                        fontFamily: 'monospace',
+                        color: 'var(--text-main)',
+                        background: 'var(--background-container)',
+                        padding: '0.2rem 0.45rem',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border-subtle)',
+                        fontSize: '0.85rem'
+                      }}>
+                        #{p.idProducto}
+                      </span>
+                    </td>
+                    {/* 2. Columna Miniatura Imagen (2.0) */}
                     <td style={{ padding: '0.75rem' }}>
                       {p.imageUrl ? (
                         <img
                           src={p.imageUrl}
-                          alt={p.name}
+                          alt={p.sku}
                           style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}
                         />
                       ) : (
@@ -580,25 +595,26 @@ export const PaginaCatalogoProductos: React.FC = () => {
                         </div>
                       )}
                     </td>
-                    {/* Columna ID Producto (Identity 1-1) */}
+                    {/* 3. Columna SKU y Código */}
                     <td style={{ padding: '0.75rem' }}>
-                      <span style={{
-                        fontWeight: 700,
+                      <div style={{
+                        fontSize: '1.15rem',
+                        fontWeight: 800,
                         fontFamily: 'monospace',
-                        color: 'var(--text-main)',
-                        background: 'var(--background-container)',
-                        padding: '0.2rem 0.45rem',
-                        borderRadius: '4px',
-                        border: '1px solid var(--border-subtle)',
-                        fontSize: '0.85rem'
+                        letterSpacing: '0.5px',
+                        color: 'var(--accent-primary, #9C4D22)',
+                        lineHeight: 1.2
                       }}>
-                        #{p.idProducto}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{p.name}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                        SKU: <strong style={{ color: 'var(--accent-primary)' }}>{p.sku}</strong> &bull; Cod: {p.barcode || 'N/A'} {p.color ? `• Color: ${p.color}` : ''}
+                        {p.sku}
+                      </div>
+                      <div style={{
+                        fontSize: '0.82rem',
+                        color: 'var(--text-muted)',
+                        fontFamily: 'monospace',
+                        marginTop: '0.25rem'
+                      }}>
+                        Cod: <strong style={{ color: 'var(--text-main)' }}>{p.barcode || 'N/A'}</strong>
+                        {p.color ? ` • Color: ${p.color}` : ''}
                       </div>
                     </td>
                     <td style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>{p.categoryName}</td>
