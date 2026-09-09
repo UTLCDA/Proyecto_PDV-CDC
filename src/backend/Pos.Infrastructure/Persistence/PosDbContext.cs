@@ -137,6 +137,12 @@ public class PosDbContext : DbContext
         modelBuilder.Entity<Producto>()
             .HasIndex(product => product.Barcode)
             .IsUnique();
+        modelBuilder.Entity<Producto>()
+            .Property(product => product.IdProducto)
+            .ValueGeneratedOnAdd();
+        modelBuilder.Entity<Producto>()
+            .HasIndex(product => product.IdProducto)
+            .IsUnique();
 
         modelBuilder.Entity<Categoria>()
             .Property(category => category.Nombre)
@@ -196,6 +202,54 @@ public class PosDbContext : DbContext
             {
                 property.SetPrecision(18);
                 property.SetScale(2);
+            }
+        }
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        SimulateIdentityColumnsForInMemory();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override int SaveChanges()
+    {
+        SimulateIdentityColumnsForInMemory();
+        return base.SaveChanges();
+    }
+
+    private void SimulateIdentityColumnsForInMemory()
+    {
+        if (Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            var newProducts = ChangeTracker.Entries<Producto>()
+                .Where(e => e.State == EntityState.Added && e.Entity.IdProducto <= 0)
+                .Select(e => e.Entity)
+                .ToList();
+
+            if (newProducts.Count > 0)
+            {
+                var maxId = Products.Any() ? Products.Max(p => p.IdProducto) : 0;
+                foreach (var product in newProducts)
+                {
+                    maxId++;
+                    product.IdProducto = maxId;
+                }
+            }
+
+            var newSales = ChangeTracker.Entries<Venta>()
+                .Where(e => e.State == EntityState.Added && e.Entity.IdVenta <= 0)
+                .Select(e => e.Entity)
+                .ToList();
+
+            if (newSales.Count > 0)
+            {
+                var maxSaleId = Sales.Any() ? Sales.Max(s => s.IdVenta) : 0;
+                foreach (var sale in newSales)
+                {
+                    maxSaleId++;
+                    sale.IdVenta = maxSaleId;
+                }
             }
         }
     }

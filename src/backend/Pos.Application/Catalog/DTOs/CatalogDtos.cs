@@ -25,6 +25,7 @@ public record UpdateCategoryDto(
 
 public record ProductDto(
     Guid Id,
+    int IdProducto,
     string Sku,
     string Barcode,
     string Name,

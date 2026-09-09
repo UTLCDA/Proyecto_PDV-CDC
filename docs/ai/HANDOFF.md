@@ -1,5 +1,31 @@
 # HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
+## 📌 Hito Cumplido: Mejoras al Módulo de Productos "Catálogo" (ABC, IdProducto e Inventario Actual)
+- **Rama Git**: `mantenimiento/mejoras-catalogo-productos`
+- **Descripción**: Mejoras al módulo de productos "catálogo" solicitadas por el cliente.
+- **Entregables Realizados**:
+  1. **Identificador Secuencial `IdProducto` (Identity 1-1)**:
+     - Añadido a `Producto` / `Product` y a todos los DTOs de backend y modelos de frontend.
+     - Mapeado con EF Core `ValueGeneratedOnAdd()` y columna SQL Server `IDENTITY(1,1)` con índice único `IX_Products_IdProducto`. El GUID original `Id` sigue operando como PK/FK en todo el sistema.
+     - Creada la migración `20260909231411_AddIdProductoIdentityToProducts`.
+     - Implementado soporte simulador en `PosDbContext.cs` para pruebas unitarias con proveedor `InMemory`.
+     - Soporte de búsqueda por texto extendido para coincidencia numérica exacta contra `IdProducto`.
+     - Mostrado en la tabla del catálogo como primera columna "ID" (`#{p.idProducto}`) con capacidad de ordenamiento interactivo.
+  2. **Columna "Inventario Actual" en Tabla de Catálogo**:
+     - Columna visible con piezas totales en inventario (`p.availableQuantity`).
+     - Insignia de estado (suficiente, bajo stock, agotado).
+     - Soporte de ordenamiento por existencias (`stock`) en backend y frontend.
+     - Textos internacionalizados en español y chino simplificado.
+  3. **Acción de Eliminar Producto (Baja Lógica / ABC Completo)**:
+     - Endpoint `DELETE /api/v1/products/{id}` en `ProductsController.cs` con política `Catalog.ProductsEdit`.
+     - Desactivación lógica `EstaActivo = false` y registro en bitácora de auditoría (`PRODUCT_DELETED`).
+     - Parámetro de filtrado `includeInactive` (por defecto `false`), con selector en frontend para alternar entre "Activos", "Inactivos" y "Todos".
+     - Botón "🗑️ Eliminar" en acciones con modal bilingüe de confirmación y advertencia.
+- **Pruebas y Verificación**:
+  - Backend: 77/77 pruebas superadas al 100% (`dotnet test src/backend/Pos.sln`).
+  - Frontend: 47/47 pruebas superadas al 100% (`npm run test`).
+  - Build Frontend: `npm run build` completado exitosamente sin errores ni advertencias en 12.00s.
+
 ## 📌 Hito Cumplido: Diagnóstico y Corrección de Visibilidad de Paginación en Frontend
 - **Rama Git**: `mantenimiento/mejoras-v2`
 - **Problema Reportado**: "no veo la numeracion en el front".

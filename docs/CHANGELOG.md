@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.0] Mantenimiento Catálogo de Productos - 2026-09-09
+
+### Añadido / Mejorado
+- **Identificador Secuencial `IdProducto` (Identity 1-1)**:
+  - **Dominio y Persistencia**: Se añadió la propiedad `IdProducto` de tipo `int` a la entidad `Producto`/`Product` con anotación EF Core `ValueGeneratedOnAdd()`, mapeo a columna SQL Server `IDENTITY(1,1)` con índice único `IX_Products_IdProducto`. Se preserva el identificador primario `Id` (`Guid`) para todas las relaciones y claves foráneas del sistema.
+  - **Soporte InMemory**: Se implementó simulación de columna Identity para pruebas unitarias con el proveedor `InMemory` en `PosDbContext.cs`.
+  - **Migración EF Core**: Creada y aplicada la migración `20260909231411_AddIdProductoIdentityToProducts`.
+  - **Búsqueda y Ordenamiento**: La búsqueda por texto ahora reconoce coincidencias numéricas exactas contra `IdProducto` además de SKU, nombre y código de barras. Soporte de ordenamiento en backend por `idproducto`.
+  - **Frontend**: Incorporada la columna "ID" (`#{p.idProducto}`) al inicio de la tabla del Catálogo de Productos (`PaginaCatalogoProductos.tsx`) con capacidad de ordenamiento interactivo ascendente/descendente.
+
+- **Columna de Inventario Actual en Catálogo**:
+  - **Visualización de Piezas**: Se añadió la columna visible "Inventario Actual" (`catalogCurrentInventory`) que muestra las existencias totales en piezas (`p.availableQuantity`) con insignia de estado (suficiente, bajo stock o sin inventario).
+  - **Ordenamiento**: Capacidad de ordenamiento en backend y frontend por columna de inventario (`stock`).
+  - **Internacionalización**: Traducciones completas en español ("Inventario Actual", "pzas") y chino simplificado ("当前库存", "件").
+
+- **Baja Lógica de Productos (Completitud ABC / CRUD)**:
+  - **Backend**: Implementado endpoint `DELETE /api/v1/products/{id}` en `ProductsController.cs` con política de autorización `Catalog.ProductsEdit`. El método `DeleteProductAsync` en `CatalogApplicationService.cs` marca `EstaActivo = false`, actualiza fecha de modificación y registra el evento `PRODUCT_DELETED` en la bitácora central de auditoría.
+  - **Filtro de Estado en Consulta**: Parámetro opcional `includeInactive` (por defecto `false`), permitiendo que el listado público y de ventas filtre productos inactivos, mientras que el módulo de administración de catálogo permite filtrar por "Activos", "Inactivos" y "Todos".
+  - **Frontend**: Botón de acción "🗑️ Eliminar" en cada fila con modal bilingüe de confirmación y advertencia ("Esta acción dará de baja el producto del catálogo activo"), mutación asíncrona y refresco reactivo de la tabla.
+
+- **Pruebas y Calidad**:
+  - Pruebas unitarias de aplicación `DeleteProductAsync_ShouldDeactivateProductAndAudit` y `GetProductsAsync_WithIncludeInactive_ShouldReturnAllProducts`.
+  - Pruebas de integración en `ProductsControllerIntegrationTests` para borrado lógico y verificación de estado.
+  - Cobertura 100%: 77 pruebas Backend xUnit superadas, 47 pruebas Frontend Vitest superadas.
+
 ## [2.6.4 Fix / Performance] - 2026-09-08
 
 ### Corregido / Mejorado

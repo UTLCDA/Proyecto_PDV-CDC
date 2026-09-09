@@ -2,6 +2,30 @@
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
 
+- **Mantenimiento Catálogo de Productos (Rama `mantenimiento/mejoras-catalogo-productos`)**:
+  - **Rama Git Activa**: `mantenimiento/mejoras-catalogo-productos`
+  - **Objetivo**: Mejoras al módulo de productos "catálogo" solicitadas por el cliente:
+    1. **Identificador Secuencial `IdProducto` (Identity 1-1)**:
+       - Incorporado campo `int IdProducto` en entidades de Dominio (`Producto.cs` y `Product.cs`) y DTOs (`ProductDto.cs`, `Producto.ts`, `Product.ts`).
+       - Configurado en `PosDbContext.cs` como `ValueGeneratedOnAdd()`, mapeado en SQL Server como columna `IDENTITY(1,1)` con índice único `IX_Products_IdProducto`. El GUID original `Id` permanece intacto como PK/FK.
+       - Simulación de identidad automática añadida en `PosDbContext.cs` para el proveedor `InMemory` en suites de pruebas unitarias.
+       - Migración EF Core generada: `20260909231411_AddIdProductoIdentityToProducts`.
+       - Búsqueda por texto en API ampliada para coincidencia exacta con `IdProducto` si la consulta es numérica.
+       - Columna "ID" agregada con ordenamiento interactivo y formato `#{p.idProducto}` en la tabla del catálogo.
+    2. **Columna "Inventario Actual"**:
+       - Añadida columna "Inventario Actual" en la tabla mostrando las piezas actuales en existencia (`p.availableQuantity`).
+       - Insignias visuales de nivel de existencias (suficiente, bajo stock, agotado).
+       - Ordenamiento interactivo por existencias (`stock`) soportado tanto en backend como frontend.
+    3. **Baja Lógica de Producto (ABC / CRUD Completo)**:
+       - Endpoint `DELETE /api/v1/products/{id}` en `ProductsController.cs` protegido por política `Catalog.ProductsEdit`.
+       - Lógica de desactivación `EstaActivo = false`, auditoría `PRODUCT_DELETED` en bitácora central y validación de existencia.
+       - Filtro `includeInactive` añadido a `GetProductsAsync` (por defecto `false`), permitiendo conmutar entre Activos, Inactivos y Todos en el catálogo.
+       - Botón "🗑️ Eliminar" en frontend con diálogo de confirmación y advertencia bilingüe.
+  - **Pruebas y Verificación**:
+    - Backend: 77/77 pruebas superadas al 100% (xUnit: Domain, Application, IntegrationTests).
+    - Frontend: 47/47 pruebas unitarias de Vitest superadas (100%).
+    - Build Frontend: `npm run build` (`tsc && vite build`) completado con 0 errores y 0 advertencias.
+
 - **Despliegue a Producción (Main y VPS Cloud)**:
   - **Rama Git**: `main` (commit `69c9e7b`, sincronizado con `mantenimiento/mejoras-v2`).
   - **Backend en VPS**: Código actualizado desde `main`, compilado en Release y publicado a `/var/www/pos-api/` con `systemctl restart pos-api` (servicio activo y respondiendo 200 OK en `https://api.wpcbajio.com/api/v1/health`).

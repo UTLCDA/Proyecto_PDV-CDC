@@ -25,17 +25,24 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [categoriaFiltro, setCategoriaFiltro] = useState('');
-  const [filtrosAplicados, setFiltrosAplicados] = useState({ busqueda: '', categoriaId: '' });
+  const [filtrosAplicados, setFiltrosAplicados] = useState({ busqueda: '', categoriaId: '', estado: 'active' });
+  const [estadoFiltro, setEstadoFiltro] = useState<'active' | 'inactive' | 'all'>('active');
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState('');
+  const [mensajeExito, setMensajeExito] = useState('');
+  const [modalBajaAbierto, setModalBajaAbierto] = useState(false);
+  const [productoABorrar, setProductoABorrar] = useState<Producto | null>(null);
+  const [eliminandoProducto, setEliminandoProducto] = useState(false);
   const pagination = usePagination({ initialPageSize: 25 });
 
   const { sortedData: productosOrdenados, sortKey, sortDirection, handleSort } = useTableSort(productos, {
     valueExtractors: {
+      idProducto: p => p.idProducto || 0,
       sku: p => `${p.name} ${p.sku}`,
       categoryName: p => p.categoryName || '',
       unitPrice: p => p.unitPrice || 0,
       wholesalePrice: p => p.wholesalePrice || 0,
+      stock: p => p.availableQuantity || 0,
       piecesPerBox: p => p.piecesPerBox || 1,
       coveragePerUnitSqM: p => p.coveragePerUnitSqM || p.boxCoverageSqM || 0
     }
@@ -86,9 +93,11 @@ export const PaginaCatalogoProductos: React.FC = () => {
     orientation: 'landscape',
     filters: [
       { label: 'Búsqueda', value: filtrosAplicados.busqueda },
-      { label: 'Categoría', value: categorias.find(category => category.id === filtrosAplicados.categoriaId)?.name || 'Todas' }
+      { label: 'Categoría', value: categorias.find(category => category.id === filtrosAplicados.categoriaId)?.name || 'Todas' },
+      { label: 'Estado', value: filtrosAplicados.estado === 'all' ? 'Todos' : filtrosAplicados.estado === 'inactive' ? 'Inactivos' : 'Activos' }
     ],
     columns: [
+      { key: 'idProducto', label: 'ID / 编号', type: 'number', width: 0.6, value: product => product.idProducto },
       { key: 'sku', label: 'SKU / 编号', width: 0.8, value: product => product.sku },
       { key: 'barcode', label: 'Código de Barras / 条形码', width: 1.1, value: product => product.barcode || '—' },
       { key: 'name', label: 'Producto / 产品', width: 1.7, value: product => product.name },
@@ -98,9 +107,9 @@ export const PaginaCatalogoProductos: React.FC = () => {
       { key: 'unitPrice', label: 'Precio Menudeo / 零售价', type: 'currency', width: 1.1, value: product => product.unitPrice },
       { key: 'wholesalePrice', label: 'Precio Mayoreo / 批发价', type: 'currency', width: 0.9, value: product => product.wholesalePrice },
       { key: 'wholesaleMin', label: 'Mínimo Mayoreo / 最小批发量', type: 'number', width: 0.8, value: product => product.wholesaleMinQuantity },
+      { key: 'stock', label: 'Inventario Actual / 当前库存', type: 'number', width: 0.9, value: product => product.availableQuantity },
       { key: 'pieces', label: 'Piezas / Contenido / 每箱件数', type: 'number', width: 0.8, value: product => product.piecesPerBox || 1 },
       { key: 'coverage', label: 'Cobertura m² / 覆盖面积', type: 'number', width: 0.8, value: product => product.boxCoverageSqM || product.coveragePerUnitSqM },
-      { key: 'stock', label: 'Existencias / 库存', type: 'number', width: 0.75, value: product => product.availableQuantity },
       { key: 'status', label: 'Estado / 状态', width: 0.7, value: product => product.isActive ? 'Activo' : 'Inactivo' }
     ]
   }), [categorias, filtrosAplicados]);
@@ -109,17 +118,22 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setCargando(true);
     setErrorCarga('');
     try {
+      const includeInactive = filtrosAplicados.estado === 'all' || filtrosAplicados.estado === 'inactive';
       const [prodsData, catsData] = await Promise.all([
         servicioCatalogo.getProducts(
           filtrosAplicados.busqueda || undefined,
           filtrosAplicados.categoriaId || undefined,
           { page: pagination.pageNumber, pageSize: pagination.pageSize },
           sortKey,
-          sortDirection
+          sortDirection,
+          includeInactive
         ),
         categorias.length === 0 ? servicioCatalogo.getCategories() : Promise.resolve(categorias)
       ]);
-      const items = Array.isArray(prodsData) ? prodsData : prodsData.items;
+      let items = Array.isArray(prodsData) ? prodsData : prodsData.items;
+      if (filtrosAplicados.estado === 'inactive') {
+        items = items.filter(p => !p.isActive);
+      }
       setProductos(items);
       if (!Array.isArray(prodsData)) pagination.setPaginationFromResult(prodsData);
       if (categorias.length === 0) {
@@ -142,14 +156,33 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const handleBuscarSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     pagination.resetPage();
-    setFiltrosAplicados({ busqueda: busqueda.trim(), categoriaId: categoriaFiltro });
+    setFiltrosAplicados({ busqueda: busqueda.trim(), categoriaId: categoriaFiltro, estado: estadoFiltro });
   };
 
   const handleLimpiarFiltros = () => {
     setBusqueda('');
     setCategoriaFiltro('');
+    setEstadoFiltro('active');
     pagination.resetPage();
-    setFiltrosAplicados({ busqueda: '', categoriaId: '' });
+    setFiltrosAplicados({ busqueda: '', categoriaId: '', estado: 'active' });
+  };
+
+  const handleConfirmarBaja = async () => {
+    if (!productoABorrar) return;
+    try {
+      setEliminandoProducto(true);
+      await servicioCatalogo.deleteProduct(productoABorrar.id);
+      setModalBajaAbierto(false);
+      const nombreBaja = productoABorrar.name;
+      setProductoABorrar(null);
+      setMensajeExito(t('deleteProductSuccess', { name: nombreBaja }));
+      setTimeout(() => setMensajeExito(''), 4000);
+      await cargarDatos();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Error al eliminar producto');
+    } finally {
+      setEliminandoProducto(false);
+    }
   };
 
   // Limpieza de Caché y Apertura de Modal Crear (2.1)
@@ -418,12 +451,28 @@ export const PaginaCatalogoProductos: React.FC = () => {
             <ExportButtons
               data={productos}
               config={exportConfig}
-              onLoadAllData={kind => loadAllPagesForExport(kind, paging => servicioCatalogo.getProducts(filtrosAplicados.busqueda || undefined, filtrosAplicados.categoriaId || undefined, paging, sortKey, sortDirection))}
+              onLoadAllData={kind => loadAllPagesForExport(kind, paging => servicioCatalogo.getProducts(filtrosAplicados.busqueda || undefined, filtrosAplicados.categoriaId || undefined, paging, sortKey, sortDirection, filtrosAplicados.estado === 'all' || filtrosAplicados.estado === 'inactive'))}
             />
           </div>
         </div>
 
         {errorCarga && <div className="catalog-error-notice" role="alert">{errorCarga}</div>}
+        {mensajeExito && (
+          <div style={{
+            padding: '0.75rem 1rem',
+            background: 'var(--success-bg, #dcfce7)',
+            color: 'var(--success, #16a34a)',
+            border: '1px solid #86efac',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            ✓ {mensajeExito}
+          </div>
+        )}
 
         {/* Buscador y Filtros */}
         <form onSubmit={handleBuscarSubmit} style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
@@ -448,6 +497,17 @@ export const PaginaCatalogoProductos: React.FC = () => {
             ))}
           </select>
 
+          <select
+            className="input-field"
+            value={estadoFiltro}
+            onChange={(e) => setEstadoFiltro(e.target.value as 'active' | 'inactive' | 'all')}
+            style={{ width: '170px' }}
+          >
+            <option value="active">{t('catalogStatusActive')}</option>
+            <option value="all">{t('catalogStatusAll')}</option>
+            <option value="inactive">{t('catalogStatusInactive')}</option>
+          </select>
+
           <button type="submit" className="action-btn">{t('search')}</button>
           <button type="button" className="lang-btn" onClick={handleLimpiarFiltros}>{t('clearFilters')}</button>
         </form>
@@ -462,6 +522,9 @@ export const PaginaCatalogoProductos: React.FC = () => {
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-main)', background: 'var(--background-container)' }}>
                   <th style={{ padding: '0.75rem', width: '70px' }}>{t('productImage')}</th>
+                  <SortableTh columnKey="idProducto" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem', width: '65px' }}>
+                    {t('productId')}
+                  </SortableTh>
                   <SortableTh columnKey="sku" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
                     {t('skuProduct')}
                   </SortableTh>
@@ -474,6 +537,9 @@ export const PaginaCatalogoProductos: React.FC = () => {
                   <SortableTh columnKey="wholesalePrice" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
                     {t('wholesalePrice')}
                   </SortableTh>
+                  <SortableTh columnKey="stock" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem', textAlign: 'center' }}>
+                    {t('currentInventory')}
+                  </SortableTh>
                   <SortableTh columnKey="piecesPerBox" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
                     {t('piecesPerBox')}
                   </SortableTh>
@@ -485,10 +551,10 @@ export const PaginaCatalogoProductos: React.FC = () => {
               </thead>
               <tbody>
                 {productosOrdenados.length === 0 && (
-                  <tr><td colSpan={8} className="catalog-empty-state">{t('noCatalogProducts')}</td></tr>
+                  <tr><td colSpan={10} className="catalog-empty-state">{t('noCatalogProducts')}</td></tr>
                 )}
                 {productosOrdenados.map(p => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <tr key={p.id} style={{ borderBottom: '1px solid var(--border-subtle)', opacity: p.isActive ? 1 : 0.65 }}>
                     {/* Columna Miniatura Imagen (2.0) */}
                     <td style={{ padding: '0.75rem' }}>
                       {p.imageUrl ? (
@@ -514,6 +580,21 @@ export const PaginaCatalogoProductos: React.FC = () => {
                         </div>
                       )}
                     </td>
+                    {/* Columna ID Producto (Identity 1-1) */}
+                    <td style={{ padding: '0.75rem' }}>
+                      <span style={{
+                        fontWeight: 700,
+                        fontFamily: 'monospace',
+                        color: 'var(--text-main)',
+                        background: 'var(--background-container)',
+                        padding: '0.2rem 0.45rem',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border-subtle)',
+                        fontSize: '0.85rem'
+                      }}>
+                        #{p.idProducto}
+                      </span>
+                    </td>
                     <td style={{ padding: '0.75rem' }}>
                       <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{p.name}</div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
@@ -526,6 +607,45 @@ export const PaginaCatalogoProductos: React.FC = () => {
                     </td>
                     <td style={{ padding: '0.75rem', color: 'var(--success)' }}>
                       ${p.wholesalePrice?.toFixed(2)} ({t('wholesaleMin', { qty: p.wholesaleMinQuantity, unit: p.unitOfMeasure })})
+                    </td>
+                    {/* Columna Inventario Actual (Piezas Totales en Existencia) */}
+                    <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                      <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          padding: '0.25rem 0.55rem',
+                          borderRadius: '16px',
+                          fontWeight: 700,
+                          fontSize: '0.82rem',
+                          background: (p.availableQuantity ?? 0) <= 0
+                            ? 'var(--danger-bg, #fee2e2)'
+                            : (p.availableQuantity ?? 0) <= 10
+                              ? 'var(--warning-bg, #fef3c7)'
+                              : 'var(--success-bg, #dcfce7)',
+                          color: (p.availableQuantity ?? 0) <= 0
+                            ? 'var(--danger, #dc2626)'
+                            : (p.availableQuantity ?? 0) <= 10
+                              ? 'var(--warning, #d97706)'
+                              : 'var(--success, #16a34a)',
+                          border: `1px solid ${(p.availableQuantity ?? 0) <= 0 ? '#fca5a5' : (p.availableQuantity ?? 0) <= 10 ? '#fcd34d' : '#86efac'}`
+                        }}>
+                          📦 {p.availableQuantity ?? 0} {t('piecesCount', { count: p.availableQuantity ?? 0 })}
+                        </span>
+                        {!p.isActive && (
+                          <span style={{
+                            fontSize: '0.7rem',
+                            color: 'var(--danger, #dc2626)',
+                            background: 'var(--danger-bg, #fee2e2)',
+                            padding: '0.1rem 0.35rem',
+                            borderRadius: '4px',
+                            fontWeight: 600
+                          }}>
+                            ⚠️ {t('catalogStatusInactive')}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>
                       {t('piecesCount', { count: p.piecesPerBox || 1 })}
@@ -576,6 +696,25 @@ export const PaginaCatalogoProductos: React.FC = () => {
                         {canEditProduct && (
                           <button className="lang-btn" onClick={() => abrirModalEditar(p)} style={{ fontSize: '0.8rem', padding: '0.35rem 0.65rem' }}>
                             ✏️ {t('editProduct') || 'Editar Producto'}
+                          </button>
+                        )}
+                        {canEditProduct && p.isActive && (
+                          <button
+                            type="button"
+                            className="lang-btn"
+                            onClick={() => {
+                              setProductoABorrar(p);
+                              setModalBajaAbierto(true);
+                            }}
+                            style={{
+                              fontSize: '0.8rem',
+                              padding: '0.35rem 0.65rem',
+                              color: 'var(--danger, #dc2626)',
+                              borderColor: 'var(--danger, #dc2626)'
+                            }}
+                            title={t('deleteProduct')}
+                          >
+                            🗑️ {t('deleteProduct')}
                           </button>
                         )}
                       </div>
@@ -1050,6 +1189,106 @@ export const PaginaCatalogoProductos: React.FC = () => {
                 <button type="button" className="lang-btn" onClick={() => setModalCategoriaAbierto(false)}>Cancelar</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Modal de Confirmación de Baja Lógica (Soft Delete) */}
+      {modalBajaAbierto && productoABorrar && (
+        <div
+          className="catalog-modal-overlay"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'var(--overlay, rgba(0, 0, 0, 0.5))',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1100,
+            padding: '1rem'
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              width: '480px',
+              maxWidth: '95vw',
+              padding: '1.5rem',
+              borderRadius: '12px',
+              border: '1px solid var(--border-subtle)',
+              background: 'var(--background-surface, #fff)',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div style={{
+                fontSize: '1.75rem',
+                background: 'var(--danger-bg, #fee2e2)',
+                color: 'var(--danger, #dc2626)',
+                borderRadius: '50%',
+                width: '48px',
+                height: '48px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                ⚠️
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-main)' }}>
+                  {t('deleteProductConfirmTitle')}
+                </h3>
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  {t('deleteProductConfirm')}
+                </p>
+              </div>
+            </div>
+
+            <div style={{
+              background: 'var(--background-container, #FAF8F5)',
+              padding: '0.85rem 1rem',
+              borderRadius: '8px',
+              border: '1px solid var(--border-subtle)',
+              marginBottom: '1rem',
+              fontSize: '0.9rem'
+            }}>
+              <div><strong>{t('productId')}:</strong> #{productoABorrar.idProducto}</div>
+              <div style={{ marginTop: '0.2rem' }}><strong>Producto:</strong> {productoABorrar.name}</div>
+              <div style={{ marginTop: '0.2rem' }}><strong>SKU:</strong> <span style={{ color: 'var(--accent-primary)' }}>{productoABorrar.sku}</span></div>
+              <div style={{ marginTop: '0.2rem' }}><strong>{t('currentInventory')}:</strong> {productoABorrar.availableQuantity ?? 0} Pzas</div>
+            </div>
+
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: '1.25rem' }}>
+              {t('deleteProductWarning')}
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="lang-btn"
+                disabled={eliminandoProducto}
+                onClick={() => {
+                  setModalBajaAbierto(false);
+                  setProductoABorrar(null);
+                }}
+              >
+                {t('cancel') || 'Cancelar'}
+              </button>
+              <button
+                type="button"
+                className="action-btn"
+                disabled={eliminandoProducto}
+                onClick={handleConfirmarBaja}
+                style={{
+                  background: 'var(--danger, #dc2626)',
+                  borderColor: 'var(--danger, #dc2626)',
+                  color: '#fff',
+                  fontWeight: 600
+                }}
+              >
+                {eliminandoProducto ? (t('loading') || 'Procesando...') : `🗑️ ${t('confirmDelete')}`}
+              </button>
+            </div>
           </div>
         </div>
       )}
