@@ -21,6 +21,23 @@
        - Lógica de desactivación `EstaActivo = false`, auditoría `PRODUCT_DELETED` en bitácora central y validación de existencia.
        - Filtro `includeInactive` añadido a `GetProductsAsync` (por defecto `false`), permitiendo conmutar entre Activos, Inactivos y Todos en el catálogo.
        - Botón "🗑️ Eliminar" en frontend con diálogo de confirmación y advertencia bilingüe.
+    4. **Refinamiento de UI en Catálogo de Productos**:
+       - Botones compactos de iconos (32x32px) para `📄 Ficha Técnica`, `✏️ Editar` y `🗑️ Eliminar`, reduciendo el ancho de la celda de acciones de más de 320px a ~110px.
+       - Corrección de duplicación de números en inventario: ahora se muestra exclusivamente la cifra de piezas numéricas en el badge (`{p.availableQuantity}`).
+    5. **Reordenamiento y Formato Bilingüe Universal de Columnas**:
+       - Columna `ID` (`#{p.idProducto}`) reubicada en primera posición, seguida de la columna de `Imagen` (2ª) y `SKU / Código` (3ª).
+       - En la columna `SKU / Código`, el SKU se destaca en tipografía grande monospace (`1.15rem`, negrita 800) y el código de barras debajo (`Cod: ...`).
+       - Formato bilingüe dual (`Español / 中文`) aplicado al 100% de los encabezados de tabla:
+         - `ID / 编号`
+         - `Imagen / 图片`
+         - `SKU / Código / 编码`
+         - `Categoría / 分类`
+         - `Precio Menudeo / 零售价`
+         - `Precio Mayoreo / 批发价`
+         - `Inventario Actual / 当前库存`
+         - `Piezas/Caja / 每箱片数`
+         - `Cobertura (m²) / 覆盖面积`
+         - `Acciones / 操作`
   - **Pruebas y Verificación**:
     - Backend: 77/77 pruebas superadas al 100% (xUnit: Domain, Application, IntegrationTests).
     - Frontend: 47/47 pruebas unitarias de Vitest superadas (100%).
