@@ -23,10 +23,11 @@
 
 ## 📌 Siguiente Tarea Recomendada
 
-Revisión de Pull Request y fusión de `mantenimiento/mejoras-catalogo-productos` a la rama de integración/despliegue (`main` o `develop`), seguido de la ejecución de la migración en la base de datos de producción (`dotnet ef database update`).
+Revisión y fusión del Pull Request **[PR #4](https://github.com/UTLCDA/Proyecto_PDV-CDC/pull/4)** hacia `main`, seguido de la ejecución de la migración en el entorno de producción (`dotnet ef database update`).
 
 ### Criterios de Aceptación
-1. Revisión de código de la rama `mantenimiento/mejoras-catalogo-productos` por el desarrollador líder.
-2. Ejecución de la migración `20260909231411_AddIdProductoIdentityToProducts` en el entorno de pruebas/staging y producción SQL Server.
+1. Revisión y aprobación del Pull Request #4 en GitHub (`https://github.com/UTLCDA/Proyecto_PDV-CDC/pull/4`).
+2. Fusión (Merge) a la rama `main` y despliegue a producción en Cloudflare Pages y VPS Cloud.
+3. Ejecución de la migración `20260909231411_AddIdProductoIdentityToProducts` en SQL Server de producción.
 3. Validación en pantalla de catálogo: visualización del `IdProducto` correlativo, conteo de piezas de inventario actual, y funcionamiento del botón de baja lógica.
 
