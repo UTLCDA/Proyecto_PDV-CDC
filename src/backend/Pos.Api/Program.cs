@@ -169,6 +169,12 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE Products ADD CostoUnitario decimal(18,2) NOT NULL DEFAULT 0;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Products') AND name = 'Color')
                         ALTER TABLE Products ADD Color nvarchar(100) NOT NULL DEFAULT '';
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Products') AND name = 'IdProducto')
+                    BEGIN
+                        ALTER TABLE Products ADD IdProducto int IDENTITY(1,1) NOT NULL;
+                        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('Products') AND name = 'IX_Products_IdProducto')
+                            CREATE UNIQUE INDEX IX_Products_IdProducto ON Products (IdProducto);
+                    END
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Customers') AND name = 'LimiteCajasDiarias')
                         ALTER TABLE Customers ADD LimiteCajasDiarias decimal(18,2) NOT NULL DEFAULT 0;
                 ");
@@ -195,6 +201,7 @@ using (var scope = app.Services.CreateScope())
         // Schema validation check (triggers exception if any new column is missing in SQL Server AAM)
         _ = await context.Users.FirstOrDefaultAsync(u => u.NombreUsuario == "admin");
         _ = await context.Products.Select(p => new {
+            p.IdProducto,
             p.ImagenUrl,
             p.PiezasPorCaja,
             p.CoberturaM2Caja,

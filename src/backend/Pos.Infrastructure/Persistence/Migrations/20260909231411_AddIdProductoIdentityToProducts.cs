@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -10,42 +10,42 @@ namespace Pos.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "Color",
-                table: "Products",
-                type: "nvarchar(max)",
-                nullable: false,
-                defaultValue: "");
+            migrationBuilder.Sql(@"
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Products') AND name = 'Color')
+                BEGIN
+                    ALTER TABLE [Products] ADD [Color] nvarchar(100) NOT NULL DEFAULT '';
+                END
+            ");
 
-            migrationBuilder.AddColumn<int>(
-                name: "IdProducto",
-                table: "Products",
-                type: "int",
-                nullable: false,
-                defaultValue: 0)
-                .Annotation("SqlServer:Identity", "1, 1");
+            migrationBuilder.Sql(@"
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Products') AND name = 'IdProducto')
+                BEGIN
+                    ALTER TABLE [Products] ADD [IdProducto] int IDENTITY(1,1) NOT NULL;
+                END
+            ");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_Products_IdProducto",
-                table: "Products",
-                column: "IdProducto",
-                unique: true);
+            migrationBuilder.Sql(@"
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('Products') AND name = 'IX_Products_IdProducto')
+                BEGIN
+                    CREATE UNIQUE INDEX [IX_Products_IdProducto] ON [Products] ([IdProducto]);
+                END
+            ");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_Products_IdProducto",
-                table: "Products");
+            migrationBuilder.Sql(@"
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('Products') AND name = 'IX_Products_IdProducto')
+                BEGIN
+                    DROP INDEX [IX_Products_IdProducto] ON [Products];
+                END
 
-            migrationBuilder.DropColumn(
-                name: "Color",
-                table: "Products");
-
-            migrationBuilder.DropColumn(
-                name: "IdProducto",
-                table: "Products");
+                IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Products') AND name = 'IdProducto')
+                BEGIN
+                    ALTER TABLE [Products] DROP COLUMN [IdProducto];
+                END
+            ");
         }
     }
 }
