@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { servicioCatalogo } from '../../services/servicioCatalogo';
@@ -9,6 +9,8 @@ import { lookupPostalCode } from '../../services/servicioCodigoPostal';
 import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
 import { loadAllPagesForExport } from '../../utils/pagedExport';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../../components/common/TablePagination';
 import './CustomerListPage.css';
 
 type CustomerForm = Omit<PeticionCrearCliente, 'specialDiscountPercentage' | 'dailyBoxLimit'> & {
@@ -48,6 +50,7 @@ export const CustomerListPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const [form, setForm] = useState<CustomerForm>(emptyForm);
+  const pagination = usePagination({ initialPageSize: 25 });
 
   // Purchase History Modal
   const [historyCustomer, setHistoryCustomer] = useState<Cliente | null>(null);
@@ -84,23 +87,45 @@ export const CustomerListPage: React.FC = () => {
     ]
   }), [appliedFilters, t]);
 
-  const loadCustomers = async (term = search) => {
+  const loadCustomers = useCallback(async () => {
     try {
       setLoading(true);
-      const result = await servicioCatalogo.getCustomers(term.trim() || undefined, undefined, canAdminister);
-      setCustomers(result.filter(customer => statusFilter === 'all' || customer.isActive === (statusFilter === 'active')));
-      setAppliedFilters({ search: term.trim(), status: statusFilter });
+      const includeInactive = canAdminister && appliedFilters.status !== 'active';
+      const result = await servicioCatalogo.getCustomers(
+        appliedFilters.search.trim() || undefined,
+        undefined,
+        includeInactive,
+        { page: pagination.pageNumber, pageSize: pagination.pageSize }
+      );
+      const items = Array.isArray(result) ? result : result.items;
+      const filtered = appliedFilters.status === 'all'
+        ? items
+        : items.filter(customer => customer.isActive === (appliedFilters.status === 'active'));
+      setCustomers(filtered);
+      if (!Array.isArray(result)) pagination.setPaginationFromResult(result);
     } catch (error) {
       setNotice({ type: 'error', text: errorMessage(error, t('customerLoadError')) });
     } finally {
       setLoading(false);
     }
-  };
+  }, [appliedFilters.search, appliedFilters.status, canAdminister, pagination.pageNumber, pagination.pageSize, t]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void loadCustomers(search), 250);
-    return () => window.clearTimeout(timer);
-  }, [search, statusFilter, canAdminister]);
+    void loadCustomers();
+  }, [loadCustomers]);
+
+  const handleApplyFilters = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    pagination.resetPage();
+    setAppliedFilters({ search, status: statusFilter });
+  };
+
+  const handleClearFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    pagination.resetPage();
+    setAppliedFilters({ search: '', status: 'all' });
+  };
 
   useEffect(() => {
     if (!isModalOpen && !historyCustomer) return;
@@ -148,7 +173,7 @@ export const CustomerListPage: React.FC = () => {
     setLoadingHistory(true);
     try {
       const sales = await servicioVentas.getSales(undefined, customer.id);
-      setCustomerSales(sales);
+      setCustomerSales(Array.isArray(sales) ? sales : sales.items);
     } catch (err) {
       setCustomerSales([]);
     } finally {
@@ -219,43 +244,58 @@ export const CustomerListPage: React.FC = () => {
   return <section className="customers-page">
     <header className="customers-header">
       <div><h1>👥 {t('customersPageTitle')}</h1><p>{t('customersPageSubtitle')}</p></div>
-      <div className="customers-actions">
+      <form className="customers-actions" onSubmit={handleApplyFilters}>
         <input className="form-control customers-search" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('searchCustomerAdmin')} aria-label={t('searchCustomerAdmin')} />
         {canAdminister && <select className="form-control" value={statusFilter} onChange={event => setStatusFilter(event.target.value as typeof statusFilter)} aria-label={t('customerStatus')}>
           <option value="all">{t('allStatuses')}</option>
           <option value="active">{t('activeStatus')}</option>
           <option value="inactive">{t('inactiveStatus')}</option>
         </select>}
-        {canCreate && <button className="action-btn" onClick={openCreate}>➕ {t('newCustomer')}</button>}
+        <button type="submit" className="lang-btn">🔎 {t('search')}</button>
+        <button type="button" className="lang-btn" onClick={handleClearFilters}>🔄 Limpiar filtros</button>
+        {canCreate && <button type="button" className="action-btn" onClick={openCreate}>➕ {t('newCustomer')}</button>}
         <ExportButtons data={customers} config={exportConfig} onLoadAllData={async kind => {
-          const allCustomers = await loadAllPagesForExport(kind, paging => servicioCatalogo.getCustomers(appliedFilters.search || undefined, undefined, canAdminister, paging));
+          const includeInactive = canAdminister && appliedFilters.status !== 'active';
+          const allCustomers = await loadAllPagesForExport(kind, paging => servicioCatalogo.getCustomers(appliedFilters.search || undefined, undefined, includeInactive, paging));
           return allCustomers.filter(customer => appliedFilters.status === 'all' || customer.isActive === (appliedFilters.status === 'active'));
         }} />
-      </div>
+      </form>
     </header>
 
     {notice && <div className={`customers-notice customers-notice--${notice.type}`} role="alert">{notice.text}</div>}
 
     <article className="customers-card">
-      {loading ? <div className="customers-empty">{t('loading')}</div> : customers.length === 0 ? <div className="customers-empty">{t('noCustomers')}</div> :
-        <div className="customers-table-wrap"><table className="customers-table"><thead><tr>
-          <th>{t('customerCompany')}</th><th>{t('taxIdLabel')}</th><th>{t('customerContact')}</th><th>{t('customerLocation')}</th><th>{t('customerType')}</th><th>{t('customerDiscount')}</th><th>Límite Cajas/Día</th><th>{t('customerStatus')}</th><th>{t('actions')}</th>
-        </tr></thead><tbody>{customers.map(customer => <tr key={customer.id}>
-          <td><strong>{customer.displayName}</strong>{customer.companyName && <small>{customer.companyName}</small>}</td>
-          <td><code>{customer.taxId || '—'}</code></td>
-          <td><span>{customer.email}</span><small>{customer.phone}</small></td>
-          <td><span>{[customer.city, customer.state].filter(Boolean).join(', ') || '—'}</span><small>{customer.postalCode}</small></td>
-          <td><span className={`badge ${customer.customerType === 'Mayorista' ? 'badge-success' : ''}`}>{t(customerTypeKey(customer.customerType))}</span></td>
-          <td>{customer.specialDiscountPercentage}%</td>
-          <td><strong>{customer.dailyBoxLimit > 0 ? `${customer.dailyBoxLimit} cjas` : 'Sin límite'}</strong></td>
-          <td><span className={`badge ${customer.isActive ? 'badge-success' : 'badge-danger'}`}>{t(customer.isActive ? 'activeStatus' : 'inactiveStatus')}</span></td>
-          <td>
-            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-              <button className="pos-link-btn" onClick={() => openPurchaseHistory(customer)} title="Ver historial de compra del cliente">📜 Historial</button>
-              {canEdit && <button className="pos-link-btn" onClick={() => openEdit(customer)}>✏️ {t('editCustomer')}</button>}
-            </div>
-          </td>
-        </tr>)}</tbody></table></div>}
+      {loading ? <div className="customers-empty">{t('loading')}</div> : customers.length === 0 ? <div className="customers-empty">{t('noCustomers')}</div> : (
+        <>
+          <div className="customers-table-wrap"><table className="customers-table"><thead><tr>
+            <th>{t('customerCompany')}</th><th>{t('taxIdLabel')}</th><th>{t('customerContact')}</th><th>{t('customerLocation')}</th><th>{t('customerType')}</th><th>{t('customerDiscount')}</th><th>Límite Cajas/Día</th><th>{t('customerStatus')}</th><th>{t('actions')}</th>
+          </tr></thead><tbody>{customers.map(customer => <tr key={customer.id}>
+            <td><strong>{customer.displayName}</strong>{customer.companyName && <small>{customer.companyName}</small>}</td>
+            <td><code>{customer.taxId || '—'}</code></td>
+            <td><span>{customer.email}</span><small>{customer.phone}</small></td>
+            <td><span>{[customer.city, customer.state].filter(Boolean).join(', ') || '—'}</span><small>{customer.postalCode}</small></td>
+            <td><span className={`badge ${customer.customerType === 'Mayorista' ? 'badge-success' : ''}`}>{t(customerTypeKey(customer.customerType))}</span></td>
+            <td>{customer.specialDiscountPercentage}%</td>
+            <td><strong>{customer.dailyBoxLimit > 0 ? `${customer.dailyBoxLimit} cjas` : 'Sin límite'}</strong></td>
+            <td><span className={`badge ${customer.isActive ? 'badge-success' : 'badge-danger'}`}>{t(customer.isActive ? 'activeStatus' : 'inactiveStatus')}</span></td>
+            <td>
+              <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                <button className="pos-link-btn" onClick={() => openPurchaseHistory(customer)} title="Ver historial de compra del cliente">📜 Historial</button>
+                {canEdit && <button className="pos-link-btn" onClick={() => openEdit(customer)}>✏️ {t('editCustomer')}</button>}
+              </div>
+            </td>
+          </tr>)}</tbody></table></div>
+          <TablePagination
+            pageNumber={pagination.pageNumber}
+            pageSize={pagination.pageSize}
+            totalItems={pagination.totalItems}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPageNumber}
+            onPageSizeChange={pagination.setPageSize}
+            disabled={loading}
+          />
+        </>
+      )}
     </article>
 
     {isModalOpen && <div className="customers-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setIsModalOpen(false)}>

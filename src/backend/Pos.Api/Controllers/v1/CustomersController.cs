@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Pos.Application.Catalog.DTOs;
 using Pos.Application.Catalog.Services;
+using Pos.Application.Common.Models;
 using Pos.Application.Common.Security;
 
 namespace Pos.Api.Controllers.v1;
@@ -21,10 +22,21 @@ public class CustomersController : ControllerBase
 
     [HttpGet]
     [Authorize(Policy = PermissionCodes.Customers.View)]
-    public async Task<ActionResult<List<CustomerDto>>> GetCustomers([FromQuery] string? search, [FromQuery] string? type, [FromQuery] bool includeInactive, [FromQuery] int page = 1, [FromQuery] int pageSize = 500, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<PagedResult<CustomerDto>>> GetCustomers(
+        [FromQuery] string? search,
+        [FromQuery] string? type,
+        [FromQuery] bool includeInactive,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
+        [FromQuery] int? page = null,
+        CancellationToken cancellationToken = default)
     {
         var canAdministerUsers = User.HasClaim(PermissionCodes.ClaimType, PermissionCodes.Users.Administer);
-        var customers = await _catalogService.GetCustomersAsync(search, type, includeInactive && canAdministerUsers, cancellationToken, page, pageSize);
+        var effectivePage = page.HasValue && page.Value > 0 ? page.Value : pageNumber;
+        var customers = await _catalogService.GetCustomersAsync(
+            search, type, includeInactive && canAdministerUsers, cancellationToken, effectivePage, pageSize, sortBy, sortDirection);
         return Ok(customers);
     }
 

@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Pos.Application.Auth.DTOs;
 using Pos.Application.Commercial.DTOs;
+using Pos.Application.Common.Models;
 using Xunit;
 
 namespace Pos.Api.IntegrationTests.Controllers;
@@ -27,13 +28,15 @@ public class QuotesControllerIntegrationTests : IClassFixture<CustomWebApplicati
         _client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", auth.AccessToken);
 
         // 2. Fetch products and customers
-        var products = await _client.GetFromJsonAsync<List<Pos.Application.Catalog.DTOs.ProductDto>>("/api/v1/products");
+        var products = await _client.GetFromJsonAsync<PagedResult<Pos.Application.Catalog.DTOs.ProductDto>>("/api/v1/products");
         Assert.NotNull(products);
-        var product = products.First();
+        Assert.NotEmpty(products.Items);
+        var product = products.Items.First();
 
-        var customers = await _client.GetFromJsonAsync<List<Pos.Application.Catalog.DTOs.CustomerDto>>("/api/v1/customers");
+        var customers = await _client.GetFromJsonAsync<PagedResult<Pos.Application.Catalog.DTOs.CustomerDto>>("/api/v1/customers");
         Assert.NotNull(customers);
-        var customer = customers.First();
+        Assert.NotEmpty(customers.Items);
+        var customer = customers.Items.First();
 
         var request = new CreateQuoteDto(
             CustomerId: customer.Id,

@@ -159,7 +159,7 @@ public class ReportingApplicationTests
         var reportingService = new ReportingApplicationService(context);
         var logs = await reportingService.GetAuditLogsAsync(null, null, null, null, null, idVenta);
 
-        var log = Assert.Single(logs);
+        var log = Assert.Single(logs.Items);
         Assert.Equal(idVenta, log.IdVenta);
         Assert.Equal(sale.Id.ToString(), log.EntityId);
         Assert.Contains($"#{idVenta}", log.Notes);

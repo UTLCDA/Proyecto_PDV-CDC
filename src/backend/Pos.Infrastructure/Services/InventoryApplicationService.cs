@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Pos.Application.Common.Interfaces;
+using Pos.Application.Common.Models;
 using Pos.Application.Inventory.DTOs;
 using Pos.Application.Inventory.Services;
 using Pos.Domain.Entidades;
@@ -19,28 +20,78 @@ public class InventoryApplicationService : IInventoryApplicationService
         _auditLogService = auditLogService;
     }
 
-    public async Task<List<StockDto>> GetStockLevelsAsync(string? search, bool? isLowStockOnly, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<StockDto>> GetStockLevelsAsync(
+        string? search,
+        bool? isLowStockOnly,
+        int pageNumber = 1,
+        int pageSize = 25,
+        string? sortBy = null,
+        string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
-        var query = _dbContext.Stocks
-            .Include(s => s.Producto)
-                .ThenInclude(p => p.Categoria)
+        var baseQuery = _dbContext.Stocks
+            .AsNoTracking()
             .Where(s => s.Producto.EstaActivo);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
-            query = query.Where(s => s.Producto.Nombre.ToLower().Contains(term) ||
-                                     s.Producto.Sku.ToLower().Contains(term) ||
-                                     s.Producto.Barcode.Contains(term));
+            baseQuery = baseQuery.Where(s => s.Producto.Nombre.ToLower().Contains(term) ||
+                                             s.Producto.Sku.ToLower().Contains(term) ||
+                                             s.Producto.Barcode.Contains(term));
         }
 
         if (isLowStockOnly == true)
         {
-            query = query.Where(s => s.CantidadDisponible <= s.UmbralMinimoAlerta);
+            baseQuery = baseQuery.Where(s => s.CantidadDisponible <= s.UmbralMinimoAlerta);
         }
 
-        var stocks = await query.ToListAsync(cancellationToken);
-        return stocks.Select(MapStockToDto).ToList();
+        var totalItems = await baseQuery.CountAsync(cancellationToken);
+        if (totalItems == 0)
+        {
+            return new PagedResult<StockDto>([], 0, pageNumber, pageSize);
+        }
+
+        var isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        var sortedQuery = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "sku" => isDesc ? baseQuery.OrderByDescending(s => s.Producto.Sku) : baseQuery.OrderBy(s => s.Producto.Sku),
+            "category" or "categoría" or "categoria" => isDesc ? baseQuery.OrderByDescending(s => s.Producto.Categoria.Nombre) : baseQuery.OrderBy(s => s.Producto.Categoria.Nombre),
+            "stock" or "cantidad" or "cantidaddisponible" or "available" => isDesc ? baseQuery.OrderByDescending(s => s.CantidadDisponible) : baseQuery.OrderBy(s => s.CantidadDisponible),
+            "reorder" or "reorden" or "cantidadreorden" => isDesc ? baseQuery.OrderByDescending(s => s.CantidadReorden) : baseQuery.OrderBy(s => s.CantidadReorden),
+            "threshold" or "umbral" or "min" or "umbralminimoalerta" => isDesc ? baseQuery.OrderByDescending(s => s.UmbralMinimoAlerta) : baseQuery.OrderBy(s => s.UmbralMinimoAlerta),
+            "updated" or "fechaactualizacion" or "fechaactualizacionutc" => isDesc ? baseQuery.OrderByDescending(s => s.FechaActualizacionUtc) : baseQuery.OrderBy(s => s.FechaActualizacionUtc),
+            _ => isDesc ? baseQuery.OrderByDescending(s => s.Producto.Nombre) : baseQuery.OrderBy(s => s.Producto.Nombre)
+        };
+
+        var (skip, take) = QueryPaging.Normalize(pageNumber, pageSize, 100);
+        var pagedStockIds = await sortedQuery
+            .Skip(skip)
+            .Take(take)
+            .Select(s => s.Id)
+            .ToListAsync(cancellationToken);
+
+        if (pagedStockIds.Count == 0)
+        {
+            return new PagedResult<StockDto>([], totalItems, pageNumber, take);
+        }
+
+        var stocks = await _dbContext.Stocks
+            .AsNoTracking()
+            .Where(s => pagedStockIds.Contains(s.Id))
+            .Include(s => s.Producto)
+                .ThenInclude(p => p.Categoria)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken);
+
+        var stocksById = stocks.ToDictionary(s => s.Id);
+        var orderedStocks = pagedStockIds
+            .Where(id => stocksById.ContainsKey(id))
+            .Select(id => stocksById[id])
+            .ToList();
+
+        var items = orderedStocks.Select(MapStockToDto).ToList();
+        return new PagedResult<StockDto>(items, totalItems, pageNumber, take);
     }
 
     public async Task<StockDto?> GetStockByProductIdAsync(Guid productId, CancellationToken cancellationToken = default)
@@ -53,21 +104,28 @@ public class InventoryApplicationService : IInventoryApplicationService
         return stock == null ? null : MapStockToDto(stock);
     }
 
-    public async Task<List<InventoryMovementDto>> GetMovementsAsync(Guid? productId, string? movementType, string? search, DateTime? startDateUtc, DateTime? endDateUtc, CancellationToken cancellationToken = default, int page = 1, int pageSize = 500)
+    public async Task<PagedResult<InventoryMovementDto>> GetMovementsAsync(
+        Guid? productId,
+        string? movementType,
+        string? search,
+        DateTime? startDateUtc,
+        DateTime? endDateUtc,
+        int pageNumber = 1,
+        int pageSize = 25,
+        string? sortBy = null,
+        string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
         if (startDateUtc.HasValue && endDateUtc.HasValue && startDateUtc.Value > endDateUtc.Value)
         {
             throw new ArgumentException("La fecha inicial no puede ser posterior a la fecha final.");
         }
 
-        var query = _dbContext.InventoryMovements
-            .Include(m => m.Producto)
-            .Include(m => m.Usuario)
-            .AsQueryable();
+        var baseQuery = _dbContext.InventoryMovements.AsNoTracking();
 
         if (productId.HasValue)
         {
-            query = query.Where(m => m.ProductoId == productId.Value);
+            baseQuery = baseQuery.Where(m => m.ProductoId == productId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(movementType))
@@ -82,23 +140,23 @@ public class InventoryApplicationService : IInventoryApplicationService
                 "return" or "returns" or "devolucion" or "devolución" or "devoluciones" => new[] { "return", "returns", "devolucion", "devolución", "devoluciones" },
                 _ => new[] { type }
             };
-            query = query.Where(m => synonyms.Contains(m.TipoMovimiento.ToLower()));
+            baseQuery = baseQuery.Where(m => synonyms.Contains(m.TipoMovimiento.ToLower()));
         }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
             var hasOperationalId = int.TryParse(term, out var idVenta) && idVenta > 0;
-            query = query.Where(m => (hasOperationalId && m.IdVenta == idVenta) ||
-                                     m.Producto.Nombre.ToLower().Contains(term) ||
-                                     m.Producto.Sku.ToLower().Contains(term) ||
-                                     m.NumeroReferencia.ToLower().Contains(term) ||
-                                     m.Motivo.ToLower().Contains(term));
+            baseQuery = baseQuery.Where(m => (hasOperationalId && m.IdVenta == idVenta) ||
+                                             m.Producto.Nombre.ToLower().Contains(term) ||
+                                             m.Producto.Sku.ToLower().Contains(term) ||
+                                             m.NumeroReferencia.ToLower().Contains(term) ||
+                                             m.Motivo.ToLower().Contains(term));
         }
 
         if (startDateUtc.HasValue)
         {
-            query = query.Where(m => m.FechaCreacionUtc >= startDateUtc.Value);
+            baseQuery = baseQuery.Where(m => m.FechaCreacionUtc >= startDateUtc.Value);
         }
 
         if (endDateUtc.HasValue)
@@ -106,23 +164,60 @@ public class InventoryApplicationService : IInventoryApplicationService
             var effectiveEndDate = endDateUtc.Value.TimeOfDay == TimeSpan.Zero
                 ? endDateUtc.Value.Date.AddDays(1).AddTicks(-1)
                 : endDateUtc.Value;
-            query = query.Where(m => m.FechaCreacionUtc <= effectiveEndDate);
+            baseQuery = baseQuery.Where(m => m.FechaCreacionUtc <= effectiveEndDate);
         }
 
-        var (skip, take) = QueryPaging.Normalize(page, pageSize, 500);
-        var movements = await query
-            .OrderByDescending(m => m.FechaCreacionUtc)
-            .ThenByDescending(m => m.Id)
+        var totalItems = await baseQuery.CountAsync(cancellationToken);
+        if (totalItems == 0)
+        {
+            return new PagedResult<InventoryMovementDto>([], 0, pageNumber, pageSize);
+        }
+
+        var isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        var sortedQuery = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "product" or "producto" or "nombre" => isDesc ? baseQuery.OrderByDescending(m => m.Producto.Nombre) : baseQuery.OrderBy(m => m.Producto.Nombre),
+            "type" or "tipo" or "tipomovimiento" => isDesc ? baseQuery.OrderByDescending(m => m.TipoMovimiento) : baseQuery.OrderBy(m => m.TipoMovimiento),
+            "quantity" or "cantidad" => isDesc ? baseQuery.OrderByDescending(m => m.Cantidad) : baseQuery.OrderBy(m => m.Cantidad),
+            "reference" or "referencia" or "numeroreferencia" => isDesc ? baseQuery.OrderByDescending(m => m.NumeroReferencia) : baseQuery.OrderBy(m => m.NumeroReferencia),
+            "reason" or "motivo" => isDesc ? baseQuery.OrderByDescending(m => m.Motivo) : baseQuery.OrderBy(m => m.Motivo),
+            "user" or "usuario" => isDesc ? baseQuery.OrderByDescending(m => m.Usuario != null ? m.Usuario.NombreUsuario : "") : baseQuery.OrderBy(m => m.Usuario != null ? m.Usuario.NombreUsuario : ""),
+            _ => isDesc ? baseQuery.OrderByDescending(m => m.FechaCreacionUtc).ThenByDescending(m => m.Id) : baseQuery.OrderBy(m => m.FechaCreacionUtc).ThenBy(m => m.Id)
+        };
+
+        var (skip, take) = QueryPaging.Normalize(pageNumber, pageSize, 100);
+        var pagedMovementIds = await sortedQuery
             .Skip(skip)
             .Take(take)
+            .Select(m => m.Id)
             .ToListAsync(cancellationToken);
 
-        var saleIds = movements.Where(m => m.IdVenta.HasValue).Select(m => m.IdVenta!.Value).Distinct().ToList();
+        if (pagedMovementIds.Count == 0)
+        {
+            return new PagedResult<InventoryMovementDto>([], totalItems, pageNumber, take);
+        }
+
+        var movements = await _dbContext.InventoryMovements
+            .AsNoTracking()
+            .Where(m => pagedMovementIds.Contains(m.Id))
+            .Include(m => m.Producto)
+            .Include(m => m.Usuario)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken);
+
+        var movementsById = movements.ToDictionary(m => m.Id);
+        var orderedMovements = pagedMovementIds
+            .Where(id => movementsById.ContainsKey(id))
+            .Select(id => movementsById[id])
+            .ToList();
+
+        var saleIds = orderedMovements.Where(m => m.IdVenta.HasValue).Select(m => m.IdVenta!.Value).Distinct().ToList();
         var invoiceSaleIds = saleIds.Count > 0
             ? (await _dbContext.Sales.Where(s => saleIds.Contains(s.IdVenta) && s.MontoIva > 0).Select(s => s.IdVenta).ToListAsync(cancellationToken)).ToHashSet()
             : new HashSet<int>();
 
-        return movements.Select(m => MapMovementToDto(m, invoiceSaleIds)).ToList();
+        var dtos = orderedMovements.Select(m => MapMovementToDto(m, invoiceSaleIds)).ToList();
+        return new PagedResult<InventoryMovementDto>(dtos, totalItems, pageNumber, take);
     }
 
     public async Task<InventoryMovementDto> RegisterMovementAsync(RegisterMovementDto request, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default)

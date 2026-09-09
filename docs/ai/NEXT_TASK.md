@@ -2,25 +2,26 @@
 
 ## 📌 Estado Actual
 
-- **Rama Git Activa**: `main` (con todos los cambios de ordenamiento de columnas de tres estados fusionados y sincronizados).
-- **Funcionalidades Verificadas**:
-  - Ordenamiento de columnas (Tri-State Table Sorting) operativo y validado en 6 módulos del sistema:
-    1. 🧾 Histórico de Ventas
-    2. 💳 Histórico de Transacciones y Movimientos de Pago
-    3. 📦 Catálogo de Productos WPC Bajío
-    4. 📁 Catálogo de Categorías WPC Bajío
-    5. 🏭 Control de Inventarios WPC Bajío
-    6. 📋 Movimientos de Inventario
-  - HotFix de carga de imágenes HEIC/HEIF y compresión Canvas (< 250 KB Base64) integrado.
-  - Edición y reemplazo de fotos en productos existentes operativa sin bloqueo de 2 MB.
-  - Punto de Venta (PDV), Calculadora de m², Cancelación de Ventas, Límite diario de cajas a clientes y exportaciones bilingües CJK verificadas.
-  - Backend API en VPS `193.46.198.88` y Frontend en Cloudflare Workers / Pages.
+- **Rama Git Activa**: `mantenimiento/mejoras-v2`
+- **Funcionalidades Completadas**:
+  1. **HotFix de Rendimiento en Módulo de Ventas**: Corrección de explosión cartesiana y timeout de 15s al filtrar por fechas. Conteo en consulta base y paginación en dos fases con `.AsSplitQuery()` (reducción de tiempo de base de datos de 25,007 ms a ~41 ms). Desacoplamiento de `loadSales` en el frontend para evitar peticiones redundantes.
+  2. **Paginación Server-Side Universal en los 11 módulos con tablas/listados del PDV WPC Bajío**: Paginación server-side (25, 50, 100) en todos los módulos con tablas.
+  3. **Extensión Universal de la Arquitectura de Alto Rendimiento y Desacoplamiento de Filtros**:
+     - Backend: Conteo puro sin colecciones dependientes en `CountAsync()`, paginación en 2 fases seleccionando IDs (`Skip().Take().Select(x => x.Id)`), y consulta dividida `.AsSplitQuery()` en Cotizaciones, Operaciones Comerciales, Catálogo de Productos, Categorías, Clientes, Control de Inventarios, Movimientos de Inventario, Turnos/Caja, Usuarios y Bitácora de Auditoría.
+     - Frontend: Desacoplamiento de carga respecto a los campos de texto/fechas (usando `appliedFilters`), caching de listas desplegables/opciones estáticas, eliminación de filtrado truncador en cliente y botón homogéneo "Limpiar filtros".
+  4. **Implementación de Componente de Paginación Numerada Reutilizable (`TablePagination`)**:
+     - Despliegue homogéneo en las tablas de los 11 módulos (incluyendo vistas independientes de transacciones, abonos y devoluciones en Operaciones Comerciales).
+     - Paginador con números inteligentes y elipses (`getPageNumbers`), resumen bilingüe, selector de tamaño 25/50/100, y diseño armonizado con los tokens de WPC Bajío.
+- **Estado de Pruebas**:
+  - Frontend: Build de producción `npm run build` (`tsc && vite build`) completado con éxito (código de salida 0); 47/47 pruebas unitarias de Vitest superadas (100%).
+  - Backend: 73/73 pruebas superadas al 100% (xUnit); `dotnet build` con 0 errores y 0 advertencias.
 
 ## 📌 Siguiente Tarea Recomendada
 
-Revisión y despliegue del Frontend a Cloudflare Workers/Pages (`npx wrangler pages deploy` o `wrangler deploy`) y actualización del Backend API en VPS si se requiere, o avance a la Fase 2 (E-Commerce y Carrito de compras).
+Validación interactiva y aprobación local por parte del desarrollador humano en el navegador (`http://localhost:5173`). Una vez aprobado de manera local, realizar commit y merge a `main`, y desplegar a producción (Cloudflare y VPS) cuando el usuario lo autorice.
 
 ### Criterios de Aceptación
-1. Confirmar que la rama `main` y la rama `mantenimiento/mejora-tablas-ordenamiento` están sincronizadas con el repositorio remoto GitHub.
-2. Desplegar frontend a Cloudflare para reflejar en el dominio público de producción si el usuario lo solicita.
-3. Avanzar con las tareas priorizadas por el desarrollador.
+1. Revisión de funcionamiento de la paginación server-side (25 registros por página, cambio de página, selector de tamaño 25/50/100, restablecimiento a pág. 1 al filtrar/buscar).
+2. Verificación de que el ordenamiento de columnas (Table Sorting) y filtros sigan operando correctamente con la paginación.
+3. Verificación de que la exportación a PDF y Excel descargue todos los registros filtrados mediante `loadAllPagesForExport`.
+4. Aprobación explícita del desarrollador humano para proceder al commit y fusión a `main`.

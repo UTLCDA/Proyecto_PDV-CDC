@@ -10,6 +10,9 @@ import { ExportReportConfig } from '../../components/export/exportTypes';
 import { processAndCompressImage, isImageFile } from '../../utils/imageProcessor';
 import { useTableSort } from '../../hooks/useTableSort';
 import { SortableTh } from '../../components/common/SortableTh';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../../components/common/TablePagination';
+import { loadAllPagesForExport } from '../../utils/pagedExport';
 import './InventoryListPage.css';
 
 const DEFAULT_WAREHOUSE_LOCATION = 'Bodega Adolfo Lopez Mateos';
@@ -26,6 +29,7 @@ export const InventoryListPage: React.FC = () => {
   const [appliedFilters, setAppliedFilters] = useState({ search: '', isLowStockOnly: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const pagination = usePagination({ initialPageSize: 25 });
 
   const { sortedData: sortedStocks, sortKey, sortDirection, handleSort } = useTableSort(stocks, {
     valueExtractors: {
@@ -70,16 +74,20 @@ export const InventoryListPage: React.FC = () => {
   const [location, setLocation] = useState(DEFAULT_WAREHOUSE_LOCATION);
   const [evidenceImageUrl, setEvidenceImageUrl] = useState('');
 
-  useEffect(() => {
-    loadData();
-  }, [isLowStockOnly]);
-
   const loadData = async (searchTerm = search) => {
     setLoading(true);
     setError('');
     try {
-      const stockData = await inventoryService.getStockLevels(searchTerm, isLowStockOnly);
-      setStocks(stockData);
+      const stockData = await inventoryService.getStockLevels(
+        searchTerm.trim() || undefined,
+        isLowStockOnly,
+        { page: pagination.pageNumber, pageSize: pagination.pageSize },
+        sortKey,
+        sortDirection
+      );
+      const items = Array.isArray(stockData) ? stockData : stockData.items;
+      setStocks(items);
+      if (!Array.isArray(stockData)) pagination.setPaginationFromResult(stockData);
       setAppliedFilters({ search: searchTerm.trim(), isLowStockOnly });
     } catch (loadError) {
       setStocks([]);
@@ -89,8 +97,13 @@ export const InventoryListPage: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    loadData();
+  }, [isLowStockOnly, pagination.pageNumber, pagination.pageSize, sortKey, sortDirection]);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    pagination.resetPage();
     loadData();
   };
 
@@ -213,7 +226,11 @@ export const InventoryListPage: React.FC = () => {
                 ➕ {t('captureMovement')}
               </button>
             )}
-            <ExportButtons data={stocks} config={exportConfig} />
+            <ExportButtons
+              data={stocks}
+              config={exportConfig}
+              onLoadAllData={kind => loadAllPagesForExport(kind, paging => inventoryService.getStockLevels(appliedFilters.search || undefined, appliedFilters.isLowStockOnly, paging, sortKey, sortDirection))}
+            />
           </div>
         </div>
 
@@ -222,7 +239,8 @@ export const InventoryListPage: React.FC = () => {
         {loading ? (
           <div>{t('loading')}</div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <>
+            <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-main)', background: 'var(--background-container)' }}>
@@ -298,7 +316,17 @@ export const InventoryListPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-        )}
+          <TablePagination
+            pageNumber={pagination.pageNumber}
+            pageSize={pagination.pageSize}
+            totalItems={pagination.totalItems}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPageNumber}
+            onPageSizeChange={pagination.setPageSize}
+            disabled={loading}
+          />
+        </>
+      )}
       </div>
 
       {/* Modal Captura Movimiento de Inventario */}

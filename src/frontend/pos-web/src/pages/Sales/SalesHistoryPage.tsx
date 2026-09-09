@@ -12,6 +12,8 @@ import { loadAllPagesForExport } from '../../utils/pagedExport';
 import SaleReceiptModal from './SaleReceiptModal';
 import { useTableSort } from '../../hooks/useTableSort';
 import { SortableTh } from '../../components/common/SortableTh';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../../components/common/TablePagination';
 import './SalesHistoryPage.css';
 
 const today = getOperationalDateInputValue;
@@ -32,6 +34,9 @@ export const SalesHistoryPage: React.FC = () => {
   const [receipt, setReceipt] = useState<Venta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [summary, setSummary] = useState<ResumenVentas | null>(null);
+
+  const pagination = usePagination({ initialPageSize: 25 });
 
   const [cancelSaleTarget, setCancelSaleTarget] = useState<Venta | null>(null);
   const [cancelReason, setCancelReason] = useState('');
@@ -40,26 +45,95 @@ export const SalesHistoryPage: React.FC = () => {
   const locale = i18n.language.startsWith('zh') ? 'zh-CN' : 'es-MX';
   const money = useMemo(() => new Intl.NumberFormat(locale, { style: 'currency', currency: 'MXN' }), [locale]);
 
+  const {
+    sortedData: sortedSales,
+    sortKey,
+    sortDirection,
+    handleSort
+  } = useTableSort(sales, {
+    valueExtractors: {
+      customerDisplayName: sale => sale.customerDisplayName || t('generalPublic'),
+      paymentType: sale => t(paymentTypeKey(sale.paymentType)),
+      status: sale => formatBadgeText(sale.status, sale.pendingBalance)
+    }
+  });
+
   const loadSales = useCallback(async () => {
-    if (startDate && endDate && startDate > endDate) {
+    if (appliedFilters.startDate && appliedFilters.endDate && appliedFilters.startDate > appliedFilters.endDate) {
       setError(t('invalidReportDateRange'));
       return;
     }
     setLoading(true); setError('');
-    const start = toOperationalUtcBoundary(startDate); const end = toOperationalUtcBoundary(endDate, true);
+    const start = toOperationalUtcBoundary(appliedFilters.startDate);
+    const end = toOperationalUtcBoundary(appliedFilters.endDate, true);
     try {
-      const [salesData, customerData] = await Promise.all([
-        servicioVentas.getSales(search.trim() || undefined, customerId || undefined, status || undefined, start, end),
-        customers.length === 0 ? servicioCatalogo.getCustomers() : Promise.resolve(customers)
+      const [salesData, customerData, summaryData] = await Promise.all([
+        servicioVentas.getSales(
+          appliedFilters.search || undefined,
+          appliedFilters.customerId || undefined,
+          appliedFilters.status || undefined,
+          start,
+          end,
+          { page: pagination.pageNumber, pageSize: pagination.pageSize },
+          sortKey,
+          sortDirection
+        ),
+        customers.length === 0 ? servicioCatalogo.getCustomers(undefined, undefined, false, { page: 1, pageSize: 200 }) : Promise.resolve(customers),
+        servicioVentas.getSalesSummary(
+          appliedFilters.search || undefined,
+          appliedFilters.customerId || undefined,
+          appliedFilters.status || undefined,
+          start,
+          end
+        ).catch(() => null)
       ]);
-      setSales(salesData); setCustomers(customerData);
-      setAppliedFilters({ search: search.trim(), customerId, status, startDate, endDate });
+      const items = Array.isArray(salesData) ? salesData : salesData.items;
+      setSales(items);
+      if (!Array.isArray(salesData)) {
+        pagination.setPaginationFromResult(salesData);
+      }
+      if (customerData) {
+        const cItems = Array.isArray(customerData) ? customerData : customerData.items;
+        setCustomers(cItems);
+      }
+      if (summaryData) {
+        setSummary(summaryData);
+      }
     } catch (loadError) {
       setSales([]); setError(loadError instanceof Error ? loadError.message : t('salesLoadError'));
     } finally { setLoading(false); }
-  }, [customerId, customers.length, endDate, search, startDate, status, t]);
+  }, [appliedFilters, customers.length, pagination.pageNumber, pagination.pageSize, sortDirection, sortKey, t]);
 
   useEffect(() => { void loadSales(); }, [loadSales]);
+
+  const handleApplyFilters = (event: React.FormEvent) => {
+    event.preventDefault();
+    pagination.resetPage();
+    setAppliedFilters({
+      search: search.trim(),
+      customerId,
+      status,
+      startDate,
+      endDate
+    });
+  };
+
+  const handleClearFilters = () => {
+    const initialDate = today();
+    setSearch('');
+    setCustomerId('');
+    setStatus('');
+    setStartDate(initialDate);
+    setEndDate(initialDate);
+    pagination.resetPage();
+    setAppliedFilters({
+      search: '',
+      customerId: '',
+      status: '',
+      startDate: initialDate,
+      endDate: initialDate
+    });
+  };
 
   const handleConfirmCancelSale = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,13 +153,20 @@ export const SalesHistoryPage: React.FC = () => {
   };
 
   const dynamicMetrics = useMemo(() => {
+    if (summary) {
+      const totalCount = summary.salesCount ?? 0;
+      const totalAmount = summary.totalAmount ?? 0;
+      const paidAmount = summary.paidAmount ?? (summary.totalPaid ?? 0);
+      const pendingAmount = summary.pendingAmount ?? (summary.pendingBalance ?? 0);
+      return { totalCount, totalAmount, paidAmount, pendingAmount };
+    }
     const activeSales = sales.filter(s => s.status !== 'Cancelada' && s.status !== 'Cancelled');
-    const totalCount = activeSales.length;
+    const totalCount = pagination.totalItems || activeSales.length;
     const totalAmount = activeSales.reduce((acc, sale) => acc + (sale.totalAmount || 0), 0);
     const pendingAmount = activeSales.reduce((acc, sale) => acc + (sale.pendingBalance || 0), 0);
     const paidAmount = Math.max(0, totalAmount - pendingAmount);
     return { totalCount, totalAmount, paidAmount, pendingAmount };
-  }, [sales]);
+  }, [pagination.totalItems, sales, summary]);
 
   const safeFormat = (val: number | undefined | null) => money.format(Number.isFinite(val) ? val! : 0);
 
@@ -96,19 +177,6 @@ export const SalesHistoryPage: React.FC = () => {
     if (saleStatus === 'Completada' || saleStatus === 'Completed') return 'Completada';
     return saleStatus;
   };
-
-  const {
-    sortedData: sortedSales,
-    sortKey,
-    sortDirection,
-    handleSort
-  } = useTableSort(sales, {
-    valueExtractors: {
-      customerDisplayName: sale => sale.customerDisplayName || t('generalPublic'),
-      paymentType: sale => t(paymentTypeKey(sale.paymentType)),
-      status: sale => formatBadgeText(sale.status, sale.pendingBalance)
-    }
-  });
 
   const exportConfig = useMemo<ExportReportConfig<Venta>>(() => ({
     moduleName: t('salesHistoryTitle'),
@@ -143,16 +211,16 @@ export const SalesHistoryPage: React.FC = () => {
     <article className="card sales-history-header">
       <div className="sales-history-header__top">
         <div><h2>🧾 {t('salesHistoryTitle')}</h2><p>{t('salesHistorySubtitle')}</p></div>
-        <ExportButtons data={sales} config={exportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => servicioVentas.getSales(appliedFilters.search || undefined, appliedFilters.customerId || undefined, appliedFilters.status || undefined, toOperationalUtcBoundary(appliedFilters.startDate), toOperationalUtcBoundary(appliedFilters.endDate, true), paging))} />
+        <ExportButtons data={sales} config={exportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => servicioVentas.getSales(appliedFilters.search || undefined, appliedFilters.customerId || undefined, appliedFilters.status || undefined, toOperationalUtcBoundary(appliedFilters.startDate), toOperationalUtcBoundary(appliedFilters.endDate, true), paging, sortKey, sortDirection))} />
       </div>
-      <form onSubmit={event => { event.preventDefault(); void loadSales(); }}>
+      <form onSubmit={handleApplyFilters}>
         <input className="form-control" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('searchSaleHistory')} />
         <select className="form-control" value={customerId} onChange={event => setCustomerId(event.target.value)}><option value="">{t('allCustomers')}</option>{customers.map(customer => <option key={customer.id} value={customer.id}>{customer.displayName}</option>)}</select>
         <select className="form-control" value={status} onChange={event => setStatus(event.target.value)}><option value="">{t('allStatuses')}</option><option value="Completada">{t('completedStatus')}</option><option value="PendientePago">{t('pendingPaymentStatus')}</option><option value="Cancelada">{t('cancelledStatus')}</option></select>
         <label className="sales-history-date-field"><span>{t('startDate')}</span><input className="form-control" type="date" max={endDate || undefined} value={startDate} onChange={event => setStartDate(event.target.value)} /></label>
         <label className="sales-history-date-field"><span>{t('endDate')}</span><input className="form-control" type="date" min={startDate || undefined} value={endDate} onChange={event => setEndDate(event.target.value)} /></label>
         <button className="action-btn">🔎 {t('search')}</button>
-        <button type="button" className="lang-btn" onClick={() => { setSearch(''); setCustomerId(''); setStatus(''); setStartDate(today()); setEndDate(today()); }}>{t('clearFilters')}</button>
+        <button type="button" className="lang-btn" onClick={handleClearFilters}>{t('clearFilters')}</button>
       </form>
     </article>
     {error && <div className="pos-notice pos-notice--error">{error}</div>}
@@ -164,54 +232,65 @@ export const SalesHistoryPage: React.FC = () => {
     </div>
     <article className="card sales-history-table-wrap">
       {loading ? t('loading') : (
-        <table className="sales-history-table">
-          <thead>
-            <tr>
-              <SortableTh sortKey="idVenta" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('folio')}</SortableTh>
-              <SortableTh sortKey="createdAtUtc" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('date')}</SortableTh>
-              <SortableTh sortKey="customerDisplayName" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('customer')}</SortableTh>
-              <SortableTh sortKey="paymentType" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('paymentType')}</SortableTh>
-              <SortableTh sortKey="status" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('status')}</SortableTh>
-              <SortableTh sortKey="totalAmount" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('total')}</SortableTh>
-              <SortableTh sortKey="pendingBalance" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('pendingBalance')}</SortableTh>
-              <th>{t('actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedSales.length === 0 && (
-              <tr><td colSpan={8} className="sales-history-empty">{t('noSalesInPeriod')}</td></tr>
-            )}
-            {sortedSales.map(sale => (
-              <tr key={sale.idVenta}>
-                <td><strong>{t('saleNumber', { idVenta: sale.idVenta })}</strong></td>
-                <td>{new Date(sale.createdAtUtc).toLocaleString(locale)}</td>
-                <td>{sale.customerDisplayName || t('generalPublic')}</td>
-                <td>{t(paymentTypeKey(sale.paymentType))}</td>
-                <td>
-                  <span className={`badge ${sale.status === 'Cancelada' || sale.status === 'Cancelled' ? 'badge-danger' : sale.pendingBalance > 0 ? 'badge-warning' : 'badge-success'}`}>
-                    {formatBadgeText(sale.status, sale.pendingBalance)}
-                  </span>
-                </td>
-                <td>{safeFormat(sale.totalAmount)}</td>
-                <td>{safeFormat(sale.pendingBalance)}</td>
-                <td>
-                  <button className="pos-link-btn" onClick={() => setReceipt(sale)}>👁️ {t('viewReceipt')}</button>
-                  {canCancelSale && sale.status !== 'Cancelada' && sale.status !== 'Cancelled' && sale.status !== 'Devuelta' && (
-                    <button
-                      type="button"
-                      className="pos-link-btn"
-                      style={{ color: 'var(--danger)', marginLeft: '0.6rem' }}
-                      onClick={() => { setCancelSaleTarget(sale); setCancelReason(''); }}
-                      title="Cancelar esta venta (Solo Administrador)"
-                    >
-                      🚫 {t('cancel')}
-                    </button>
-                  )}
-                </td>
+        <>
+          <table className="sales-history-table">
+            <thead>
+              <tr>
+                <SortableTh sortKey="idVenta" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('folio')}</SortableTh>
+                <SortableTh sortKey="createdAtUtc" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('date')}</SortableTh>
+                <SortableTh sortKey="customerDisplayName" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('customer')}</SortableTh>
+                <SortableTh sortKey="paymentType" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('paymentType')}</SortableTh>
+                <SortableTh sortKey="status" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('status')}</SortableTh>
+                <SortableTh sortKey="totalAmount" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('total')}</SortableTh>
+                <SortableTh sortKey="pendingBalance" currentSortKey={sortKey} currentSortDirection={sortDirection} onSort={handleSort}>{t('pendingBalance')}</SortableTh>
+                <th>{t('actions')}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sortedSales.length === 0 && (
+                <tr><td colSpan={8} className="sales-history-empty">{t('noSalesInPeriod')}</td></tr>
+              )}
+              {sortedSales.map(sale => (
+                <tr key={sale.idVenta}>
+                  <td><strong>{t('saleNumber', { idVenta: sale.idVenta })}</strong></td>
+                  <td>{new Date(sale.createdAtUtc).toLocaleString(locale)}</td>
+                  <td>{sale.customerDisplayName || t('generalPublic')}</td>
+                  <td>{t(paymentTypeKey(sale.paymentType))}</td>
+                  <td>
+                    <span className={`badge ${sale.status === 'Cancelada' || sale.status === 'Cancelled' ? 'badge-danger' : sale.pendingBalance > 0 ? 'badge-warning' : 'badge-success'}`}>
+                      {formatBadgeText(sale.status, sale.pendingBalance)}
+                    </span>
+                  </td>
+                  <td>{safeFormat(sale.totalAmount)}</td>
+                  <td>{safeFormat(sale.pendingBalance)}</td>
+                  <td>
+                    <button className="pos-link-btn" onClick={() => setReceipt(sale)}>👁️ {t('viewReceipt')}</button>
+                    {canCancelSale && sale.status !== 'Cancelada' && sale.status !== 'Cancelled' && sale.status !== 'Devuelta' && (
+                      <button
+                        type="button"
+                        className="pos-link-btn"
+                        style={{ color: 'var(--danger)', marginLeft: '0.6rem' }}
+                        onClick={() => { setCancelSaleTarget(sale); setCancelReason(''); }}
+                        title="Cancelar esta venta (Solo Administrador)"
+                      >
+                        🚫 {t('cancel')}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <TablePagination
+            pageNumber={pagination.pageNumber}
+            pageSize={pagination.pageSize}
+            totalItems={pagination.totalItems}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPageNumber}
+            onPageSizeChange={pagination.setPageSize}
+            disabled={loading}
+          />
+        </>
       )}
     </article>
     {receipt && <SaleReceiptModal sale={receipt} onClose={() => setReceipt(null)} />}

@@ -67,6 +67,6 @@ public class InventoryApplicationTests
         await context.SaveChangesAsync();
         var movementsByIdVenta = await inventoryService.GetMovementsAsync(null, null, idVenta.ToString(), null, null);
 
-        Assert.Equal(idVenta, Assert.Single(movementsByIdVenta).IdVenta);
+        Assert.Equal(idVenta, Assert.Single(movementsByIdVenta.Items).IdVenta);
     }
 }

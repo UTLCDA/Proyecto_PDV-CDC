@@ -7,6 +7,8 @@ import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
 import { formatOperationalDateTime, formatShiftFolio } from '../../utils/operationalDate';
 import { loadAllPagesForExport } from '../../utils/pagedExport';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../../components/common/TablePagination';
 import './CashShiftPage.css';
 
 type Notice = { type: 'success' | 'error'; text: string } | null;
@@ -17,6 +19,8 @@ export const CashShiftPage: React.FC = () => {
   const [currentShift, setCurrentShift] = useState<CashShift | null>(null);
   const [history, setHistory] = useState<CashShift[]>([]);
   const [generalMovements, setGeneralMovements] = useState<CashGeneralMovement[]>([]);
+  const historyPagination = usePagination({ initialPageSize: 25 });
+  const movementsPagination = usePagination({ initialPageSize: 25 });
   const [openingAmount, setOpeningAmount] = useState('');
   const [openingNotes, setOpeningNotes] = useState('');
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
@@ -115,12 +119,19 @@ export const CashShiftPage: React.FC = () => {
       if (showLoading) setLoading(true);
       setNotice(null);
       const currentPromise = cashShiftService.getCurrentShift();
-      const historyPromise = canReport ? cashShiftService.getShiftHistory() : Promise.resolve([]);
-      const generalPromise = cashShiftService.getGeneralMovements().catch(() => []);
+      const historyPromise = canReport
+        ? cashShiftService.getShiftHistory({ page: historyPagination.pageNumber, pageSize: historyPagination.pageSize })
+        : Promise.resolve([] as any);
+      const generalPromise = cashShiftService.getGeneralMovements({ page: movementsPagination.pageNumber, pageSize: movementsPagination.pageSize }).catch(() => [] as any);
       const [current, shiftHistory, general] = await Promise.all([currentPromise, historyPromise, generalPromise]);
       setCurrentShift(current);
-      setHistory(shiftHistory);
-      setGeneralMovements(general);
+      const histItems = Array.isArray(shiftHistory) ? shiftHistory : (shiftHistory?.items ?? []);
+      setHistory(histItems);
+      if (shiftHistory && !Array.isArray(shiftHistory)) historyPagination.setPaginationFromResult(shiftHistory);
+
+      const genItems = Array.isArray(general) ? general : (general?.items ?? []);
+      setGeneralMovements(genItems);
+      if (general && !Array.isArray(general)) movementsPagination.setPaginationFromResult(general);
     } catch (error) {
       setNotice({ type: 'error', text: errorMessage(error, t('cashLoadError')) });
     } finally {
@@ -130,7 +141,7 @@ export const CashShiftPage: React.FC = () => {
 
   useEffect(() => {
     void loadData();
-  }, [canReport]);
+  }, [canReport, historyPagination.pageNumber, historyPagination.pageSize, movementsPagination.pageNumber, movementsPagination.pageSize]);
 
   useEffect(() => {
     if (!showCloseDialog && !showWithdrawalWarning && !showDepositDialog) return;
@@ -297,7 +308,12 @@ export const CashShiftPage: React.FC = () => {
   };
 
   const refreshHistory = async () => {
-    if (canReport) setHistory(await cashShiftService.getShiftHistory());
+    if (canReport) {
+      const res = await cashShiftService.getShiftHistory({ page: historyPagination.pageNumber, pageSize: historyPagination.pageSize });
+      const histItems = Array.isArray(res) ? res : (res?.items ?? []);
+      setHistory(histItems);
+      if (res && !Array.isArray(res)) historyPagination.setPaginationFromResult(res);
+    }
   };
 
   const closeDifference = closingAmount !== ''
@@ -438,10 +454,19 @@ export const CashShiftPage: React.FC = () => {
             })}</tbody>
           </table>
         </div>
+        <TablePagination
+          pageNumber={movementsPagination.pageNumber}
+          pageSize={movementsPagination.pageSize}
+          totalItems={movementsPagination.totalItems}
+          totalPages={movementsPagination.totalPages}
+          onPageChange={movementsPagination.setPageNumber}
+          onPageSizeChange={movementsPagination.setPageSize}
+          disabled={loading}
+        />
       </article>}
 
       {canReport && <article className="cash-card">
-        <div className="cash-card__heading"><div><h2>{t('cashShiftHistory')}</h2><p>{t('cashShiftHistoryHint')}</p></div><div className="cash-export-heading"><strong>{Array.isArray(history) ? history.length : 0}</strong><ExportButtons data={history} config={historyExportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => cashShiftService.getShiftHistory(paging))} /></div></div>
+        <div className="cash-card__heading"><div><h2>{t('cashShiftHistory')}</h2><p>{t('cashShiftHistoryHint')}</p></div><div className="cash-export-heading"><strong>{historyPagination.totalItems || (Array.isArray(history) ? history.length : 0)}</strong><ExportButtons data={history} config={historyExportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => cashShiftService.getShiftHistory(paging))} /></div></div>
         <div className="cash-table-wrapper">
           <table className="cash-table cash-table--history">
             <thead><tr><th>{t('shiftNumber')}</th><th>{t('user')}</th><th>{t('openedAt')}</th><th>{t('closedAt')}</th><th>{t('expectedClosingAmount')}</th><th>{t('actualClosingAmount')}</th><th>{t('difference')}</th><th>{t('status')}</th></tr></thead>
@@ -463,6 +488,15 @@ export const CashShiftPage: React.FC = () => {
             })}</tbody>
           </table>
         </div>
+        <TablePagination
+          pageNumber={historyPagination.pageNumber}
+          pageSize={historyPagination.pageSize}
+          totalItems={historyPagination.totalItems}
+          totalPages={historyPagination.totalPages}
+          onPageChange={historyPagination.setPageNumber}
+          onPageSizeChange={historyPagination.setPageSize}
+          disabled={loading}
+        />
         {(!Array.isArray(history) || history.length === 0) && <div className="cash-empty">{t('noCashShiftHistory')}</div>}
       </article>}
 

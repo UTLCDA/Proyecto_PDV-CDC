@@ -161,10 +161,10 @@ public class CommercialOperationsTests
         Assert.Equal(2, installmentsByIdVenta.Count);
         Assert.All(installmentsByIdVenta, item => Assert.Equal(idVenta, item.IdVenta));
         Assert.All(installmentsByIdVenta, item => Assert.Equal(receiptReference, item.ReceiptNumber));
-        Assert.Equal(historyByIdVenta.Select(item => item.Id), historyByReceipt.Select(item => item.Id));
-        Assert.All(historyByReceipt, item => Assert.Equal(receiptReference, item.ReceiptNumber));
-        Assert.Equal(transactionsByIdVenta.Select(item => item.Id), transactionsByReceipt.Select(item => item.Id));
-        Assert.All(transactionsByReceipt, item => Assert.Equal(receiptReference, item.ReferenceNumber));
+        Assert.Equal(historyByIdVenta.Items.Select(item => item.Id), historyByReceipt.Items.Select(item => item.Id));
+        Assert.All(historyByReceipt.Items, item => Assert.Equal(receiptReference, item.ReceiptNumber));
+        Assert.Equal(transactionsByIdVenta.Items.Select(item => item.Id), transactionsByReceipt.Items.Select(item => item.Id));
+        Assert.All(transactionsByReceipt.Items, item => Assert.Equal(receiptReference, item.ReferenceNumber));
         Assert.NotNull(saleDetail);
         Assert.All(saleDetail.Payments, payment => Assert.Equal(receiptReference, payment.ReferenceNumber));
 

@@ -1,17 +1,100 @@
 # HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
+## 📌 Hito Cumplido: Diagnóstico y Corrección de Visibilidad de Paginación en Frontend
+- **Rama Git**: `mantenimiento/mejoras-v2`
+- **Problema Reportado**: "no veo la numeracion en el front".
+- **Causa Raíz Resuelta**:
+  1. `PagedResult<T>` en C# implementaba `IReadOnlyList<T>` / `IEnumerable`. System.Text.Json serializaba el resultado como un arreglo JSON plano `[...]` perdiendo las propiedades de metadatos (`totalItems`, `totalPages`, etc.).
+  2. En el cliente, al no recibir `totalItems`, `pagination.totalItems` quedaba en `0`.
+  3. `TablePagination.tsx` hacía un `return null` temprano cuando `totalItems === 0`.
+- **Solución y Estado**:
+  1. Se desacopló `PagedResult<T>` de `IEnumerable` en el Backend; ahora serializa un objeto JSON completo `{ items, pageNumber, pageSize, totalItems, totalPages }`.
+  2. Se ajustaron los controladores y suites de integración para acceder a `Items`.
+  3. Se robusteció `usePagination.ts` (`setPaginationFromResult`) para tolerar camelCase y PascalCase.
+  4. Se actualizó `TablePagination.tsx` para mostrar siempre la barra de paginación incluso con 0 registros ("Sin registros" / "暂无数据" con botones deshabilitados) y mostrar siempre los números `[ 1 ]` cuando hay registros.
+- **Validación**:
+  - Backend: 73/73 pruebas xUnit superadas al 100%.
+  - Frontend: 47/47 pruebas Vitest superadas al 100%.
+  - Build Frontend: `npm run build` completado exitosamente en 10.72s.
+
+## 📌 Hito Cumplido: Implementación del Componente de Paginación Numerada Reutilizable (`TablePagination`) en Todas las Tablas
+- **Rama Git**: `mantenimiento/mejoras-v2`
+- **Alcance Entregado**:
+  1. **Componente Reutilizable (`TablePagination.tsx`)**:
+     - Paginador numerado con lógica de elipses de 7 botones (`getPageNumbers`).
+     - Botones `«`, `‹`, `›`, `»` y botones numéricos con estado activo e indicador accesible `aria-current="page"`.
+     - Selector de tamaño de página (25, 50, 100).
+     - Resumen dinámico bilingüe (Español / Chino Simplificado).
+     - Handlers seguros `handlePageChange` y `handlePageSizeChange` que validan límites y estado `disabled`.
+  2. **Diseño Visual (`TablePagination.css`)**:
+     - Integración con los tokens oficiales de diseño de WPC Bajío (`--primary-main`, `--border-subtle`, `--background-surface`, `--text-main`, etc.).
+     - Diseño responsive para pantallas móviles (< 640px).
+  3. **Despliegue en el 100% de las Tablas Paginadas**:
+     - `SalesHistoryPage.tsx`, `PaginaCatalogoProductos.tsx`, `CategoryListPage.tsx`, `CustomerListPage.tsx`, `InventoryListPage.tsx`, `InventoryMovementsPage.tsx`, `QuoteListPage.tsx`, `CommercialOpsPage.tsx` (Transacciones, Abonos, Devoluciones), `CashShiftPage.tsx` (Movimientos e Historial), `PaginaUsuarios.tsx`, `AuditLogPage.tsx`.
+- **Pruebas y Verificación**:
+  - Frontend: `npm run build` (`tsc && vite build`) completado con 0 errores; pruebas unitarias para `getPageNumbers` integradas en `usePagination.test.ts`.
+  - Backend: 72/72 pruebas pasadas (100% xUnit).
+
+## 📌 Hito Cumplido: Extensión de Paginación de Alto Rendimiento y Desacoplamiento de Filtros en Todo el Sistema
+- **Rama Git**: `mantenimiento/mejoras-v2`
+- **Alcance Completado**:
+  - Tras el éxito de la optimización en el módulo de Ventas, se aplicó la misma arquitectura a **todos los demás módulos paginados del sistema**:
+    1. **Backend**: Conteo limpio sin colecciones dependientes `CountAsync()`, selección paginada de IDs con `Skip().Take().Select(x => x.Id)`, y consulta dividida `.AsSplitQuery()` para hidratar entidades completas preservando el orden en:
+       - `CommercialOperationsService.cs` (Cotizaciones, Devoluciones, Abonos, Transacciones).
+       - `CatalogApplicationService.cs` (Productos, Categorías, Clientes).
+       - `InventoryApplicationService.cs` (Existencias, Movimientos de Inventario).
+       - `CashShiftApplicationService.cs` (Historial de Turnos).
+       - `UserApplicationService.cs` (Usuarios y Roles).
+       - `ReportingApplicationService.cs` (Bitácora de Auditoría).
+    2. **Frontend**:
+       - Desacoplamiento de efectos de carga respecto a los estados de los campos de entrada (`appliedFilters` triggered solo por Submit o Limpiar filtros).
+       - Caching de catálogos y opciones estáticas para no re-consultar en cada cambio de página.
+       - Desacoplamiento de llamadas en `CommercialOpsPage` (carga estática separada de la paginación de transacciones, devoluciones y abonos).
+       - Inclusión uniforme del botón "Limpiar filtros" en todos los formularios de filtrado.
+- **Validación**:
+  - Pruebas Backend: 72/72 pasadas (100% xUnit: Domain, Application e IntegrationTests).
+  - Build Frontend: `tsc && vite build` completado exitosamente (código 0).
+
+## 📌 HotFix de Rendimiento: Corrección de Timeout (15s) en Filtro de Fechas de Ventas
+- **Rama Git**: `mantenimiento/mejoras-v2`
+- **Problema Resuelto**: Al filtrar por fechas en el Histórico de Ventas, la petición tardaba más de 27 segundos en responder, lo que disparaba la cancelación por timeout (15s) en el cliente React ("Tiempo de espera agotado al conectar con el servidor (15s). Verifica la conexión.").
+- **Cambios Realizados**:
+  - **Backend**:
+    - `SaleApplicationService.cs`: Optimización de `GetSalesAsync` separando el conteo `totalItems` a una consulta limpia sin `Include` (< 5 ms) y aplicando paginación en dos fases (recuperación de IDs paginados primero, y posterior hidratación con `.AsSplitQuery()` para evitar explosión cartesiana). El tiempo de base de datos disminuyó de 25,007 ms a ~41 ms.
+    - Limpieza de inclusiones redundantes en `GetSalesSummaryAsync`.
+    - Inclusión preventiva de `.AsSplitQuery()` en `BuildSaleQuery()`, `BuildQuoteQuery()` y `BuildReturnQuery()`.
+  - **Frontend**:
+    - `SalesHistoryPage.tsx`: Desacoplamiento de `loadSales` para que opere exclusivamente sobre `appliedFilters` y no sobre las variables de estado reactivas del formulario. Las peticiones ahora se despachan únicamente al hacer clic en "Buscar" / enviar formulario, al limpiar filtros o al cambiar de página / ordenamiento.
+- **Validación**:
+  - Pruebas automatizadas: Vitest 42/42 pasadas (100%), xUnit 72/72 pasadas (100%).
+  - Prueba en navegador real con subagente: Consulta del rango `01/09/2026` a `09/09/2026` respondiendo de inmediato con 17 registros y métricas sin errores.
+
+## 📌 Hito Cumplido: Paginación Server-Side Universal en Todo el PDV (Mejoras v2)
+- **Rama Git**: `mantenimiento/mejoras-v2`
+- **Implementación Full-Stack**:
+  - Backend: Modelo unificado `PagedResult<T>`, clase `PagedRequest.cs` y helper `QueryPaging.cs` aplicando `.Skip((pageNumber - 1) * pageSize).Take(pageSize)` en SQL Server con Entity Framework Core 9.
+  - Frontend: Hook reutilizable `usePagination.ts` (con pruebas unitarias), componente de paginación accesible `TablePagination.tsx` y utilidad `loadAllPagesForExport` para exportaciones completas en PDF y Excel.
+- **Módulos Integrados (11/11)**:
+  1. 🧾 **Histórico de Ventas**: Paginación con métricas globales preservadas.
+  2. 💵 **Corte de Turno y Caja**: Paginación dual para historial y movimientos.
+  3. 📑 **Cotizaciones**: Paginación server-side con filtros de fecha y estado.
+  4. 💳 **Operaciones Comerciales**: Paginación dual para transacciones/abonos y devoluciones.
+  5. 📦 **Catálogo de Productos WPC Bajío**: Paginación server-side con filtros por categoría y ordenamiento.
+  6. 📁 **Catálogo de Categorías WPC Bajío**: Paginación server-side y búsqueda.
+  7. 👥 **Directorio de Clientes**: Paginación server-side con debounce de búsqueda.
+  8. 🏭 **Control de Inventarios WPC Bajío**: Paginación server-side con escáner de código de barras.
+  9. 📋 **Movimientos de Inventario**: Paginación server-side por fechas y tipo de movimiento.
+  10. 👤 **Gestión de Usuarios y Roles**: Paginación server-side de usuarios y gestión de roles.
+  11. 🔍 **Bitácora Central de Auditoría**: Paginación server-side con filtros por usuario, módulo y resultado.
+- **Suite de Pruebas y Compilación**:
+  - Frontend: Vitest 42/42 pasadas (100%), build de producción `tsc && vite build` completado sin errores.
+  - Backend: xUnit 72/72 pasadas (100%), `dotnet build` con 0 errores y 0 advertencias.
+- **Validación Local**: Sistema levantado y listo para validación por parte del desarrollador humano antes de commit y push.
+
 ## 📌 Hito Cumplido: Ordenamiento de Tablas (Table Sorting de 3 Estados)
 - **Implementación**: Sistema unificado y tipado con `useTableSort.ts` y `SortableTh.tsx`.
 - **Comportamiento**: 1er clic ascendente (↑), 2do clic descendente (↓), 3er clic restablece (⇅).
-- **Módulos Integrados**:
-  1. 🧾 Histórico de Ventas
-  2. 💳 Histórico de Transacciones y Movimientos de Pago
-  3. 📦 Catálogo de Productos WPC Bajío
-  4. 📁 Catálogo de Categorías WPC Bajío
-  5. 🏭 Control de Inventarios WPC Bajío
-  6. 📋 Movimientos de Inventario
-- **Validación Local**: Validado y aprobado por el usuario en entorno interactivo local.
-- **Suite de Pruebas**: Vitest 35/35 pasadas, xUnit 68/68 pasadas.
+- **Módulos Integrados**: Histórico de Ventas, Transacciones y Abonos, Catálogo de Productos, Catálogo de Categorías, Control de Inventarios y Movimientos de Inventario.
 
 ## 📌 Hito Cumplido: Producción 100% Operativa en la Nube
 - **Frontend SPA**: Desplegado en Cloudflare (`https://pos-wpcbajio.aaronarenasmartinez.workers.dev` / `https://pos.wpcbajio.com`) con Vite 6.4.3, React 18, y enrutamiento SPA mediante Wrangler Assets.

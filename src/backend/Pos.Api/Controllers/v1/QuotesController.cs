@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Pos.Application.Catalog.Services;
 using Pos.Application.Commercial.DTOs;
 using Pos.Application.Commercial.Services;
+using Pos.Application.Common.Models;
 using Pos.Application.Common.Security;
 using Pos.Application.Sales.DTOs;
 
@@ -28,13 +29,22 @@ public class QuotesController : ControllerBase
     {
         var products = await _catalogService.GetProductsAsync(null, null, null, cancellationToken);
         var customers = await _catalogService.GetCustomersAsync(null, null, false, cancellationToken);
-        return Ok(new QuoteOptionsDto(products.Where(product => product.IsActive).ToList(), customers));
+        return Ok(new QuoteOptionsDto(products.Items.Where(product => product.IsActive).ToList(), customers.Items.ToList()));
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<QuoteDto>>> GetQuotes([FromQuery] string? search, [FromQuery] string? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 500, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<PagedResult<QuoteDto>>> GetQuotes(
+        [FromQuery] string? search,
+        [FromQuery] string? status,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int? page = null,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
-        var quotes = await _commercialService.GetQuotesAsync(search, status, cancellationToken, page, pageSize);
+        var effectivePageNumber = page ?? pageNumber;
+        var quotes = await _commercialService.GetQuotesAsync(search, status, effectivePageNumber, pageSize, sortBy, sortDirection, cancellationToken);
         return Ok(quotes);
     }
 

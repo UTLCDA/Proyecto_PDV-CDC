@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Pos.Application.Commercial.DTOs;
 using Pos.Application.Commercial.Services;
 using Pos.Application.Common.Interfaces;
+using Pos.Application.Common.Models;
 using Pos.Application.Sales.DTOs;
 using Pos.Application.Sales.Services;
 using Pos.Domain.Common;
@@ -29,44 +30,92 @@ public class CommercialOperationsService : ICommercialOperationsService
         _auditLogService = auditLogService;
     }
 
-    public async Task<List<QuoteDto>> GetQuotesAsync(string? search, string? status, CancellationToken cancellationToken = default, int page = 1, int pageSize = 500)
+    public async Task<PagedResult<QuoteDto>> GetQuotesAsync(
+        string? search,
+        string? status,
+        int pageNumber = 1,
+        int pageSize = 25,
+        string? sortBy = null,
+        string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
-        var query = BuildQuoteQuery().Where(quote => quote.EstaActivo);
+        var baseQuery = _dbContext.Quotes.AsNoTracking().Where(quote => quote.EstaActivo);
         if (!string.IsNullOrWhiteSpace(status))
         {
             var normalizedStatus = status.Trim().ToLower();
             var nowUtc = DateTime.UtcNow;
             if (normalizedStatus == QuoteStatuses.Expired.ToLower())
             {
-                query = query.Where(quote => quote.Estado == QuoteStatuses.Expired ||
+                baseQuery = baseQuery.Where(quote => quote.Estado == QuoteStatuses.Expired ||
                     (quote.Estado == QuoteStatuses.Active && quote.FechaVigenciaUtc < nowUtc));
             }
             else if (normalizedStatus == QuoteStatuses.Active.ToLower())
             {
-                query = query.Where(quote => quote.Estado == QuoteStatuses.Active && quote.FechaVigenciaUtc >= nowUtc);
+                baseQuery = baseQuery.Where(quote => quote.Estado == QuoteStatuses.Active && quote.FechaVigenciaUtc >= nowUtc);
             }
             else
             {
-                query = query.Where(quote => quote.Estado.ToLower() == normalizedStatus);
+                baseQuery = baseQuery.Where(quote => quote.Estado.ToLower() == normalizedStatus);
             }
         }
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
-            query = query.Where(quote => quote.NumeroCotizacion.ToLower().Contains(term) ||
+            baseQuery = baseQuery.Where(quote => quote.NumeroCotizacion.ToLower().Contains(term) ||
                 (quote.Cliente != null &&
                     (quote.Cliente.Nombre.ToLower().Contains(term) ||
                      (quote.Cliente.NombreEmpresa != null && quote.Cliente.NombreEmpresa.ToLower().Contains(term)))));
         }
 
-        var (skip, take) = QueryPaging.Normalize(page, pageSize, 500);
-        var quotes = await query.AsNoTracking()
-            .OrderByDescending(quote => quote.FechaCreacionUtc)
-            .ThenByDescending(quote => quote.Id)
+        var totalItems = await baseQuery.CountAsync(cancellationToken);
+        if (totalItems == 0)
+        {
+            return new PagedResult<QuoteDto>([], 0, pageNumber, pageSize);
+        }
+
+        var isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        var sortedQuery = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "quotenumber" or "folio" or "numerocotizacion" => isDesc ? baseQuery.OrderByDescending(q => q.NumeroCotizacion) : baseQuery.OrderBy(q => q.NumeroCotizacion),
+            "customer" or "cliente" => isDesc
+                ? baseQuery.OrderByDescending(q => q.Cliente != null ? (q.Cliente.NombreEmpresa ?? q.Cliente.Nombre) : "")
+                : baseQuery.OrderBy(q => q.Cliente != null ? (q.Cliente.NombreEmpresa ?? q.Cliente.Nombre) : ""),
+            "total" or "totalamount" or "montototal" => isDesc ? baseQuery.OrderByDescending(q => q.MontoTotal) : baseQuery.OrderBy(q => q.MontoTotal),
+            "expiration" or "fechavigencia" or "fechavigenciautc" => isDesc ? baseQuery.OrderByDescending(q => q.FechaVigenciaUtc) : baseQuery.OrderBy(q => q.FechaVigenciaUtc),
+            "status" or "estado" => isDesc ? baseQuery.OrderByDescending(q => q.Estado) : baseQuery.OrderBy(q => q.Estado),
+            _ => isDesc ? baseQuery.OrderByDescending(q => q.FechaCreacionUtc).ThenByDescending(q => q.Id) : baseQuery.OrderBy(q => q.FechaCreacionUtc).ThenBy(q => q.Id)
+        };
+
+        var (skip, take) = QueryPaging.Normalize(pageNumber, pageSize, 100);
+        var pagedQuoteIds = await sortedQuery
             .Skip(skip)
             .Take(take)
+            .Select(q => q.Id)
             .ToListAsync(cancellationToken);
-        return quotes.Select(MapQuoteToDto).ToList();
+
+        if (pagedQuoteIds.Count == 0)
+        {
+            return new PagedResult<QuoteDto>([], totalItems, pageNumber, take);
+        }
+
+        var quotes = await _dbContext.Quotes
+            .AsNoTracking()
+            .Where(q => pagedQuoteIds.Contains(q.Id))
+            .Include(quote => quote.Cliente)
+            .Include(quote => quote.Usuario)
+            .Include(quote => quote.Partidas)
+                .ThenInclude(item => item.Producto)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken);
+
+        var quotesById = quotes.ToDictionary(q => q.Id);
+        var orderedQuotes = pagedQuoteIds
+            .Where(id => quotesById.ContainsKey(id))
+            .Select(id => quotesById[id])
+            .ToList();
+
+        var dtos = orderedQuotes.Select(MapQuoteToDto).ToList();
+        return new PagedResult<QuoteDto>(dtos, totalItems, pageNumber, take);
     }
 
     public async Task<QuoteDto?> GetQuoteByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -421,15 +470,17 @@ public class CommercialOperationsService : ICommercialOperationsService
         return result.OrderByDescending(item => item.CreatedAtUtc).ToList();
     }
 
-    public async Task<List<PaymentInstallmentDto>> GetInstallmentHistoryAsync(
+    public async Task<PagedResult<PaymentInstallmentDto>> GetInstallmentHistoryAsync(
         string? search,
         string? paymentMethod,
         DateTime? startDate,
         DateTime? endDate,
         string? customerId = null,
-        CancellationToken cancellationToken = default,
-        int page = 1,
-        int pageSize = 500)
+        int pageNumber = 1,
+        int pageSize = 25,
+        string? sortBy = null,
+        string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
         ValidateDateRange(startDate, endDate);
         var normalizedMethod = NormalizeOptionalPaymentMethod(paymentMethod);
@@ -444,6 +495,7 @@ public class CommercialOperationsService : ICommercialOperationsService
             .Include(sale => sale.Cliente)
             .Include(sale => sale.Usuario)
             .Include(sale => sale.Abonos)
+            .AsSplitQuery()
             .AsNoTracking()
             .Where(sale => sale.EstaActivo && sale.TipoPago == SalePaymentTypes.AdvanceDeposit);
         if (startDate.HasValue) initialSaleQuery = initialSaleQuery.Where(sale => sale.FechaCreacionUtc >= startDate.Value);
@@ -488,24 +540,37 @@ public class CommercialOperationsService : ICommercialOperationsService
         var installments = (await installmentQuery.ToListAsync(cancellationToken))
             .Select(item => MapInstallmentToDto(item, item.Venta));
 
-        var (skip, take) = QueryPaging.Normalize(page, pageSize, 500);
-        return initialInstallments.Concat(installments)
-            .OrderByDescending(item => item.CreatedAtUtc)
-            .ThenByDescending(item => item.Id)
-            .Skip(skip)
-            .Take(take)
-            .ToList();
+        var allInstallments = initialInstallments.Concat(installments);
+        var isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        allInstallments = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "receiptnumber" or "recibo" => isDesc ? allInstallments.OrderByDescending(i => i.ReceiptNumber) : allInstallments.OrderBy(i => i.ReceiptNumber),
+            "idventa" => isDesc ? allInstallments.OrderByDescending(i => i.IdVenta) : allInstallments.OrderBy(i => i.IdVenta),
+            "salefolio" or "folio" => isDesc ? allInstallments.OrderByDescending(i => i.SaleFolioNumber) : allInstallments.OrderBy(i => i.SaleFolioNumber),
+            "paymentmethod" or "metodo" => isDesc ? allInstallments.OrderByDescending(i => i.PaymentMethod) : allInstallments.OrderBy(i => i.PaymentMethod),
+            "amount" or "amountpaid" or "monto" => isDesc ? allInstallments.OrderByDescending(i => i.AmountPaid) : allInstallments.OrderBy(i => i.AmountPaid),
+            "createdatutc" or "fecha" => isDesc ? allInstallments.OrderByDescending(i => i.CreatedAtUtc) : allInstallments.OrderBy(i => i.CreatedAtUtc),
+            _ => isDesc ? allInstallments.OrderByDescending(i => i.CreatedAtUtc).ThenByDescending(i => i.Id) : allInstallments.OrderBy(i => i.CreatedAtUtc).ThenBy(i => i.Id)
+        };
+
+        var list = allInstallments.ToList();
+        var totalItems = list.Count;
+        var (skip, take) = QueryPaging.Normalize(pageNumber, pageSize, 100);
+        var paged = list.Skip(skip).Take(take).ToList();
+        return new PagedResult<PaymentInstallmentDto>(paged, totalItems, pageNumber, take);
     }
 
-    public async Task<List<PaymentTransactionDto>> GetPaymentTransactionsAsync(
+    public async Task<PagedResult<PaymentTransactionDto>> GetPaymentTransactionsAsync(
         string? search,
         string? paymentMethod,
         DateTime? startDate,
         DateTime? endDate,
         string? customerId = null,
-        CancellationToken cancellationToken = default,
-        int page = 1,
-        int pageSize = 1000)
+        int pageNumber = 1,
+        int pageSize = 25,
+        string? sortBy = null,
+        string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
         ValidateDateRange(startDate, endDate);
         var normalizedMethod = NormalizeOptionalPaymentMethod(paymentMethod);
@@ -519,6 +584,7 @@ public class CommercialOperationsService : ICommercialOperationsService
             .Include(item => item.Cliente)
             .Include(item => item.Usuario)
             .Include(item => item.Abonos)
+            .AsSplitQuery()
             .AsNoTracking().Where(item => item.EstaActivo);
         if (startDate.HasValue) saleQuery = saleQuery.Where(item => item.FechaCreacionUtc >= startDate.Value);
         if (effectiveEndDate.HasValue) saleQuery = saleQuery.Where(item => item.FechaCreacionUtc <= effectiveEndDate.Value);
@@ -559,13 +625,25 @@ public class CommercialOperationsService : ICommercialOperationsService
             "Installment", ReceiptReferences.Create(item.Venta.IdVenta), item.FormaPago, item.MontoAbonado,
             item.Usuario?.NombreUsuario, item.FechaCreacionUtc));
 
-        var (skip, take) = QueryPaging.Normalize(page, pageSize, 1000);
-        return initialTransactions.Concat(installmentTransactions)
-            .OrderByDescending(item => item.CreatedAtUtc)
-            .ThenByDescending(item => item.Id)
-            .Skip(skip)
-            .Take(take)
-            .ToList();
+        var allTransactions = initialTransactions.Concat(installmentTransactions);
+        var isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        allTransactions = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "receiptreference" or "recibo" or "referencia" => isDesc ? allTransactions.OrderByDescending(t => t.ReferenceNumber) : allTransactions.OrderBy(t => t.ReferenceNumber),
+            "folio" or "salefolio" => isDesc ? allTransactions.OrderByDescending(t => t.SaleFolioNumber) : allTransactions.OrderBy(t => t.SaleFolioNumber),
+            "customer" or "cliente" => isDesc ? allTransactions.OrderByDescending(t => t.CustomerDisplayName) : allTransactions.OrderBy(t => t.CustomerDisplayName),
+            "type" or "transactiontype" or "tipo" => isDesc ? allTransactions.OrderByDescending(t => t.TransactionType) : allTransactions.OrderBy(t => t.TransactionType),
+            "paymentmethod" or "metodo" => isDesc ? allTransactions.OrderByDescending(t => t.PaymentMethod) : allTransactions.OrderBy(t => t.PaymentMethod),
+            "amount" or "monto" => isDesc ? allTransactions.OrderByDescending(t => t.Amount) : allTransactions.OrderBy(t => t.Amount),
+            "createdatutc" or "fecha" => isDesc ? allTransactions.OrderByDescending(t => t.CreatedAtUtc) : allTransactions.OrderBy(t => t.CreatedAtUtc),
+            _ => isDesc ? allTransactions.OrderByDescending(t => t.CreatedAtUtc).ThenByDescending(t => t.Id) : allTransactions.OrderBy(t => t.CreatedAtUtc).ThenBy(t => t.Id)
+        };
+
+        var list = allTransactions.ToList();
+        var totalItems = list.Count;
+        var (skip, take) = QueryPaging.Normalize(pageNumber, pageSize, 100);
+        var paged = list.Skip(skip).Take(take).ToList();
+        return new PagedResult<PaymentTransactionDto>(paged, totalItems, pageNumber, take);
     }
 
     public async Task<ReturnHeaderDto> ProcessReturnAsync(
@@ -734,31 +812,72 @@ public class CommercialOperationsService : ICommercialOperationsService
         }, cancellationToken);
     }
 
-    public async Task<List<ReturnHeaderDto>> GetReturnsAsync(
+    public async Task<PagedResult<ReturnHeaderDto>> GetReturnsAsync(
         int? idVenta,
         Guid? saleId,
-        CancellationToken cancellationToken = default,
-        int page = 1,
-        int pageSize = 500)
+        int pageNumber = 1,
+        int pageSize = 25,
+        string? sortBy = null,
+        string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
-        var query = BuildReturnQuery().Where(item => item.EstaActivo);
+        var baseQuery = _dbContext.ReturnHeaders.AsNoTracking().Where(item => item.EstaActivo);
         if (idVenta.HasValue)
         {
             if (idVenta.Value <= 0) throw new ArgumentException("El folio operativo IdVenta debe ser mayor a cero.");
-            query = query.Where(item => item.Venta.IdVenta == idVenta.Value);
+            baseQuery = baseQuery.Where(item => item.Venta.IdVenta == idVenta.Value);
         }
         else if (saleId.HasValue)
         {
-            query = query.Where(item => item.VentaId == saleId.Value);
+            baseQuery = baseQuery.Where(item => item.VentaId == saleId.Value);
         }
-        var (skip, take) = QueryPaging.Normalize(page, pageSize, 500);
-        var returns = await query.AsNoTracking()
-            .OrderByDescending(item => item.FechaCreacionUtc)
-            .ThenByDescending(item => item.Id)
+
+        var totalItems = await baseQuery.CountAsync(cancellationToken);
+        if (totalItems == 0)
+        {
+            return new PagedResult<ReturnHeaderDto>([], 0, pageNumber, pageSize);
+        }
+
+        var isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        var sortedQuery = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "returnnumber" or "numerodevolucion" => isDesc ? baseQuery.OrderByDescending(r => r.NumeroDevolucion) : baseQuery.OrderBy(r => r.NumeroDevolucion),
+            "idventa" => isDesc ? baseQuery.OrderByDescending(r => r.IdVenta) : baseQuery.OrderBy(r => r.IdVenta),
+            "refundmethod" or "metodo" => isDesc ? baseQuery.OrderByDescending(r => r.FormaReembolso) : baseQuery.OrderBy(r => r.FormaReembolso),
+            "total" or "amount" => isDesc ? baseQuery.OrderByDescending(r => r.MontoTotalDevuelto) : baseQuery.OrderBy(r => r.MontoTotalDevuelto),
+            "status" or "estado" => isDesc ? baseQuery.OrderByDescending(r => r.Estado) : baseQuery.OrderBy(r => r.Estado),
+            _ => isDesc ? baseQuery.OrderByDescending(r => r.FechaCreacionUtc).ThenByDescending(r => r.Id) : baseQuery.OrderBy(r => r.FechaCreacionUtc).ThenBy(r => r.Id)
+        };
+
+        var (skip, take) = QueryPaging.Normalize(pageNumber, pageSize, 100);
+        var pagedReturnIds = await sortedQuery
             .Skip(skip)
             .Take(take)
+            .Select(r => r.Id)
             .ToListAsync(cancellationToken);
-        return returns.Select(MapReturnToDto).ToList();
+
+        if (pagedReturnIds.Count == 0)
+        {
+            return new PagedResult<ReturnHeaderDto>([], totalItems, pageNumber, take);
+        }
+
+        var returns = await _dbContext.ReturnHeaders
+            .AsNoTracking()
+            .Where(r => pagedReturnIds.Contains(r.Id))
+            .Include(item => item.Venta)
+            .Include(item => item.Detalle)
+                .ThenInclude(item => item.Producto)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken);
+
+        var returnsById = returns.ToDictionary(r => r.Id);
+        var orderedReturns = pagedReturnIds
+            .Where(id => returnsById.ContainsKey(id))
+            .Select(id => returnsById[id])
+            .ToList();
+
+        var items = orderedReturns.Select(MapReturnToDto).ToList();
+        return new PagedResult<ReturnHeaderDto>(items, totalItems, pageNumber, take);
     }
 
     public async Task<List<DocumentTemplateDto>> GetDocumentTemplatesAsync(CancellationToken cancellationToken = default)
@@ -820,12 +939,14 @@ public class CommercialOperationsService : ICommercialOperationsService
         .Include(quote => quote.Cliente)
         .Include(quote => quote.Usuario)
         .Include(quote => quote.Partidas)
-            .ThenInclude(item => item.Producto);
+            .ThenInclude(item => item.Producto)
+        .AsSplitQuery();
 
     private IQueryable<DevolucionCabecera> BuildReturnQuery() => _dbContext.ReturnHeaders
         .Include(item => item.Venta)
         .Include(item => item.Detalle)
-            .ThenInclude(item => item.Producto);
+            .ThenInclude(item => item.Producto)
+        .AsSplitQuery();
 
     private async Task<ReturnHeaderDto?> GetReturnByIdAsync(Guid id, CancellationToken cancellationToken)
     {

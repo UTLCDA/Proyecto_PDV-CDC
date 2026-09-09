@@ -2,6 +2,105 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.6.4 Fix / Performance] - 2026-09-08
+
+### Corregido / Mejorado
+- **Resolución de Visibilidad de Paginación en Frontend ("No veo la numeración en el front")**:
+  - **Backend (`PagedResult.cs`)**: Se retiró la implementación de `IReadOnlyList<T>` / `IEnumerable` para evitar que `System.Text.Json` serialice las respuestas como un arreglo plano `[...]`, garantizando que la API serialice el objeto JSON completo con todos sus metadatos (`items`, `pageNumber`, `pageSize`, `totalItems`, `totalPages`, `hasPreviousPage`, `hasNextPage`).
+  - **Frontend (`usePagination.ts`)**: Se fortaleció `setPaginationFromResult` con soporte tolerante a mayúsculas/minúsculas (`totalItems`/`TotalItems`, `totalPages`/`TotalPages`) y recálculo automático de `totalPages` en caso de omisión.
+  - **Frontend (`TablePagination.tsx`)**: Se removió el desmontaje prematuro (`return null` con 0 registros). Ahora la barra de paginación se renderiza permanentemente de forma consistente con estado vacío ("Sin registros" / "暂无数据" y botones `[ 1 ]` deshabilitados) y destaca activamente la numeración terracota cuando existen registros.
+  - **Controladores y Pruebas Backend**: Adaptados los accesos en `QuotesController`, `PaymentsController`, `ReturnsController` y suites de integración a `.Items`.
+
+## [2.6.3 UI / Component] - 2026-09-08
+
+### Añadido / Mejorado
+- **Implementación del Componente de Paginación Numerada Reutilizable (`TablePagination`) en Todas las Tablas**:
+  - **Componente Central (`TablePagination.tsx`)**:
+    - Paginación numerada inteligente con elipses adaptativas (`getPageNumbers` para 1, 2, ..., N páginas con ventana de 7 botones).
+    - Botones de navegación accesibles: Primera página (`«`), Anterior (`‹`), botones numerados interactivos, Siguiente (`›`) y Última página (`»`).
+    - Selector de tamaño de página integrado (25, 50, 100 registros por página).
+    - Soporte bilingüe completo (Español y Chino Simplificado) en resumen de registros y leyendas de accesibilidad.
+    - Manejo robusto de props directas o del objeto `pagination` de `usePagination.ts` con protección de límites y bloqueo `disabled` durante llamadas asíncronas.
+  - **Diseño y Estilos (`TablePagination.css`)**:
+    - Adopción integral de los tokens de diseño de WPC Bajío (`--background-surface`, `--primary-main`, `--border-subtle`, `--border-input`, `--text-main`, `--text-secondary`, `--focus-ring`).
+    - Botones activos destacados con la paleta de cobre/madera cálida (`#9C4D22`) e indicadores de foco accesibles.
+    - Adaptación móvil responsiva que apila controles verticalmente en pantallas de menos de 640px.
+  - **Integración Homogénea en Todas las Tablas del Sistema**:
+    - 🧾 Histórico de Ventas (`SalesHistoryPage.tsx`)
+    - 💳 Operaciones Comerciales: Transacciones, Abonos y Devoluciones (`CommercialOpsPage.tsx`) — Corregida la ausencia del paginador en la vista de transacciones.
+    - 💵 Corte de Turno y Caja: Movimientos e Historial (`CashShiftPage.tsx`)
+    - 📦 Catálogo de Productos (`PaginaCatalogoProductos.tsx`)
+    - 📁 Catálogo de Categorías (`CategoryListPage.tsx`)
+    - 👥 Directorio de Clientes (`CustomerListPage.tsx`)
+    - 🏭 Control de Inventarios (`InventoryListPage.tsx`)
+    - 📋 Movimientos de Inventario (`InventoryMovementsPage.tsx`)
+    - 📑 Cotizaciones (`QuoteListPage.tsx`)
+    - 👤 Gestión de Usuarios (`PaginaUsuarios.tsx`)
+    - 🔍 Bitácora Central de Auditoría (`AuditLogPage.tsx`)
+  - **Pruebas Unitarias**: Suite de pruebas para `getPageNumbers` añadida en `usePagination.test.ts` con cobertura de casos borde (menos de 7 páginas, bordes izquierdo/derecho, centro con doble elipse).
+
+## [2.6.2 Optimization / Refactor] - 2026-09-08
+
+### Optimizado / Refactorizado
+- **Extensión Universal de la Arquitectura de Paginación de Alto Rendimiento a Todos los Módulos del Sistema**:
+  - **Backend**:
+    - Extensión del patrón de dos fases (conteo puro sin navegaciones `CountAsync()`, selección de IDs paginados `Skip.Take.Select(x => x.Id)`, e hidratación eficiente con `.AsSplitQuery()` preservando orden original) a todos los servicios de aplicación:
+      - `CommercialOperationsService.cs`: `GetQuotesAsync`, `GetReturnsAsync`, `GetInstallmentHistoryAsync`, `GetPaymentTransactionsAsync`.
+      - `CatalogApplicationService.cs`: `GetProductsAsync`, `GetCategoriesAsync`, `GetCustomersAsync`.
+      - `InventoryApplicationService.cs`: `GetStockLevelsAsync`, `GetMovementsAsync`.
+      - `CashShiftApplicationService.cs`: `GetShiftHistoryAsync`.
+      - `UserApplicationService.cs`: `GetUsersAsync`.
+      - `ReportingApplicationService.cs`: `GetAuditLogsAsync`.
+    - Eliminación completa de explosiones cartesianas y productos cartesianos en consultas paginadas complejas con colecciones hijas (`Imagenes`, `SubCategorias`, `Transacciones`, `Partidas`, `UsuarioRoles`).
+  - **Frontend**:
+    - Desacoplamiento de llamadas de datos respecto a estados reactivos de entrada de filtros en todas las páginas:
+      - `InventoryMovementsPage.tsx`, `AuditLogPage.tsx`, `QuoteListPage.tsx`, `PaginaCatalogoProductos.tsx`, `CategoryListPage.tsx`, `CustomerListPage.tsx`, `CommercialOpsPage.tsx`.
+    - Caching de catálogos estáticos / opciones desplegables para que no se recarguen al cambiar de página o criterio de ordenamiento.
+    - Eliminación de filtros en memoria del cliente redundantes que truncaban el número de registros por página del servidor.
+    - Incorporación homogénea de botones "Limpiar filtros" y activación de búsqueda controlada mediante `handleApplyFilters` (Enter o botón Buscar).
+
+## [2.6.1 HotFix] - 2026-09-08
+
+### Corregido / Optimizado
+- **Corrección de Timeout (15s) y Explosión Cartesiana en Consulta de Ventas por Fechas**:
+  - **Causa Raíz**: En `SaleApplicationService.cs`, la consulta de ventas paginada calculaba `CountAsync()` e hidrataba colecciones anidadas (`Abonos` y `Partidas`) en una sola consulta EF Core sin `.AsSplitQuery()`. Esto generaba un SQL con 4 subconsultas `LEFT JOIN` que causaba un producto cartesiano pesado en SQL Server, tardando más de 25 segundos y detonando la cancelación por timeout (15s) en el cliente React. Además, `SalesHistoryPage.tsx` disparaba hasta 3 consultas concurrentes al cambiar fechas en los inputs reactivos.
+  - **Optimización en Backend**:
+    - Conteo de `totalItems` desacoplado sobre consulta base limpia sin `Include` (< 5 ms).
+    - Paginación en dos fases: extracción de IDs paginados primero (`Skip.Take.Select(s => s.Id)`), seguida de hidratación exclusiva de los registros solicitados con `.AsSplitQuery()` (< 40 ms), reduciendo el tiempo de base de datos de 25,007 ms a ~41 ms (>99.8% de mejora).
+    - Aplicación preventiva de `.AsSplitQuery()` en `BuildSaleQuery()`, `BuildQuoteQuery()` y `BuildReturnQuery()`.
+  - **Optimización en Frontend**:
+    - Desacoplamiento de `loadSales` en `SalesHistoryPage.tsx` de los inputs crudos: ahora consume el estado inmutable `appliedFilters` que solo se activa al enviar el formulario (Buscar), al pulsar Limpiar filtros o al navegar de página / ordenar.
+
+## [2.6.0 Feature / Maintenance] - 2026-09-08
+
+### Añadido / Mejorado
+- **Paginación Server-Side Universal en Todo el Sistema PDV (Mejoras v2)**:
+  - Implementación completa de paginación del lado del servidor en backend (.NET 9 + Entity Framework Core 9) y frontend (React 18 + TypeScript).
+  - **Estándar de Paginación**:
+    - 25 registros por página por defecto, con selector de tamaño de página (25, 50, 100).
+    - Estructura unificada `PagedResult<T>` (`items`, `pageNumber`, `pageSize`, `totalItems`, `totalPages`, `hasPreviousPage`, `hasNextPage`).
+    - Consultas eficientes en SQL Server con `.Skip().Take()` tras aplicar filtros y ordenamiento en el servidor.
+  - **Módulos Integrados**:
+    1. 🧾 **Histórico de Ventas** (`SalesHistoryPage.tsx`): Paginación server-side con preservación de métricas de resumen global (`getSalesSummary`).
+    2. 💵 **Corte de Turno y Caja** (`CashShiftPage.tsx`): Paginación independiente para historial de turnos y movimientos de caja.
+    3. 📑 **Cotizaciones** (`QuoteListPage.tsx`): Paginación server-side con filtros de estado y rango de fechas.
+    4. 💳 **Operaciones Comerciales** (`CommercialOpsPage.tsx`): Paginación independiente para transacciones, abonos y devoluciones.
+    5. 📦 **Catálogo de Productos WPC Bajío** (`PaginaCatalogoProductos.tsx`): Paginación server-side con filtros de categoría, búsqueda y ordenamiento de columnas.
+    6. 📁 **Catálogo de Categorías WPC Bajío** (`CategoryListPage.tsx`): Paginación server-side y búsqueda remota.
+    7. 👥 **Directorio de Clientes** (`CustomerListPage.tsx`): Paginación server-side con búsqueda con debounce y filtros de estado.
+    8. 🏭 **Control de Inventarios WPC Bajío** (`InventoryListPage.tsx`): Paginación server-side con escaneo de código de barras e indicador de existencias bajas.
+    9. 📋 **Movimientos de Inventario** (`InventoryMovementsPage.tsx`): Paginación server-side con filtros por tipo de movimiento, búsqueda y rango de fechas.
+    10. 👤 **Gestión de Usuarios y Roles** (`PaginaUsuarios.tsx`): Paginación server-side de usuarios y preservación de catálogo de roles/permisos.
+    11. 🔍 **Bitácora Central de Auditoría** (`AuditLogPage.tsx`): Paginación server-side de registros de auditoría filtrados por usuario, módulo y estado de resultado.
+  - **Exportación Completa Sin Truncamiento**:
+    - Utilidad `loadAllPagesForExport` que descarga el conjunto filtrado completo por bloques de 500 registros hasta el tope de seguridad (10,000 para PDF y 50,000 para Excel), garantizando que las exportaciones contengan todos los registros coincidentes y no solo los 25 de la página visualizada.
+  - **Infraestructura**:
+    - Frontend: Hook `usePagination.ts` (con pruebas unitarias), componente accesible `TablePagination.tsx` y helper `pagedExport.ts`.
+    - Backend: Clases `PagedResult<T>`, `PagedRequest.cs` y helper de consulta `QueryPaging.cs`.
+  - **Verificación y Pruebas**:
+    - Frontend: 42/42 pruebas superadas al 100% en Vitest; build de producción `tsc && vite build` completado sin errores.
+    - Backend: 71/71 pruebas superadas al 100% en xUnit (`0 errors, 0 warnings`).
+
 ## [2.5.0 Feature / Maintenance] - 2026-09-08
 
 ### Añadido / Mejorado

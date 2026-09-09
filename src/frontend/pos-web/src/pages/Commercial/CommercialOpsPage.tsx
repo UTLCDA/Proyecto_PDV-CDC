@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { cashShiftService } from '../../services/cashShiftService';
@@ -15,6 +15,8 @@ import { loadAllPagesForExport } from '../../utils/pagedExport';
 import SaleReceiptModal from '../Sales/SaleReceiptModal';
 import { useTableSort } from '../../hooks/useTableSort';
 import { SortableTh } from '../../components/common/SortableTh';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../../components/common/TablePagination';
 import './CommercialOpsPage.css';
 
 const today = getOperationalDateInputValue;
@@ -38,6 +40,9 @@ export const CommercialOpsPage: React.FC<{ mode?: CommercialMode }> = ({ mode = 
   const [installments, setInstallments] = useState<PaymentInstallment[]>([]);
   const [installmentHistory, setInstallmentHistory] = useState<PaymentInstallment[]>([]);
   const [transactionHistory, setTransactionHistory] = useState<PaymentTransaction[]>([]);
+  const instPagination = usePagination({ initialPageSize: 25 });
+  const txPagination = usePagination({ initialPageSize: 25 });
+  const returnsPagination = usePagination({ initialPageSize: 25 });
   const [options, setOptions] = useState<QuoteOptions>({ products: [], customers: [] });
   const [historySearch, setHistorySearch] = useState('');
   const [historyCustomerId, setHistoryCustomerId] = useState('');
@@ -164,48 +169,101 @@ export const CommercialOpsPage: React.FC<{ mode?: CommercialMode }> = ({ mode = 
     ]
   }), [t]);
 
-  const load = async () => {
+  const loadStatic = useCallback(async () => {
     try {
-      setLoading(true);
-      const [pending, eligible, returnHistory, documentTemplates, quoteOptions] = await Promise.all([
+      const [pending, eligible, documentTemplates, quoteOptions] = await Promise.all([
         showInstallments ? commercialService.getPendingSales() : Promise.resolve([]),
         showReturns || showContracts ? commercialService.getEligibleReturnSales() : Promise.resolve([]),
-        showReturns ? commercialService.getReturns() : Promise.resolve([]),
         showContracts ? commercialService.getDocumentTemplates() : Promise.resolve([]),
         commercialService.getQuoteOptions().catch(() => ({ products: [], customers: [] }))
       ]);
       setPendingSales(pending);
       setEligibleSales(eligible);
-      setReturns(returnHistory);
       setTemplates(documentTemplates);
       setOptions(quoteOptions);
-      if (showInstallments) {
-        setInstallmentHistory(await commercialService.getInstallmentHistory({
-          startDate: toOperationalUtcBoundary(historyStartDate),
-          endDate: toOperationalUtcBoundary(historyEndDate, true)
-        }));
-      }
-      if (showTransactions) {
-        setTransactionHistory(await commercialService.getPaymentTransactions({
-          startDate: toOperationalUtcBoundary(historyStartDate),
-          endDate: toOperationalUtcBoundary(historyEndDate, true)
-        }));
-      }
-      if (showInstallments || showTransactions) {
-        setAppliedHistoryFilters({ search: '', customerId: '', paymentMethod: '', startDate: historyStartDate, endDate: historyEndDate });
-      }
       if (selectedTemplateId) {
         const refreshed = documentTemplates.find(template => template.id === selectedTemplateId);
-        if (refreshed) selectTemplate(refreshed);
+        if (refreshed) {
+          setTemplateTitle(refreshed.title);
+          setTemplateCategory(refreshed.category as SaveDocumentTemplateRequest['category']);
+          setTemplateContent(refreshed.templateContentHtml);
+        }
       }
     } catch (error) {
       setNotice({ type: 'error', text: errorMessage(error, t('commercialLoadError')) });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [showInstallments, showReturns, showContracts, selectedTemplateId, t]);
 
-  useEffect(() => { void load(); }, [showInstallments, showTransactions, showReturns, showContracts]);
+  const loadReturns = useCallback(async () => {
+    if (!showReturns) return;
+    try {
+      const retData = await commercialService.getReturns(undefined, { page: returnsPagination.pageNumber, pageSize: returnsPagination.pageSize });
+      const retItems = Array.isArray(retData) ? retData : retData.items;
+      setReturns(retItems);
+      if (!Array.isArray(retData)) returnsPagination.setPaginationFromResult(retData);
+    } catch (error) {
+      setNotice({ type: 'error', text: errorMessage(error, t('commercialLoadError')) });
+    }
+  }, [showReturns, returnsPagination.pageNumber, returnsPagination.pageSize, t]);
+
+  const loadInstallmentHistory = useCallback(async () => {
+    if (!showInstallments) return;
+    try {
+      const instData = await commercialService.getInstallmentHistory({
+        search: appliedHistoryFilters.search || undefined,
+        customerId: appliedHistoryFilters.customerId || undefined,
+        paymentMethod: appliedHistoryFilters.paymentMethod || undefined,
+        startDate: toOperationalUtcBoundary(appliedHistoryFilters.startDate),
+        endDate: toOperationalUtcBoundary(appliedHistoryFilters.endDate, true)
+      }, { page: instPagination.pageNumber, pageSize: instPagination.pageSize }, instSortKey, instSortDirection);
+      const instItems = Array.isArray(instData) ? instData : instData.items;
+      setInstallmentHistory(instItems);
+      if (!Array.isArray(instData)) instPagination.setPaginationFromResult(instData);
+    } catch (error) {
+      setNotice({ type: 'error', text: errorMessage(error, t('installmentLoadError')) });
+    }
+  }, [showInstallments, appliedHistoryFilters, instPagination.pageNumber, instPagination.pageSize, instSortKey, instSortDirection, t]);
+
+  const loadTransactionHistory = useCallback(async () => {
+    if (!showTransactions) return;
+    try {
+      const txData = await commercialService.getPaymentTransactions({
+        search: appliedHistoryFilters.search || undefined,
+        customerId: appliedHistoryFilters.customerId || undefined,
+        paymentMethod: appliedHistoryFilters.paymentMethod || undefined,
+        startDate: toOperationalUtcBoundary(appliedHistoryFilters.startDate),
+        endDate: toOperationalUtcBoundary(appliedHistoryFilters.endDate, true)
+      }, { page: txPagination.pageNumber, pageSize: txPagination.pageSize }, txSortKey, txSortDirection);
+      const txItems = Array.isArray(txData) ? txData : txData.items;
+      setTransactionHistory(txItems);
+      if (!Array.isArray(txData)) txPagination.setPaginationFromResult(txData);
+    } catch (error) {
+      setNotice({ type: 'error', text: errorMessage(error, t('installmentLoadError')) });
+    }
+  }, [showTransactions, appliedHistoryFilters, txPagination.pageNumber, txPagination.pageSize, txSortKey, txSortDirection, t]);
+
+  useEffect(() => {
+    let active = true;
+    const init = async () => {
+      setLoading(true);
+      await loadStatic();
+      if (active) setLoading(false);
+    };
+    void init();
+    return () => { active = false; };
+  }, [loadStatic]);
+
+  useEffect(() => {
+    void loadReturns();
+  }, [loadReturns]);
+
+  useEffect(() => {
+    void loadInstallmentHistory();
+  }, [loadInstallmentHistory]);
+
+  useEffect(() => {
+    void loadTransactionHistory();
+  }, [loadTransactionHistory]);
 
   const selectedPendingSale = pendingSales.find(sale => sale.idVenta === Number(saleIdVenta));
   const selectedReturnSale = eligibleSales.find(sale => sale.idVenta === Number(returnIdVenta));
@@ -256,7 +314,8 @@ export const CommercialOpsPage: React.FC<{ mode?: CommercialMode }> = ({ mode = 
     try {
       setSaving(true);
       const receipt = await commercialService.registerInstallment(Number(saleIdVenta), amount, paymentMethod, paymentNotes);
-      await load();
+      await loadStatic();
+      await loadInstallmentHistory();
       setSaleIdVenta('');
       setAmountPaid('');
       setPaymentNotes('');
@@ -269,52 +328,45 @@ export const CommercialOpsPage: React.FC<{ mode?: CommercialMode }> = ({ mode = 
     }
   };
 
-  const filterInstallmentHistory = async (event: React.FormEvent) => {
+  const filterInstallmentHistory = (event: React.FormEvent) => {
     event.preventDefault();
     if (historyStartDate && historyEndDate && historyStartDate > historyEndDate) {
       setNotice({ type: 'error', text: t('invalidReportDateRange') });
       return;
     }
-    try {
-      const filters = {
-        search: historySearch.trim() || undefined,
-        customerId: historyCustomerId || undefined,
-        paymentMethod: historyPaymentMethod || undefined,
-        startDate: toOperationalUtcBoundary(historyStartDate),
-        endDate: toOperationalUtcBoundary(historyEndDate, true)
-      };
-      if (showTransactions) {
-        setTransactionHistory(await commercialService.getPaymentTransactions(filters));
-      } else {
-        setInstallmentHistory(await commercialService.getInstallmentHistory(filters));
-      }
-      setAppliedHistoryFilters({ search: historySearch.trim(), customerId: historyCustomerId, paymentMethod: historyPaymentMethod, startDate: historyStartDate, endDate: historyEndDate });
-    } catch (error) {
-      setNotice({ type: 'error', text: errorMessage(error, t('installmentLoadError')) });
+    if (showTransactions) {
+      txPagination.resetPage();
+    } else {
+      instPagination.resetPage();
     }
+    setAppliedHistoryFilters({
+      search: historySearch.trim(),
+      customerId: historyCustomerId,
+      paymentMethod: historyPaymentMethod,
+      startDate: historyStartDate,
+      endDate: historyEndDate
+    });
   };
 
-  const clearHistoryFilters = async () => {
+  const clearHistoryFilters = () => {
     const operationalToday = today();
     setHistorySearch('');
     setHistoryCustomerId('');
     setHistoryPaymentMethod('');
     setHistoryStartDate(operationalToday);
     setHistoryEndDate(operationalToday);
-    const currentDayFilter = {
-      startDate: toOperationalUtcBoundary(operationalToday),
-      endDate: toOperationalUtcBoundary(operationalToday, true)
-    };
-    try {
-      if (showTransactions) {
-        setTransactionHistory(await commercialService.getPaymentTransactions(currentDayFilter));
-      } else {
-        setInstallmentHistory(await commercialService.getInstallmentHistory(currentDayFilter));
-      }
-      setAppliedHistoryFilters({ search: '', customerId: '', paymentMethod: '', startDate: operationalToday, endDate: operationalToday });
-    } catch (error) {
-      setNotice({ type: 'error', text: errorMessage(error, t('installmentLoadError')) });
+    if (showTransactions) {
+      txPagination.resetPage();
+    } else {
+      instPagination.resetPage();
     }
+    setAppliedHistoryFilters({
+      search: '',
+      customerId: '',
+      paymentMethod: '',
+      startDate: operationalToday,
+      endDate: operationalToday
+    });
   };
 
   const openReturn = () => {
@@ -350,7 +402,8 @@ export const CommercialOpsPage: React.FC<{ mode?: CommercialMode }> = ({ mode = 
       setSaving(true);
       const processed = await commercialService.processReturn({ idVenta: Number(returnIdVenta), refundMethod, reason: returnReason, items });
       setReturnOpen(false);
-      await load();
+      await loadStatic();
+      await loadReturns();
       setNotice({ type: 'success', text: t('returnProcessed', { folio: processed.returnNumber, amount: money.format(processed.totalRefundAmount) }) });
     } catch (error) {
       setNotice({ type: 'error', text: errorMessage(error, t('returnSaveError')) });
@@ -394,7 +447,7 @@ Por medio del presente documento, WPC Bajío acuerda la comercialización y sumi
         ? await commercialService.updateDocumentTemplate(selectedTemplateId, request)
         : await commercialService.createDocumentTemplate(request);
       setSelectedTemplateId(saved.id);
-      await load();
+      await loadStatic();
       setNotice({ type: 'success', text: t('templateSaved') });
     } catch (error) {
       setNotice({ type: 'error', text: errorMessage(error, t('templateSaveError')) });
@@ -481,6 +534,7 @@ Por medio del presente documento, WPC Bajío acuerda la comercialización y sumi
             </table>
           )}
         </div>
+        <TablePagination pagination={txPagination} disabled={loading} />
       </article>}
       {showInstallments && <article className="commercial-card"><header><div><h2>💰 {t('installmentsManager')}</h2><p>{t('installmentsSubtitle')}</p></div><strong>{pendingSales.length}</strong></header>
         <form className="commercial-form" onSubmit={registerInstallment}>
@@ -543,119 +597,86 @@ Por medio del presente documento, WPC Bajío acuerda la comercialización y sumi
             <button type="button" className="lang-btn" onClick={() => void clearHistoryFilters()}>{t('clearFilters')}</button>
           </form>
           <div className="commercial-history-table-wrap" style={{ marginTop: '12px', overflowX: 'auto' }}>
-            {showTransactions ? (
-              sortedTransactionHistory.length === 0 ? <div className="commercial-empty">{t('noInstallments')}</div> : (
-                <table className="customers-table" style={{ width: '100%' }}>
-                  <thead>
-                    <tr>
-                      <SortableTh sortKey="idVenta" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Folio Venta</SortableTh>
-                      <SortableTh sortKey="referenceNumber" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>N° Recibo / Referencia</SortableTh>
-                      <SortableTh sortKey="createdAtUtc" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('date')}</SortableTh>
-                      <SortableTh sortKey="transactionType" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Movimiento</SortableTh>
-                      <SortableTh sortKey="paymentMethod" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('paymentType')}</SortableTh>
-                      <SortableTh sortKey="amount" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Monto Pagado</SortableTh>
-                      <SortableTh sortKey="customerDisplayName" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Cliente</SortableTh>
-                      <SortableTh sortKey="userUsername" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('user')}</SortableTh>
-                      <th>{t('action')}</th>
+            {sortedInstallmentHistory.length === 0 ? <div className="commercial-empty">{t('noInstallments')}</div> : (
+              <table className="customers-table" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <SortableTh sortKey="idVenta" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>Folio Venta</SortableTh>
+                    <SortableTh sortKey="receiptNumber" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>N° Recibo</SortableTh>
+                    <SortableTh sortKey="createdAtUtc" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('date')}</SortableTh>
+                    <SortableTh sortKey="paymentMethod" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('paymentType')}</SortableTh>
+                    <SortableTh sortKey="amountPaid" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('amountPaid')}</SortableTh>
+                    <SortableTh sortKey="newPendingBalance" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('pendingBalance')}</SortableTh>
+                    <SortableTh sortKey="userUsername" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('user')}</SortableTh>
+                    <th>{t('action')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedInstallmentHistory.map(item => (
+                    <tr key={item.id}>
+                      <td><strong>{t('saleNumber', { idVenta: item.idVenta })}</strong></td>
+                      <td><code>{item.receiptNumber}</code></td>
+                      <td>{dateTime.format(parseUtcDate(item.createdAtUtc))}</td>
+                      <td>
+                        <span className="badge badge-info" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          {item.paymentMethod === 'Cash' ? '💵 Efectivo' : item.paymentMethod === 'Card' ? '💳 Tarjeta' : '🏦 SPEI'}
+                        </span>
+                      </td>
+                      <td><strong>{money.format(item.amountPaid)}</strong></td>
+                      <td>{money.format(item.newPendingBalance)}</td>
+                      <td><small>{item.userUsername || '—'}</small></td>
+                      <td>
+                        <button type="button" className="pos-link-btn" onClick={() => void viewReceiptForSale(...paymentReceiptArguments(item))}>
+                          👁️ Comprobante
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {sortedTransactionHistory.map(item => (
-                      <tr key={item.id}>
-                        <td><strong>{t('saleNumber', { idVenta: item.idVenta })}</strong></td>
-                        <td><code>{item.referenceNumber}</code></td>
-                        <td>{dateTime.format(parseUtcDate(item.createdAtUtc))}</td>
-                        <td>
-                          <span className={`badge ${item.transactionType === 'Advance' ? 'badge-warning' : item.transactionType === 'Sale' ? 'badge-success' : 'badge-info'}`}>
-                            {item.transactionType === 'Advance' ? 'Anticipo Inicial' : item.transactionType === 'Sale' ? 'Pago de Venta' : 'Abono a Saldo'}
-                          </span>
-                        </td>
-                        <td>
-                          <span className="badge badge-info" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            {item.paymentMethod === 'Cash' ? '💵 Efectivo' : item.paymentMethod === 'Card' ? '💳 Tarjeta' : '🏦 SPEI'}
-                          </span>
-                        </td>
-                        <td><strong>{money.format(item.amount)}</strong></td>
-                        <td><small>{item.customerDisplayName || 'Público General'}</small></td>
-                        <td><small>{item.userUsername || '—'}</small></td>
-                        <td>
-                          <button type="button" className="pos-link-btn" onClick={() => void viewReceiptForSale(...paymentReceiptArguments(item))}>
-                            👁️ Comprobante
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )
-            ) : (
-              sortedInstallmentHistory.length === 0 ? <div className="commercial-empty">{t('noInstallments')}</div> : (
-                <table className="customers-table" style={{ width: '100%' }}>
-                  <thead>
-                    <tr>
-                      <SortableTh sortKey="idVenta" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>Folio Venta</SortableTh>
-                      <SortableTh sortKey="receiptNumber" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>N° Recibo</SortableTh>
-                      <SortableTh sortKey="createdAtUtc" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('date')}</SortableTh>
-                      <SortableTh sortKey="paymentMethod" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('paymentType')}</SortableTh>
-                      <SortableTh sortKey="amountPaid" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('amountPaid')}</SortableTh>
-                      <SortableTh sortKey="newPendingBalance" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('pendingBalance')}</SortableTh>
-                      <SortableTh sortKey="userUsername" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('user')}</SortableTh>
-                      <th>{t('action')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedInstallmentHistory.map(item => (
-                      <tr key={item.id}>
-                        <td><strong>{t('saleNumber', { idVenta: item.idVenta })}</strong></td>
-                        <td><code>{item.receiptNumber}</code></td>
-                        <td>{dateTime.format(parseUtcDate(item.createdAtUtc))}</td>
-                        <td>
-                          <span className="badge badge-info" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            {item.paymentMethod === 'Cash' ? '💵 Efectivo' : item.paymentMethod === 'Card' ? '💳 Tarjeta' : '🏦 SPEI'}
-                          </span>
-                        </td>
-                        <td><strong>{money.format(item.amountPaid)}</strong></td>
-                        <td>{money.format(item.newPendingBalance)}</td>
-                        <td><small>{item.userUsername || '—'}</small></td>
-                        <td>
-                          <button type="button" className="pos-link-btn" onClick={() => void viewReceiptForSale(...paymentReceiptArguments(item))}>
-                            👁️ Comprobante
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )
+                  ))}
+                </tbody>
+              </table>
             )}
+            <TablePagination pagination={instPagination} disabled={loading} />
           </div>
         </div>
       </article>}
 
-      {showReturns && <article className="commercial-card"><header><div><h2>↩️ {t('returnHistory')}</h2><p>{t('returnHistoryHint')}</p></div><div className="commercial-section-actions"><strong>{returns.length}</strong><ExportButtons data={returns} config={returnExportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => commercialService.getReturns(undefined, paging))} /></div></header>{returns.length === 0 ? <div className="commercial-empty">{t('noReturns')}</div> : <div className="commercial-history-table-wrap" style={{ overflowX: 'auto', marginTop: '12px' }}>
-        <table className="customers-table" style={{ width: '100%' }}>
-          <thead>
-            <tr>
-              <th>N° Devolución</th>
-              <th>Folio Venta</th>
-              <th>{t('returnDate')}</th>
-              <th>Método Reembolso</th>
-              <th>Monto Reembolsado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {returns.map(item => (
-              <tr key={item.id}>
-                <td><strong>{item.returnNumber}</strong></td>
-                <td><strong>{t('saleNumber', { idVenta: item.idVenta })}</strong></td>
-                <td>{dateTime.format(new Date(item.createdAtUtc))}</td>
-                <td><span className="badge badge-info">{t(refundMethodKey(item.refundMethod))}</span></td>
-                <td><strong style={{ color: 'var(--danger)' }}>{money.format(item.totalRefundAmount)}</strong></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>}</article>}
+      {showReturns && <article className="commercial-card"><header><div><h2>↩️ {t('returnHistory')}</h2><p>{t('returnHistoryHint')}</p></div><div className="commercial-section-actions"><strong>{returnsPagination.totalItems || returns.length}</strong><ExportButtons data={returns} config={returnExportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => commercialService.getReturns(undefined, paging))} /></div></header>{returns.length === 0 ? <div className="commercial-empty">{t('noReturns')}</div> : (
+        <>
+          <div className="commercial-history-table-wrap" style={{ overflowX: 'auto', marginTop: '12px' }}>
+            <table className="customers-table" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>N° Devolución</th>
+                  <th>Folio Venta</th>
+                  <th>{t('returnDate')}</th>
+                  <th>Método Reembolso</th>
+                  <th>Monto Reembolsado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {returns.map(item => (
+                  <tr key={item.id}>
+                    <td><strong>{item.returnNumber}</strong></td>
+                    <td><strong>{t('saleNumber', { idVenta: item.idVenta })}</strong></td>
+                    <td>{dateTime.format(new Date(item.createdAtUtc))}</td>
+                    <td><span className="badge badge-info">{t(refundMethodKey(item.refundMethod))}</span></td>
+                    <td><strong style={{ color: 'var(--danger)' }}>{money.format(item.totalRefundAmount)}</strong></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <TablePagination
+            pageNumber={returnsPagination.pageNumber}
+            pageSize={returnsPagination.pageSize}
+            totalItems={returnsPagination.totalItems}
+            totalPages={returnsPagination.totalPages}
+            onPageChange={returnsPagination.setPageNumber}
+            onPageSizeChange={returnsPagination.setPageSize}
+            disabled={loading}
+          />
+        </>
+      )}</article>}
 
       {showContracts && <article className="commercial-card commercial-contracts"><header><div><h2>📄 {t('contractTemplates')}</h2><p>{t('contractTemplatesSubtitle')}</p></div><button className="pos-link-btn" onClick={newTemplate}>➕ {t('newTemplate')}</button></header>
         <div className="commercial-template-layout"><nav>{templates.length === 0 && <span>{t('noTemplates')}</span>}{templates.map(template => <button key={template.id} className={selectedTemplateId === template.id ? 'is-selected' : ''} onClick={() => selectTemplate(template)}>{template.title}<small>{t(templateCategoryKey(template.category))}</small></button>)}</nav>

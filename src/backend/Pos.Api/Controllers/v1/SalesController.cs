@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Pos.Application.Common.Models;
 using Pos.Application.Sales.DTOs;
 using Pos.Application.Sales.Services;
 using Pos.Application.Common.Security;
@@ -21,7 +22,7 @@ public class SalesController : ControllerBase
 
     [HttpGet]
     [Authorize(Policy = PermissionCodes.Sales.History)]
-    public async Task<ActionResult<List<SaleDto>>> GetSales(
+    public async Task<ActionResult<PagedResult<SaleDto>>> GetSales(
         [FromQuery] string? search,
         [FromQuery] Guid? customerId,
         [FromQuery] string? status,
@@ -29,15 +30,20 @@ public class SalesController : ControllerBase
         [FromQuery] DateTime? endDate,
         [FromQuery] DateTime? startDateUtc,
         [FromQuery] DateTime? endDateUtc,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 500,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
+        [FromQuery] int? page = null,
         CancellationToken cancellationToken = default)
     {
         try
         {
             var effectiveStart = startDate ?? startDateUtc;
             var effectiveEnd = endDate ?? endDateUtc;
-            return Ok(await _saleService.GetSalesAsync(search, customerId, status, effectiveStart, effectiveEnd, cancellationToken, page, pageSize));
+            var effectivePage = page.HasValue && page.Value > 0 ? page.Value : pageNumber;
+            return Ok(await _saleService.GetSalesAsync(
+                search, customerId, status, effectiveStart, effectiveEnd, cancellationToken, effectivePage, pageSize, sortBy, sortDirection));
         }
         catch (ArgumentException ex)
         {

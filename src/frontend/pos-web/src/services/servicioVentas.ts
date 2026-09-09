@@ -1,7 +1,8 @@
 import { apiClient } from './apiClient';
 import { Venta, PeticionCrearVenta, ResumenVentas } from '../types/tiposVentas';
 import { Producto } from '../types/tiposCatalogo';
-import { appendPaging, PagingRequest } from '../utils/pagedExport';
+import { appendPaging, appendSorting, PagingRequest } from '../utils/pagedExport';
+import { PagedResult } from '../types/pagination';
 
 export interface ElementoCarrito {
   product: Producto;
@@ -9,7 +10,16 @@ export interface ElementoCarrito {
 }
 
 export const servicioVentas = {
-  getSales: (search?: string, customerId?: string, status?: string, startDate?: string, endDate?: string, paging?: PagingRequest) => {
+  getSales: (
+    search?: string,
+    customerId?: string,
+    status?: string,
+    startDate?: string,
+    endDate?: string,
+    paging?: PagingRequest,
+    sortBy?: string | null,
+    sortDirection?: 'asc' | 'desc' | null
+  ) => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (customerId) params.append('customerId', customerId);
@@ -23,8 +33,9 @@ export const servicioVentas = {
       params.append('endDateUtc', endDate);
     }
     appendPaging(params, paging);
+    appendSorting(params, sortBy, sortDirection);
     const query = params.toString() ? `?${params.toString()}` : '';
-    return apiClient.request<Venta[]>(`/sales${query}`);
+    return apiClient.request<PagedResult<Venta>>(`/sales${query}`);
   },
   getSalesSummary: (search?: string, customerId?: string, status?: string, startDate?: string, endDate?: string) => {
     const params = new URLSearchParams();

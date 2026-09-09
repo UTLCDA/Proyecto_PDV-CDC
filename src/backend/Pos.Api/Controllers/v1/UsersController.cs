@@ -1,9 +1,10 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Pos.Application.Common.Models;
+using Pos.Application.Common.Security;
 using Pos.Application.Users.DTOs;
 using Pos.Application.Users.Services;
-using Pos.Application.Common.Security;
 
 namespace Pos.Api.Controllers.v1;
 
@@ -20,9 +21,17 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<UserManagementDto>>> GetUsers(CancellationToken cancellationToken)
+    public async Task<ActionResult<PagedResult<UserManagementDto>>> GetUsers(
+        [FromQuery] string? search = null,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int? page = null,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
-        var users = await _userService.GetUsersAsync(cancellationToken);
+        var effectivePageNumber = page ?? pageNumber;
+        var users = await _userService.GetUsersAsync(search, effectivePageNumber, pageSize, sortBy, sortDirection, cancellationToken);
         return Ok(users);
     }
 

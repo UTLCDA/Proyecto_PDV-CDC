@@ -12,15 +12,23 @@ import {
   SaveDocumentTemplateRequest
 } from '../types/commercial';
 import { Venta } from '../types/tiposVentas';
-import { appendPaging, PagingRequest } from '../utils/pagedExport';
+import { appendPaging, appendSorting, PagingRequest } from '../utils/pagedExport';
+import { PagedResult } from '../types/pagination';
 
 export const commercialService = {
-  getQuotes: (search?: string, status?: string, paging?: PagingRequest) => {
+  getQuotes: (
+    search?: string,
+    status?: string,
+    paging?: PagingRequest,
+    sortBy?: string | null,
+    sortDirection?: 'asc' | 'desc' | null
+  ) => {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
     if (status) params.set('status', status);
     appendPaging(params, paging);
-    return apiClient.request<Quote[]>(`/quotes${params.size ? `?${params}` : ''}`);
+    appendSorting(params, sortBy, sortDirection);
+    return apiClient.request<PagedResult<Quote>>(`/quotes${params.size ? `?${params}` : ''}`);
   },
   getQuoteOptions: () => apiClient.request<QuoteOptions>('/quotes/options'),
   createQuote: (request: CreateQuoteRequest) => apiClient.request<Quote>('/quotes', {
@@ -39,7 +47,12 @@ export const commercialService = {
       body: JSON.stringify({ idVenta, amountPaid, paymentMethod, notes })
     }),
   getInstallments: (idVenta: number) => apiClient.request<PaymentInstallment[]>(`/payments/sale/${idVenta}`),
-  getInstallmentHistory: (filters: { search?: string; customerId?: string; paymentMethod?: string; startDate?: string; endDate?: string } = {}, paging?: PagingRequest) => {
+  getInstallmentHistory: (
+    filters: { search?: string; customerId?: string; paymentMethod?: string; startDate?: string; endDate?: string } = {},
+    paging?: PagingRequest,
+    sortBy?: string | null,
+    sortDirection?: 'asc' | 'desc' | null
+  ) => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value) {
@@ -49,9 +62,15 @@ export const commercialService = {
       }
     });
     appendPaging(params, paging);
-    return apiClient.request<PaymentInstallment[]>(`/payments/installments${params.size ? `?${params}` : ''}`);
+    appendSorting(params, sortBy, sortDirection);
+    return apiClient.request<PagedResult<PaymentInstallment>>(`/payments/installments${params.size ? `?${params}` : ''}`);
   },
-  getPaymentTransactions: (filters: { search?: string; customerId?: string; paymentMethod?: string; startDate?: string; endDate?: string } = {}, paging?: PagingRequest) => {
+  getPaymentTransactions: (
+    filters: { search?: string; customerId?: string; paymentMethod?: string; startDate?: string; endDate?: string } = {},
+    paging?: PagingRequest,
+    sortBy?: string | null,
+    sortDirection?: 'asc' | 'desc' | null
+  ) => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value) {
@@ -61,14 +80,21 @@ export const commercialService = {
       }
     });
     appendPaging(params, paging);
-    return apiClient.request<PaymentTransaction[]>(`/payments/transactions${params.size ? `?${params}` : ''}`);
+    appendSorting(params, sortBy, sortDirection);
+    return apiClient.request<PagedResult<PaymentTransaction>>(`/payments/transactions${params.size ? `?${params}` : ''}`);
   },
   getEligibleReturnSales: () => apiClient.request<Venta[]>('/returns/eligible-sales'),
-  getReturns: (idVenta?: number, paging?: PagingRequest) => {
+  getReturns: (
+    idVenta?: number,
+    paging?: PagingRequest,
+    sortBy?: string | null,
+    sortDirection?: 'asc' | 'desc' | null
+  ) => {
     const params = new URLSearchParams();
     if (idVenta) params.set('idVenta', String(idVenta));
     appendPaging(params, paging);
-    return apiClient.request<SaleReturn[]>(`/returns${params.size ? `?${params}` : ''}`);
+    appendSorting(params, sortBy, sortDirection);
+    return apiClient.request<PagedResult<SaleReturn>>(`/returns${params.size ? `?${params}` : ''}`);
   },
   processReturn: (request: CreateReturnRequest) => apiClient.request<SaleReturn>('/returns', {
     method: 'POST',

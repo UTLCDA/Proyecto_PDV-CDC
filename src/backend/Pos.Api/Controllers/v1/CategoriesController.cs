@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Pos.Application.Catalog.DTOs;
 using Pos.Application.Catalog.Services;
+using Pos.Application.Common.Models;
 using Pos.Application.Common.Security;
 
 namespace Pos.Api.Controllers.v1;
@@ -20,9 +21,18 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<CategoryDto>>> GetCategories(CancellationToken cancellationToken)
+    public async Task<ActionResult<PagedResult<CategoryDto>>> GetCategories(
+        [FromQuery] string? search,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
+        [FromQuery] int? page = null,
+        CancellationToken cancellationToken = default)
     {
-        var categories = await _catalogService.GetCategoriesAsync(cancellationToken);
+        var effectivePage = page.HasValue && page.Value > 0 ? page.Value : pageNumber;
+        var categories = await _catalogService.GetCategoriesAsync(
+            search, cancellationToken, effectivePage, pageSize, sortBy, sortDirection);
         return Ok(categories);
     }
 

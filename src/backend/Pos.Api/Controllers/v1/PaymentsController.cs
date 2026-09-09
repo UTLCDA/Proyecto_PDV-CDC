@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Pos.Application.Commercial.DTOs;
 using Pos.Application.Commercial.Services;
+using Pos.Application.Common.Models;
 using Pos.Application.Common.Security;
 using Pos.Application.Sales.DTOs;
 using Pos.Application.Sales.Services;
@@ -28,7 +29,7 @@ public class PaymentsController : ControllerBase
     public async Task<ActionResult<List<SaleDto>>> GetPendingSales(CancellationToken cancellationToken)
     {
         var sales = await _saleService.GetSalesAsync(null, null, null, null, null, cancellationToken);
-        return Ok(sales.Where(sale => sale.PendingBalance > 0).ToList());
+        return Ok(sales.Items.Where(sale => sale.PendingBalance > 0).ToList());
     }
 
     [HttpPost("installment")]
@@ -75,7 +76,7 @@ public class PaymentsController : ControllerBase
 
     [HttpGet("installments")]
     [Authorize(Policy = PermissionCodes.Commercial.Installments)]
-    public async Task<ActionResult<List<PaymentInstallmentDto>>> GetInstallmentHistory(
+    public async Task<ActionResult<PagedResult<PaymentInstallmentDto>>> GetInstallmentHistory(
         [FromQuery] string? search,
         [FromQuery] string? paymentMethod,
         [FromQuery] DateTime? startDate,
@@ -83,15 +84,19 @@ public class PaymentsController : ControllerBase
         [FromQuery] DateTime? startDateUtc,
         [FromQuery] DateTime? endDateUtc,
         [FromQuery] string? customerId,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 500,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int? page = null,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
         CancellationToken cancellationToken = default)
     {
         try
         {
             var effectiveStart = startDate ?? startDateUtc;
             var effectiveEnd = endDate ?? endDateUtc;
-            return Ok(await _commercialService.GetInstallmentHistoryAsync(search, paymentMethod, effectiveStart, effectiveEnd, customerId, cancellationToken, page, pageSize));
+            var effectivePageNumber = page ?? pageNumber;
+            return Ok(await _commercialService.GetInstallmentHistoryAsync(search, paymentMethod, effectiveStart, effectiveEnd, customerId, effectivePageNumber, pageSize, sortBy, sortDirection, cancellationToken));
         }
         catch (ArgumentException ex)
         {
@@ -101,7 +106,7 @@ public class PaymentsController : ControllerBase
 
     [HttpGet("transactions")]
     [Authorize(Policy = PermissionCodes.Reports.SalesView)]
-    public async Task<ActionResult<List<PaymentTransactionDto>>> GetPaymentTransactions(
+    public async Task<ActionResult<PagedResult<PaymentTransactionDto>>> GetPaymentTransactions(
         [FromQuery] string? search,
         [FromQuery] string? paymentMethod,
         [FromQuery] DateTime? startDate,
@@ -109,15 +114,19 @@ public class PaymentsController : ControllerBase
         [FromQuery] DateTime? startDateUtc,
         [FromQuery] DateTime? endDateUtc,
         [FromQuery] string? customerId,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 1000,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int? page = null,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
         CancellationToken cancellationToken = default)
     {
         try
         {
             var effectiveStart = startDate ?? startDateUtc;
             var effectiveEnd = endDate ?? endDateUtc;
-            return Ok(await _commercialService.GetPaymentTransactionsAsync(search, paymentMethod, effectiveStart, effectiveEnd, customerId, cancellationToken, page, pageSize));
+            var effectivePageNumber = page ?? pageNumber;
+            return Ok(await _commercialService.GetPaymentTransactionsAsync(search, paymentMethod, effectiveStart, effectiveEnd, customerId, effectivePageNumber, pageSize, sortBy, sortDirection, cancellationToken));
         }
         catch (ArgumentException ex)
         {

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Pos.Application.Auth.DTOs;
+using Pos.Application.Common.Models;
 using Pos.Application.Sales.DTOs;
 using Pos.Domain.Common;
 using Pos.Infrastructure.Persistence;
@@ -36,9 +37,10 @@ public class SalesControllerIntegrationTests : IClassFixture<CustomWebApplicatio
         await _client.PostAsJsonAsync("/api/v1/cashshifts/open", new Pos.Application.CashShift.DTOs.OpenCashShiftDto(1000m, "Apertura de prueba"));
 
         // 2. Fetch products
-        var products = await _client.GetFromJsonAsync<List<Pos.Application.Catalog.DTOs.ProductDto>>("/api/v1/products");
+        var products = await _client.GetFromJsonAsync<PagedResult<Pos.Application.Catalog.DTOs.ProductDto>>("/api/v1/products");
         Assert.NotNull(products);
-        var product = products.First(item => item.AvailableQuantity >= 1m && !item.IsQuoteOnly);
+        Assert.NotEmpty(products.Items);
+        var product = products.Items.First(item => item.AvailableQuantity >= 1m && !item.IsQuoteOnly);
         var expectedSubtotal = product.UnitPrice;
         var expectedTotal = expectedSubtotal + Math.Round(expectedSubtotal * 0.16m, 2);
 

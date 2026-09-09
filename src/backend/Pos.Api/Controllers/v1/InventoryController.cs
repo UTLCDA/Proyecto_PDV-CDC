@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Pos.Application.Common.Models;
 using Pos.Application.Inventory.DTOs;
 using Pos.Application.Inventory.Services;
 using Pos.Application.Common.Security;
@@ -20,12 +21,18 @@ public class InventoryController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<StockDto>>> GetStockLevels(
+    public async Task<ActionResult<PagedResult<StockDto>>> GetStockLevels(
         [FromQuery] string? search,
         [FromQuery] bool? isLowStockOnly,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int? page = null,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
         CancellationToken cancellationToken = default)
     {
-        var stocks = await _inventoryService.GetStockLevelsAsync(search, isLowStockOnly, cancellationToken);
+        var effectivePageNumber = page ?? pageNumber;
+        var stocks = await _inventoryService.GetStockLevelsAsync(search, isLowStockOnly, effectivePageNumber, pageSize, sortBy, sortDirection, cancellationToken);
         return Ok(stocks);
     }
 
@@ -39,19 +46,23 @@ public class InventoryController : ControllerBase
 
     [HttpGet("movements")]
     [Authorize(Policy = PermissionCodes.Users.Administer)]
-    public async Task<ActionResult<List<InventoryMovementDto>>> GetMovements(
+    public async Task<ActionResult<PagedResult<InventoryMovementDto>>> GetMovements(
         [FromQuery] Guid? productId,
         [FromQuery] string? movementType,
         [FromQuery] string? search,
         [FromQuery] DateTime? startDateUtc,
         [FromQuery] DateTime? endDateUtc,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 500,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int? page = null,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            var movements = await _inventoryService.GetMovementsAsync(productId, movementType, search, startDateUtc, endDateUtc, cancellationToken, page, pageSize);
+            var effectivePageNumber = page ?? pageNumber;
+            var movements = await _inventoryService.GetMovementsAsync(productId, movementType, search, startDateUtc, endDateUtc, effectivePageNumber, pageSize, sortBy, sortDirection, cancellationToken);
             return Ok(movements);
         }
         catch (ArgumentException ex)

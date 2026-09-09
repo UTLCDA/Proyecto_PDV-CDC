@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Pos.Application.Common.Interfaces;
+using Pos.Application.Common.Models;
 using Pos.Application.Common.Security;
 using Pos.Application.Users.DTOs;
 using Pos.Application.Users.Services;
@@ -25,17 +26,69 @@ public class UserApplicationService : IUserApplicationService
         _auditLogService = auditLogService;
     }
 
-    public async Task<List<UserManagementDto>> GetUsersAsync(CancellationToken cancellationToken = default)
+    public async Task<PagedResult<UserManagementDto>> GetUsersAsync(
+        string? search = null,
+        int pageNumber = 1,
+        int pageSize = 25,
+        string? sortBy = null,
+        string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
+        var baseQuery = _dbContext.Users.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            baseQuery = baseQuery.Where(u => u.NombreUsuario.ToLower().Contains(term) ||
+                                             u.Email.ToLower().Contains(term) ||
+                                             (u.Empleado != null && (u.Empleado.Nombre.ToLower().Contains(term) || u.Empleado.Apellido.ToLower().Contains(term))));
+        }
+
+        var totalItems = await baseQuery.CountAsync(cancellationToken);
+        if (totalItems == 0)
+        {
+            return new PagedResult<UserManagementDto>([], 0, pageNumber, pageSize);
+        }
+
+        var isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        var sortedQuery = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "username" or "nombreusuario" => isDesc ? baseQuery.OrderByDescending(u => u.NombreUsuario) : baseQuery.OrderBy(u => u.NombreUsuario),
+            "email" => isDesc ? baseQuery.OrderByDescending(u => u.Email) : baseQuery.OrderBy(u => u.Email),
+            "fullname" or "nombre" => isDesc ? baseQuery.OrderByDescending(u => u.Empleado != null ? u.Empleado.Nombre : "") : baseQuery.OrderBy(u => u.Empleado != null ? u.Empleado.Nombre : ""),
+            "createdatutc" or "fecha" => isDesc ? baseQuery.OrderByDescending(u => u.FechaCreacionUtc) : baseQuery.OrderBy(u => u.FechaCreacionUtc),
+            _ => isDesc ? baseQuery.OrderByDescending(u => u.FechaCreacionUtc).ThenByDescending(u => u.Id) : baseQuery.OrderBy(u => u.FechaCreacionUtc).ThenBy(u => u.Id)
+        };
+
+        var (skip, take) = QueryPaging.Normalize(pageNumber, pageSize, 100);
+        var pagedUserIds = await sortedQuery
+            .Skip(skip)
+            .Take(take)
+            .Select(u => u.Id)
+            .ToListAsync(cancellationToken);
+
+        if (pagedUserIds.Count == 0)
+        {
+            return new PagedResult<UserManagementDto>([], totalItems, pageNumber, take);
+        }
+
         var users = await _dbContext.Users
             .AsNoTracking()
+            .Where(u => pagedUserIds.Contains(u.Id))
             .Include(user => user.Empleado)
             .Include(user => user.UsuarioRoles)
                 .ThenInclude(userRole => userRole.Rol)
-            .OrderByDescending(user => user.FechaCreacionUtc)
+            .AsSplitQuery()
             .ToListAsync(cancellationToken);
 
-        return users.Select(MapUserToDto).ToList();
+        var usersById = users.ToDictionary(u => u.Id);
+        var orderedUsers = pagedUserIds
+            .Where(id => usersById.ContainsKey(id))
+            .Select(id => usersById[id])
+            .ToList();
+
+        var dtos = orderedUsers.Select(MapUserToDto).ToList();
+        return new PagedResult<UserManagementDto>(dtos, totalItems, pageNumber, take);
     }
 
     public async Task<UserManagementDto?> GetUserByIdAsync(Guid id, CancellationToken cancellationToken = default)

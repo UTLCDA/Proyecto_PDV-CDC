@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Pos.Application.Commercial.DTOs;
 using Pos.Application.Commercial.Services;
+using Pos.Application.Common.Models;
 using Pos.Application.Common.Security;
 using Pos.Application.Sales.DTOs;
 using Pos.Application.Sales.Services;
@@ -28,18 +29,22 @@ public class ReturnsController : ControllerBase
     public async Task<ActionResult<List<SaleDto>>> GetEligibleSales(CancellationToken cancellationToken)
     {
         var sales = await _saleService.GetSalesAsync(null, null, null, null, null, cancellationToken);
-        return Ok(sales.Where(sale => sale.Status is SaleStatuses.Completed or SaleStatuses.DepositPaid or SaleStatuses.PartiallyReturned).ToList());
+        return Ok(sales.Items.Where(sale => sale.Status is SaleStatuses.Completed or SaleStatuses.DepositPaid or SaleStatuses.PartiallyReturned).ToList());
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<ReturnHeaderDto>>> GetReturns(
+    public async Task<ActionResult<PagedResult<ReturnHeaderDto>>> GetReturns(
         [FromQuery] int? idVenta,
         [FromQuery] Guid? saleId,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 500,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int? page = null,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
         CancellationToken cancellationToken = default)
     {
-        return Ok(await _commercialService.GetReturnsAsync(idVenta, saleId, cancellationToken, page, pageSize));
+        var effectivePageNumber = page ?? pageNumber;
+        return Ok(await _commercialService.GetReturnsAsync(idVenta, saleId, effectivePageNumber, pageSize, sortBy, sortDirection, cancellationToken));
     }
 
     [HttpPost]

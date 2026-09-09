@@ -13,6 +13,9 @@ import {
 import { systemRoleNames } from '../../security/accessControl';
 import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../../components/common/TablePagination';
+import { loadAllPagesForExport } from '../../utils/pagedExport';
 import { evaluatePassword, isPasswordValid, PasswordRequirementStatus } from './passwordValidation';
 import './PaginaUsuarios.css';
 
@@ -56,20 +59,35 @@ export const PaginaUsuarios: React.FC = () => {
   const [mostrarModalRol, setMostrarModalRol] = useState(false);
   const [rolEditando, setRolEditando] = useState<RolGestion | null>(null);
   const [formRol, setFormRol] = useState(rolVacio);
+  const pagination = usePagination({ initialPageSize: 25 });
 
-  const cargarDatos = async (mostrarCarga = true) => {
+  const cargarRolesYPermisos = async () => {
     try {
-      if (mostrarCarga) setCargando(true);
-      setAviso(null);
-      const [usuariosApi, rolesApi, permisosApi] = await Promise.all([
-        servicioUsuarios.obtenerUsuarios(),
+      const [rolesApi, permisosApi] = await Promise.all([
         servicioUsuarios.obtenerRoles(),
         servicioUsuarios.obtenerPermisos()
       ]);
-      setUsuarios(usuariosApi);
       setRoles(rolesApi);
       setPermisos(permisosApi);
     } catch (error) {
+      setAviso({ tipo: 'error', texto: mensajeDeError(error, t('usersLoadError')) });
+    }
+  };
+
+  const cargarUsuarios = async (term = busqueda, mostrarCarga = true) => {
+    try {
+      if (mostrarCarga) setCargando(true);
+      setAviso(null);
+      const result = await servicioUsuarios.obtenerUsuarios(
+        term.trim() || undefined,
+        undefined,
+        { page: pagination.pageNumber, pageSize: pagination.pageSize }
+      );
+      const items = Array.isArray(result) ? result : result.items;
+      setUsuarios(items);
+      if (!Array.isArray(result)) pagination.setPaginationFromResult(result);
+    } catch (error) {
+      setUsuarios([]);
       setAviso({ tipo: 'error', texto: mensajeDeError(error, t('usersLoadError')) });
     } finally {
       if (mostrarCarga) setCargando(false);
@@ -77,8 +95,13 @@ export const PaginaUsuarios: React.FC = () => {
   };
 
   useEffect(() => {
-    void cargarDatos();
+    void cargarRolesYPermisos();
   }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void cargarUsuarios(busqueda), 250);
+    return () => window.clearTimeout(timer);
+  }, [busqueda, pagination.pageNumber, pagination.pageSize]);
 
   useEffect(() => {
     if (!mostrarModalUsuario && !mostrarModalRol) return;
@@ -96,15 +119,6 @@ export const PaginaUsuarios: React.FC = () => {
       window.removeEventListener('keydown', cerrarConEscape);
     };
   }, [mostrarModalUsuario, mostrarModalRol, guardando]);
-
-  const usuariosFiltrados = useMemo(() => {
-    const termino = busqueda.trim().toLocaleLowerCase();
-    if (!termino) return usuarios;
-    return usuarios.filter(usuario =>
-      [usuario.fullName, usuario.username, usuario.email, usuario.jobTitle, usuario.roleName]
-        .some(valor => valor.toLocaleLowerCase().includes(termino))
-    );
-  }, [busqueda, usuarios]);
 
   const userExportConfig = useMemo<ExportReportConfig<UsuarioGestion>>(() => ({
     moduleName: t('usersAndPermissionsTitle'),
@@ -219,7 +233,7 @@ export const PaginaUsuarios: React.FC = () => {
         await servicioUsuarios.crearUsuario(payload);
       }
       setMostrarModalUsuario(false);
-      await cargarDatos(false);
+      await cargarUsuarios(busqueda, false);
       setAviso({ tipo: 'success', texto: t(usuarioEditando ? 'userUpdatedSuccess' : 'userCreatedSuccess') });
     } catch (error) {
       setUserFormError(mensajeDeError(error, t('userSaveError')));
@@ -286,7 +300,8 @@ export const PaginaUsuarios: React.FC = () => {
         await servicioUsuarios.crearRol(payload);
       }
       setMostrarModalRol(false);
-      await cargarDatos(false);
+      await cargarRolesYPermisos();
+      await cargarUsuarios(busqueda, false);
       setAviso({ tipo: 'success', texto: t(rolEditando ? 'roleUpdatedSuccess' : 'roleCreatedSuccess') });
     } catch (error) {
       setAviso({ tipo: 'error', texto: mensajeDeError(error, t('roleSaveError')) });
@@ -311,7 +326,7 @@ export const PaginaUsuarios: React.FC = () => {
         </div>
         <div className="users-page__header-actions">
           {vista === 'usuarios'
-            ? <ExportButtons data={usuariosFiltrados} config={userExportConfig} />
+            ? <ExportButtons data={usuarios} config={userExportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => servicioUsuarios.obtenerUsuarios(busqueda.trim() || undefined, undefined, paging))} />
             : <ExportButtons data={roles} config={roleExportConfig} />}
           <button className="action-btn" onClick={vista === 'usuarios' ? abrirNuevoUsuario : abrirNuevoRol}>
             {vista === 'usuarios' ? `➕ ${t('newUser')}` : `➕ ${t('newRole')}`}
@@ -321,7 +336,7 @@ export const PaginaUsuarios: React.FC = () => {
 
       <nav className="users-tabs" aria-label={t('usersAndRolesTabs')}>
         <button className={vista === 'usuarios' ? 'is-active' : ''} onClick={() => setVista('usuarios')}>
-          {t('usersTab')} <span>{usuarios.length}</span>
+          {t('usersTab')} <span>{pagination.totalItems}</span>
         </button>
         <button className={vista === 'roles' ? 'is-active' : ''} onClick={() => setVista('roles')}>
           {t('rolesAndPermissionsTab')} <span>{roles.length}</span>
@@ -339,11 +354,11 @@ export const PaginaUsuarios: React.FC = () => {
               className="input-field"
               type="search"
               value={busqueda}
-              onChange={event => setBusqueda(event.target.value)}
+              onChange={event => { setBusqueda(event.target.value); pagination.resetPage(); }}
               placeholder={t('searchUsersPlaceholder')}
               aria-label={t('searchUsersPlaceholder')}
             />
-            <span>{t('recordsFound', { count: usuariosFiltrados.length })}</span>
+            <span>{t('recordsFound', { count: pagination.totalItems })}</span>
           </div>
           <div className="users-table-wrapper">
             <table className="users-table">
@@ -358,7 +373,7 @@ export const PaginaUsuarios: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {usuariosFiltrados.map(usuario => (
+                {usuarios.map(usuario => (
                   <tr key={usuario.id}>
                     <td data-label={t('userEmployee')}>
                       <strong>{usuario.fullName}</strong>
@@ -380,7 +395,8 @@ export const PaginaUsuarios: React.FC = () => {
               </tbody>
             </table>
           </div>
-          {usuariosFiltrados.length === 0 && <div className="users-empty">{t('noUsersFound')}</div>}
+          {usuarios.length === 0 && <div className="users-empty">{t('noUsersFound')}</div>}
+          <TablePagination pagination={pagination} disabled={cargando} />
         </div>
       ) : (
         <div className="roles-grid">

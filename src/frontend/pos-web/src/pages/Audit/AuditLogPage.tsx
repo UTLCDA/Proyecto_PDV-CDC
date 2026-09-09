@@ -7,6 +7,8 @@ import { ExportReportConfig } from '../../components/export/exportTypes';
 import { getOperationalDateInputValue, toOperationalUtcBoundary } from '../../utils/operationalDate';
 import { loadAllPagesForExport } from '../../utils/pagedExport';
 import { mapAuditEvent, MODULE_ICONS } from '../../utils/auditMapper';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../../components/common/TablePagination';
 import '../Reports/ReportsDashboardPage.css';
 import './AuditLogPage.css';
 
@@ -62,48 +64,83 @@ export const AuditLogPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const pagination = usePagination({ initialPageSize: 25 });
 
   const loadLogs = useCallback(async () => {
-    if (startDate && endDate && startDate > endDate) {
+    if (appliedFilters.startDate && appliedFilters.endDate && appliedFilters.startDate > appliedFilters.endDate) {
       setError(t('invalidReportDateRange'));
       return;
     }
     setLoading(true);
     setError('');
     try {
-      setLogs(
-        await reportsService.getAuditLogs({
-          startDate: toOperationalUtcBoundary(startDate),
-          endDate: toOperationalUtcBoundary(endDate, true),
-          user: user.trim() || undefined,
-          action: action.trim() || undefined,
-          module: module !== 'Todos' ? module : undefined,
-          resultStatus: resultStatus !== 'Todos' ? resultStatus : undefined,
-          idVenta: idVenta.trim() || undefined,
-          correlationId: correlationId.trim() || undefined
-        })
+      const result = await reportsService.getAuditLogs(
+        {
+          startDate: toOperationalUtcBoundary(appliedFilters.startDate),
+          endDate: toOperationalUtcBoundary(appliedFilters.endDate, true),
+          user: appliedFilters.user || undefined,
+          action: appliedFilters.action || undefined,
+          module: appliedFilters.module !== 'Todos' ? appliedFilters.module : undefined,
+          resultStatus: appliedFilters.resultStatus !== 'Todos' ? appliedFilters.resultStatus : undefined,
+          idVenta: appliedFilters.idVenta || undefined,
+          correlationId: appliedFilters.correlationId || undefined
+        },
+        { page: pagination.pageNumber, pageSize: pagination.pageSize }
       );
-      setAppliedFilters({
-        startDate,
-        endDate,
-        user: user.trim(),
-        action: action.trim(),
-        module,
-        resultStatus,
-        idVenta: idVenta.trim(),
-        correlationId: correlationId.trim()
-      });
+      const items = Array.isArray(result) ? result : result.items;
+      setLogs(items);
+      if (!Array.isArray(result)) {
+        pagination.setPaginationFromResult(result);
+      }
     } catch (loadError) {
       setLogs([]);
       setError(loadError instanceof Error ? loadError.message : t('reportsLoadError'));
     } finally {
       setLoading(false);
     }
-  }, [action, correlationId, endDate, idVenta, module, resultStatus, startDate, t, user]);
+  }, [appliedFilters, pagination.pageNumber, pagination.pageSize, t]);
 
   useEffect(() => {
     void loadLogs();
   }, [loadLogs]);
+
+  const handleApplyFilters = (event: React.FormEvent) => {
+    event.preventDefault();
+    pagination.resetPage();
+    setAppliedFilters({
+      startDate,
+      endDate,
+      user: user.trim(),
+      action: action.trim(),
+      module,
+      resultStatus,
+      idVenta: idVenta.trim(),
+      correlationId: correlationId.trim()
+    });
+  };
+
+  const handleClearFilters = () => {
+    const operationalToday = today();
+    setStartDate(operationalToday);
+    setEndDate(operationalToday);
+    setUser('');
+    setAction('');
+    setModule('Todos');
+    setResultStatus('Todos');
+    setIdVenta('');
+    setCorrelationId('');
+    pagination.resetPage();
+    setAppliedFilters({
+      startDate: operationalToday,
+      endDate: operationalToday,
+      user: '',
+      action: '',
+      module: 'Todos',
+      resultStatus: 'Todos',
+      idVenta: '',
+      correlationId: ''
+    });
+  };
 
   const exportConfig = useMemo<ExportReportConfig<AuditLog>>(
     () => ({
@@ -149,10 +186,7 @@ export const AuditLogPage: React.FC = () => {
         </div>
         <form
           className="reports-filter-form audit-filter-grid"
-          onSubmit={event => {
-            event.preventDefault();
-            void loadLogs();
-          }}
+          onSubmit={handleApplyFilters}
         >
           <label>
             <span>{t('startDate')}</span>
@@ -216,6 +250,7 @@ export const AuditLogPage: React.FC = () => {
             placeholder={t('filterBySaleFolio')}
           />
           <button className="action-btn">🔎 {t('search')}</button>
+          <button type="button" className="lang-btn" onClick={handleClearFilters}>{t('clearFilters')}</button>
         </form>
 
         <ExportButtons
@@ -249,67 +284,70 @@ export const AuditLogPage: React.FC = () => {
         ) : logs.length === 0 ? (
           <p className="reports-empty">{t('noAuditRecords')}</p>
         ) : (
-          <div className="reports-table-wrap">
-            <table className="reports-table reports-audit-table">
-              <thead>
-                <tr>
-                  <th>{t('date')}</th>
-                  <th>{t('user')}</th>
-                  <th>{t('auditModule')}</th>
-                  <th>{t('auditActivity')}</th>
-                  <th>{t('auditResultStatus')}</th>
-                  <th>{t('details')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map(log => {
-                  const mapped = mapAuditEvent(log);
-                  return (
-                    <tr key={log.id}>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        {new Date(log.createdAtUtc).toLocaleString(i18n.language.startsWith('zh') ? 'zh-CN' : 'es-MX', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit'
-                        })}
-                      </td>
-                      <td>
-                        <strong>{log.userUsername || t('systemUser')}</strong>
-                      </td>
-                      <td>
-                        <span className="audit-module-badge">
-                          <span>{mapped.icon}</span> {t(`auditModule_${mapped.module}`, { defaultValue: mapped.module })}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="audit-activity-cell">
-                          <span className="audit-activity-title">{mapped.title}</span>
-                          <span className="audit-activity-desc">{mapped.description}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`audit-status-badge ${mapped.statusClass}`}>
-                          {t(`auditStatus_${mapped.statusClass === 'success' ? 'SUCCESS' : mapped.statusClass === 'warning' ? 'WARNING' : 'ERROR'}`, { defaultValue: mapped.statusText })}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="pos-link-btn"
-                          onClick={() => setSelectedLog(log)}
-                        >
-                          👁️ {t('view')}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="reports-table-wrap">
+              <table className="reports-table reports-audit-table">
+                <thead>
+                  <tr>
+                    <th>{t('date')}</th>
+                    <th>{t('user')}</th>
+                    <th>{t('auditModule')}</th>
+                    <th>{t('auditActivity')}</th>
+                    <th>{t('auditResultStatus')}</th>
+                    <th>{t('details')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map(log => {
+                    const mapped = mapAuditEvent(log);
+                    return (
+                      <tr key={log.id}>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          {new Date(log.createdAtUtc).toLocaleString(i18n.language.startsWith('zh') ? 'zh-CN' : 'es-MX', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                          })}
+                        </td>
+                        <td>
+                          <strong>{log.userUsername || t('systemUser')}</strong>
+                        </td>
+                        <td>
+                          <span className="audit-module-badge">
+                            <span>{mapped.icon}</span> {t(`auditModule_${mapped.module}`, { defaultValue: mapped.module })}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="audit-activity-cell">
+                            <span className="audit-activity-title">{mapped.title}</span>
+                            <span className="audit-activity-desc">{mapped.description}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`audit-status-badge ${mapped.statusClass}`}>
+                            {t(`auditStatus_${mapped.statusClass === 'success' ? 'SUCCESS' : mapped.statusClass === 'warning' ? 'WARNING' : 'ERROR'}`, { defaultValue: mapped.statusText })}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="pos-link-btn"
+                            onClick={() => setSelectedLog(log)}
+                          >
+                            👁️ {t('view')}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <TablePagination pagination={pagination} disabled={loading} />
+          </>
         )}
       </article>
 

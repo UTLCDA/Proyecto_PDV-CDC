@@ -1,6 +1,7 @@
 import { apiClient } from './apiClient';
 import { SalesSummaryReport, TopProductReport, AuditLog, InventorySummaryReport } from '../types/reports';
 import { PagingRequest } from '../utils/pagedExport';
+import { PagedResult } from '../types/pagination';
 
 interface ReportFilters {
   startDate?: string;
@@ -31,6 +32,14 @@ export const reportsService = {
   getTopProducts: (top = 10, filters: ReportFilters = {}) =>
     apiClient.request<TopProductReport[]>(appendFilters('/reports/top-products', { ...filters, top: String(top) })),
   getInventorySummary: () => apiClient.request<InventorySummaryReport>('/reports/inventory-summary'),
-  getAuditLogs: (filters: AuditFilters = {}, paging?: PagingRequest) =>
-    apiClient.request<AuditLog[]>(appendFilters('/audit/logs', { ...filters, ...paging }))
+  getAuditLogs: (
+    filters: AuditFilters = {},
+    paging?: PagingRequest,
+    sortBy?: string | null,
+    sortDirection?: 'asc' | 'desc' | null
+  ) => {
+    const pagingParams = paging ? { pageNumber: paging.page, pageSize: paging.pageSize } : {};
+    const sortingParams = sortBy ? { sortBy, sortDirection: sortDirection ?? 'desc' } : {};
+    return apiClient.request<PagedResult<AuditLog>>(appendFilters('/audit/logs', { ...filters, ...pagingParams, ...sortingParams }));
+  }
 };

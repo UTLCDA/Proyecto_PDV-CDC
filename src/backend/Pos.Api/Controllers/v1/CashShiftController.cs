@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Pos.Application.CashShift.DTOs;
 using Pos.Application.CashShift.Services;
+using Pos.Application.Common.Models;
 using Pos.Application.Common.Security;
 
 namespace Pos.Api.Controllers.v1;
@@ -148,16 +149,30 @@ public class CashShiftController : ControllerBase
 
     [HttpGet("history")]
     [Authorize(Policy = PermissionCodes.Cash.ZReport)]
-    public async Task<ActionResult<List<CashShiftDto>>> GetShiftHistory([FromQuery] int page = 1, [FromQuery] int pageSize = 100, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<PagedResult<CashShiftDto>>> GetShiftHistory(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int? page = null,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
-        var history = await _shiftService.GetShiftHistoryAsync(cancellationToken, page, pageSize);
+        var effectivePageNumber = page ?? pageNumber;
+        var history = await _shiftService.GetShiftHistoryAsync(effectivePageNumber, pageSize, sortBy, sortDirection, cancellationToken);
         return Ok(history);
     }
 
     [HttpGet("general-movements")]
     [Authorize(Policy = AuthorizationPolicyNames.CashShiftRead)]
-    public async Task<ActionResult<List<CashGeneralMovementDto>>> GetGeneralMovements([FromQuery] int page = 1, [FromQuery] int pageSize = 250, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<PagedResult<CashGeneralMovementDto>>> GetGeneralMovements(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int? page = null,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
-        return Ok(await _shiftService.GetGeneralMovementsAsync(cancellationToken, page, pageSize));
+        var effectivePageNumber = page ?? pageNumber;
+        return Ok(await _shiftService.GetGeneralMovementsAsync(effectivePageNumber, pageSize, sortBy, sortDirection, cancellationToken));
     }
 }

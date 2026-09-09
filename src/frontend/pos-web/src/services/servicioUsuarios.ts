@@ -1,4 +1,6 @@
 import api from './apiClient';
+import { appendPaging, appendSorting, PagingRequest } from '../utils/pagedExport';
+import { PagedResult } from '../types/pagination';
 
 export interface UsuarioGestion {
   id: string;
@@ -64,8 +66,20 @@ export interface PeticionActualizarRol extends PeticionCrearRol {
 }
 
 export const servicioUsuarios = {
-  obtenerUsuarios: async (): Promise<UsuarioGestion[]> => {
-    const respuesta = await api.get<UsuarioGestion[]>('/users');
+  obtenerUsuarios: async (
+    search?: string,
+    roleId?: string,
+    paging?: PagingRequest,
+    sortBy?: string | null,
+    sortDirection?: 'asc' | 'desc' | null
+  ): Promise<PagedResult<UsuarioGestion>> => {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (roleId) params.append('roleId', roleId);
+    appendPaging(params, paging);
+    appendSorting(params, sortBy, sortDirection);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const respuesta = await api.get<PagedResult<UsuarioGestion>>(`/users${query}`);
     return respuesta.data;
   },
 

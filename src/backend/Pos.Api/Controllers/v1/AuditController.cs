@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Pos.Application.Common.Models;
 using Pos.Application.Common.Security;
 using Pos.Application.Reporting.DTOs;
 using Pos.Application.Reporting.Services;
@@ -19,7 +20,7 @@ public class AuditController : ControllerBase
     }
 
     [HttpGet("logs")]
-    public async Task<ActionResult<List<AuditLogDto>>> GetLogs(
+    public async Task<ActionResult<PagedResult<AuditLogDto>>> GetLogs(
         [FromQuery] string? correlationId,
         [FromQuery] string? user,
         [FromQuery] string? action,
@@ -29,14 +30,18 @@ public class AuditController : ControllerBase
         [FromQuery] string? module,
         [FromQuery] string? eventType,
         [FromQuery] string? resultStatus,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 200,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int? page = null,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
         CancellationToken cancellationToken = default)
     {
         try
         {
+            var effectivePageNumber = page ?? pageNumber;
             var logs = await _reportingService.GetAuditLogsAsync(
-                correlationId, user, action, startDate, endDate, idVenta, module, eventType, resultStatus, cancellationToken, page, pageSize);
+                correlationId, user, action, startDate, endDate, idVenta, module, eventType, resultStatus, effectivePageNumber, pageSize, sortBy, sortDirection, cancellationToken);
             return Ok(logs);
         }
         catch (ArgumentException ex)

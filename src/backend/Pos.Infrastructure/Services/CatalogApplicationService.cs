@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Pos.Application.Catalog.DTOs;
 using Pos.Application.Catalog.Services;
 using Pos.Application.Common.Interfaces;
+using Pos.Application.Common.Models;
 using Pos.Application.Inventory.DTOs;
 using Pos.Domain.Common;
 using Pos.Domain.Entidades;
@@ -26,14 +27,67 @@ public class CatalogApplicationService : ICatalogApplicationService
     }
 
     // Categories
-    public async Task<List<CategoryDto>> GetCategoriesAsync(CancellationToken cancellationToken = default)
+    public async Task<PagedResult<CategoryDto>> GetCategoriesAsync(
+        string? search = null,
+        CancellationToken cancellationToken = default,
+        int page = 1,
+        int pageSize = 25,
+        string? sortBy = null,
+        string? sortDirection = null)
     {
-        var categories = await _dbContext.Categories
-            .Include(c => c.SubCategorias)
-            .OrderBy(c => c.Nombre)
+        var baseQuery = _dbContext.Categories.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            baseQuery = baseQuery.Where(c => c.Nombre.ToLower().Contains(term) ||
+                                             c.Slug.ToLower().Contains(term) ||
+                                             (c.Descripcion != null && c.Descripcion.ToLower().Contains(term)));
+        }
+
+        var totalItems = await baseQuery.CountAsync(cancellationToken);
+        if (totalItems == 0)
+        {
+            return new PagedResult<CategoryDto>([], 0, page, pageSize);
+        }
+
+        bool isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        var sortedQuery = (sortBy?.ToLowerInvariant()) switch
+        {
+            "name" or "nombre" => isDesc ? baseQuery.OrderByDescending(c => c.Nombre) : baseQuery.OrderBy(c => c.Nombre),
+            "slug" => isDesc ? baseQuery.OrderByDescending(c => c.Slug) : baseQuery.OrderBy(c => c.Slug),
+            "description" or "descripcion" => isDesc ? baseQuery.OrderByDescending(c => c.Descripcion) : baseQuery.OrderBy(c => c.Descripcion),
+            "isactive" or "activo" => isDesc ? baseQuery.OrderByDescending(c => c.EstaActivo) : baseQuery.OrderBy(c => c.EstaActivo),
+            _ => baseQuery.OrderBy(c => c.Nombre)
+        };
+
+        var (skip, take) = QueryPaging.Normalize(page, pageSize, QueryPaging.DefaultStandardPageSize, QueryPaging.ExportMaxPageSize);
+        var pagedCategoryIds = await sortedQuery
+            .Skip(skip)
+            .Take(take)
+            .Select(c => c.Id)
             .ToListAsync(cancellationToken);
 
-        return categories.Select(MapCategoryToDto).ToList();
+        if (pagedCategoryIds.Count == 0)
+        {
+            return new PagedResult<CategoryDto>([], totalItems, page, take);
+        }
+
+        var categories = await _dbContext.Categories
+            .AsNoTracking()
+            .Where(c => pagedCategoryIds.Contains(c.Id))
+            .Include(c => c.SubCategorias)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken);
+
+        var categoriesById = categories.ToDictionary(c => c.Id);
+        var orderedCategories = pagedCategoryIds
+            .Where(id => categoriesById.ContainsKey(id))
+            .Select(id => categoriesById[id])
+            .ToList();
+
+        var dtos = orderedCategories.Select(MapCategoryToDto).ToList();
+        return new PagedResult<CategoryDto>(dtos, totalItems, page, take);
     }
 
     public async Task<CategoryDto?> GetCategoryByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -158,39 +212,90 @@ public class CatalogApplicationService : ICatalogApplicationService
     }
 
     // Products & Full CRUD
-    public async Task<List<ProductDto>> GetProductsAsync(string? search, Guid? categoryId, bool? isTopSellerOnly, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<ProductDto>> GetProductsAsync(
+        string? search,
+        Guid? categoryId,
+        bool? isTopSellerOnly,
+        CancellationToken cancellationToken = default,
+        int page = 1,
+        int pageSize = 25,
+        string? sortBy = null,
+        string? sortDirection = null)
     {
-        var query = _dbContext.Products
-            .Include(p => p.Categoria)
-            .Include(p => p.Imagenes)
-            .AsQueryable();
+        var baseQuery = _dbContext.Products.AsNoTracking();
 
         if (categoryId.HasValue)
         {
-            query = query.Where(p => p.CategoriaId == categoryId.Value);
+            baseQuery = baseQuery.Where(p => p.CategoriaId == categoryId.Value);
         }
 
         if (isTopSellerOnly == true)
         {
-            query = query.Where(p => p.VisibleMasVendido);
+            baseQuery = baseQuery.Where(p => p.VisibleMasVendido);
         }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
-            query = query.Where(p => p.Nombre.ToLower().Contains(term) ||
-                                     p.Sku.ToLower().Contains(term) ||
-                                     p.Barcode.Contains(term));
+            baseQuery = baseQuery.Where(p => p.Nombre.ToLower().Contains(term) ||
+                                             p.Sku.ToLower().Contains(term) ||
+                                             p.Barcode.Contains(term));
         }
 
-        var products = await query.ToListAsync(cancellationToken);
-        var productIds = products.Select(product => product.Id).ToList();
+        var totalItems = await baseQuery.CountAsync(cancellationToken);
+        if (totalItems == 0)
+        {
+            return new PagedResult<ProductDto>([], 0, page, pageSize);
+        }
+
+        bool isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        var sortedQuery = (sortBy?.ToLowerInvariant()) switch
+        {
+            "sku" => isDesc ? baseQuery.OrderByDescending(p => p.Sku) : baseQuery.OrderBy(p => p.Sku),
+            "name" or "nombre" => isDesc ? baseQuery.OrderByDescending(p => p.Nombre) : baseQuery.OrderBy(p => p.Nombre),
+            "categoryname" or "categoria" => isDesc ? baseQuery.OrderByDescending(p => p.Categoria.Nombre) : baseQuery.OrderBy(p => p.Categoria.Nombre),
+            "unitprice" or "preciounitario" => isDesc ? baseQuery.OrderByDescending(p => p.PrecioUnitario) : baseQuery.OrderBy(p => p.PrecioUnitario),
+            "wholesaleprice" or "preciomayoreo" => isDesc ? baseQuery.OrderByDescending(p => p.PrecioMayoreo) : baseQuery.OrderBy(p => p.PrecioMayoreo),
+            "piecesperbox" or "piezasporcaja" => isDesc ? baseQuery.OrderByDescending(p => p.PiezasPorCaja) : baseQuery.OrderBy(p => p.PiezasPorCaja),
+            "coverageperunitsqm" or "cobertura" => isDesc ? baseQuery.OrderByDescending(p => p.CoberturaPorUnidadM2) : baseQuery.OrderBy(p => p.CoberturaPorUnidadM2),
+            _ => baseQuery.OrderBy(p => p.Nombre)
+        };
+
+        var (skip, take) = QueryPaging.Normalize(page, pageSize, QueryPaging.DefaultStandardPageSize, QueryPaging.ExportMaxPageSize);
+        var pagedProductIds = await sortedQuery
+            .Skip(skip)
+            .Take(take)
+            .Select(p => p.Id)
+            .ToListAsync(cancellationToken);
+
+        if (pagedProductIds.Count == 0)
+        {
+            return new PagedResult<ProductDto>([], totalItems, page, take);
+        }
+
+        var products = await _dbContext.Products
+            .AsNoTracking()
+            .Where(p => pagedProductIds.Contains(p.Id))
+            .Include(p => p.Categoria)
+            .Include(p => p.Imagenes)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken);
+
+        var productsById = products.ToDictionary(p => p.Id);
+        var orderedProducts = pagedProductIds
+            .Where(id => productsById.ContainsKey(id))
+            .Select(id => productsById[id])
+            .ToList();
+
         var stockByProduct = await _dbContext.Stocks
-            .Where(stock => productIds.Contains(stock.ProductoId))
+            .Where(stock => pagedProductIds.Contains(stock.ProductoId))
             .ToDictionaryAsync(stock => stock.ProductoId, stock => stock.CantidadDisponible, cancellationToken);
-        return products.Select(product => MapProductToDto(
+
+        var dtos = orderedProducts.Select(product => MapProductToDto(
             product,
             stockByProduct.GetValueOrDefault(product.Id))).ToList();
+
+        return new PagedResult<ProductDto>(dtos, totalItems, page, take);
     }
 
     public async Task<ProductDto?> GetProductByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -413,38 +518,62 @@ public class CatalogApplicationService : ICatalogApplicationService
     }
 
     // Customers CRUD
-    public async Task<List<CustomerDto>> GetCustomersAsync(string? search, string? type, bool includeInactive, CancellationToken cancellationToken = default, int page = 1, int pageSize = 500)
+    public async Task<PagedResult<CustomerDto>> GetCustomersAsync(
+        string? search,
+        string? type,
+        bool includeInactive,
+        CancellationToken cancellationToken = default,
+        int page = 1,
+        int pageSize = 25,
+        string? sortBy = null,
+        string? sortDirection = null)
     {
-        var query = _dbContext.Customers.AsQueryable();
+        var baseQuery = _dbContext.Customers.AsNoTracking();
 
         if (!includeInactive)
         {
-            query = query.Where(c => c.EstaActivo);
+            baseQuery = baseQuery.Where(c => c.EstaActivo);
         }
 
         if (!string.IsNullOrWhiteSpace(type))
         {
-            query = query.Where(c => c.TipoCliente.ToLower() == type.Trim().ToLower());
+            baseQuery = baseQuery.Where(c => c.TipoCliente.ToLower() == type.Trim().ToLower());
         }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
-            query = query.Where(c => c.Nombre.ToLower().Contains(term) ||
-                                     c.Apellido.ToLower().Contains(term) ||
-                                     (c.NombreEmpresa != null && c.NombreEmpresa.ToLower().Contains(term)) ||
-                                     (c.Rfc != null && c.Rfc.ToLower().Contains(term)));
+            baseQuery = baseQuery.Where(c => c.Nombre.ToLower().Contains(term) ||
+                                             c.Apellido.ToLower().Contains(term) ||
+                                             (c.NombreEmpresa != null && c.NombreEmpresa.ToLower().Contains(term)) ||
+                                             (c.Rfc != null && c.Rfc.ToLower().Contains(term)));
         }
 
-        var (skip, take) = QueryPaging.Normalize(page, pageSize, 500);
-        var customers = await query
-            .AsNoTracking()
-            .OrderBy(c => c.NombreEmpresa ?? c.Nombre)
-            .ThenBy(c => c.Id)
+        var totalItems = await baseQuery.CountAsync(cancellationToken);
+        if (totalItems == 0)
+        {
+            return new PagedResult<CustomerDto>([], 0, page, pageSize);
+        }
+
+        bool isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        var sortedQuery = (sortBy?.ToLowerInvariant()) switch
+        {
+            "name" or "nombre" => isDesc ? baseQuery.OrderByDescending(c => c.NombreEmpresa ?? c.Nombre) : baseQuery.OrderBy(c => c.NombreEmpresa ?? c.Nombre),
+            "type" or "tipo" => isDesc ? baseQuery.OrderByDescending(c => c.TipoCliente) : baseQuery.OrderBy(c => c.TipoCliente),
+            "rfc" => isDesc ? baseQuery.OrderByDescending(c => c.Rfc) : baseQuery.OrderBy(c => c.Rfc),
+            "phone" or "telefono" => isDesc ? baseQuery.OrderByDescending(c => c.Telefono) : baseQuery.OrderBy(c => c.Telefono),
+            "isactive" or "activo" => isDesc ? baseQuery.OrderByDescending(c => c.EstaActivo) : baseQuery.OrderBy(c => c.EstaActivo),
+            _ => baseQuery.OrderBy(c => c.NombreEmpresa ?? c.Nombre).ThenBy(c => c.Id)
+        };
+
+        var (skip, take) = QueryPaging.Normalize(page, pageSize, QueryPaging.DefaultStandardPageSize, QueryPaging.ExportMaxPageSize);
+        var customers = await sortedQuery
             .Skip(skip)
             .Take(take)
             .ToListAsync(cancellationToken);
-        return customers.Select(MapCustomerToDto).ToList();
+
+        var dtos = customers.Select(MapCustomerToDto).ToList();
+        return new PagedResult<CustomerDto>(dtos, totalItems, page, take);
     }
 
     public async Task<CustomerDto?> GetCustomerByIdAsync(Guid id, CancellationToken cancellationToken = default)

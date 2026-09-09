@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Pos.Application.Catalog.DTOs;
 using Pos.Application.Catalog.Services;
+using Pos.Application.Common.Models;
 using Pos.Application.Common.Security;
 
 namespace Pos.Api.Controllers.v1;
@@ -21,13 +22,20 @@ public class ProductsController : ControllerBase
 
     [HttpGet]
     [Authorize(Policy = PermissionCodes.Catalog.ProductsView)]
-    public async Task<ActionResult<List<ProductDto>>> GetProducts(
+    public async Task<ActionResult<PagedResult<ProductDto>>> GetProducts(
         [FromQuery] string? search,
         [FromQuery] Guid? categoryId,
         [FromQuery] bool? isTopSellerOnly,
-        CancellationToken cancellationToken)
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
+        [FromQuery] int? page = null,
+        CancellationToken cancellationToken = default)
     {
-        var products = await _catalogService.GetProductsAsync(search, categoryId, isTopSellerOnly, cancellationToken);
+        var effectivePage = page.HasValue && page.Value > 0 ? page.Value : pageNumber;
+        var products = await _catalogService.GetProductsAsync(
+            search, categoryId, isTopSellerOnly, cancellationToken, effectivePage, pageSize, sortBy, sortDirection);
         return Ok(products);
     }
 

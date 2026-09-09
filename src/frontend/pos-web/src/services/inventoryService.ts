@@ -1,17 +1,30 @@
 import { apiClient } from './apiClient';
 import { Stock, InventoryMovement, RegisterMovementRequest } from '../types/inventory';
-import { appendPaging, PagingRequest } from '../utils/pagedExport';
+import { appendPaging, appendSorting, PagingRequest } from '../utils/pagedExport';
+import { PagedResult } from '../types/pagination';
 
 export const inventoryService = {
-  getStockLevels: (search?: string, isLowStockOnly?: boolean) => {
-    let url = '/inventory';
+  getStockLevels: (
+    search?: string,
+    isLowStockOnly?: boolean,
+    paging?: PagingRequest,
+    sortBy?: string | null,
+    sortDirection?: 'asc' | 'desc' | null
+  ) => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (isLowStockOnly) params.append('isLowStockOnly', 'true');
-    if (params.toString()) url += `?${params.toString()}`;
-    return apiClient.request<Stock[]>(url);
+    appendPaging(params, paging);
+    appendSorting(params, sortBy, sortDirection);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiClient.request<PagedResult<Stock>>(`/inventory${query}`);
   },
-  getMovements: (filters: { productId?: string; movementType?: string; search?: string; startDateUtc?: string; endDateUtc?: string } = {}, paging?: PagingRequest) => {
+  getMovements: (
+    filters: { productId?: string; movementType?: string; search?: string; startDateUtc?: string; endDateUtc?: string } = {},
+    paging?: PagingRequest,
+    sortBy?: string | null,
+    sortDirection?: 'asc' | 'desc' | null
+  ) => {
     const params = new URLSearchParams();
     if (filters.productId) params.append('productId', filters.productId);
     if (filters.movementType) params.append('movementType', filters.movementType);
@@ -19,9 +32,9 @@ export const inventoryService = {
     if (filters.startDateUtc) params.append('startDateUtc', filters.startDateUtc);
     if (filters.endDateUtc) params.append('endDateUtc', filters.endDateUtc);
     appendPaging(params, paging);
-    const query = params.toString();
-    const url = `/inventory/movements${query ? `?${query}` : ''}`;
-    return apiClient.request<InventoryMovement[]>(url);
+    appendSorting(params, sortBy, sortDirection);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiClient.request<PagedResult<InventoryMovement>>(`/inventory/movements${query}`);
   },
   registerMovement: (data: RegisterMovementRequest) =>
     apiClient.request<InventoryMovement>('/inventory/movements', {

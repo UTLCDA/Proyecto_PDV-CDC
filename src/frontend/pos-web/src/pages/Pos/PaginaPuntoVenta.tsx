@@ -87,16 +87,19 @@ export const PaginaPuntoVenta: React.FC = () => {
       const endDateIso = `${year}-${month}-${day}T23:59:59.999Z`;
 
       const [catalog, customerDirectory, summary, currentShift, categoryList] = await Promise.all([
-        servicioCatalogo.getProducts(),
-        servicioCatalogo.getCustomers(),
+        servicioCatalogo.getProducts(undefined, undefined, { page: 1, pageSize: 500 }),
+        servicioCatalogo.getCustomers(undefined, undefined, undefined, { page: 1, pageSize: 500 }),
         servicioVentas.getSalesSummary(undefined, undefined, undefined, startDateIso, endDateIso),
         cashShiftService.getCurrentShift().catch(() => null),
-        servicioCatalogo.getCategories().catch(() => [])
+        servicioCatalogo.getCategories(undefined, { page: 1, pageSize: 500 }).catch(() => null)
       ]);
-      setProducts(catalog.filter(product => product.isActive));
-      setCustomers(customerDirectory);
+      const productItems = Array.isArray(catalog) ? catalog : catalog.items;
+      setProducts(productItems.filter(product => product.isActive));
+      const customerItems = Array.isArray(customerDirectory) ? customerDirectory : customerDirectory.items;
+      setCustomers(customerItems);
       setSalesSummary(summary);
-      setCategories((categoryList || []).filter(c => c.isActive !== false));
+      const categoryItems = Array.isArray(categoryList) ? categoryList : categoryList?.items ?? [];
+      setCategories(categoryItems.filter(c => c.isActive !== false));
       const isShiftOpen = Boolean(currentShift && currentShift.status === 'Abierto');
       setHasOpenShift(isShiftOpen);
       if (!isShiftOpen) {
@@ -255,8 +258,8 @@ export const PaginaPuntoVenta: React.FC = () => {
         dailyBoxLimit: Number(newCustomerForm.dailyBoxLimit || 0),
         notes: 'Cliente registrado desde PDV'
       });
-      const updatedCustomers = await servicioCatalogo.getCustomers();
-      setCustomers(updatedCustomers);
+      const updatedCustomers = await servicioCatalogo.getCustomers(undefined, undefined, undefined, { page: 1, pageSize: 500 });
+      setCustomers(Array.isArray(updatedCustomers) ? updatedCustomers : updatedCustomers.items);
       setSelectedCustomerId(created.id);
       setIsNewCustomerModalOpen(false);
       setNewCustomerForm({ firstName: '', lastName: '', companyName: '', email: '', phone: '', customerType: 'Particular', dailyBoxLimit: '0' });

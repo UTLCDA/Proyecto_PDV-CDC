@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Producto, Categoria } from '../../types/tiposCatalogo';
 import { servicioCatalogo } from '../../services/servicioCatalogo';
@@ -10,6 +10,9 @@ import { downloadTechnicalDataSheet } from '../../utils/technicalSheetGenerator'
 import { processAndCompressImage, isImageFile } from '../../utils/imageProcessor';
 import { useTableSort } from '../../hooks/useTableSort';
 import { SortableTh } from '../../components/common/SortableTh';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../../components/common/TablePagination';
+import { loadAllPagesForExport } from '../../utils/pagedExport';
 import './ProductListPage.css';
 
 export const PaginaCatalogoProductos: React.FC = () => {
@@ -25,6 +28,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const [filtrosAplicados, setFiltrosAplicados] = useState({ busqueda: '', categoriaId: '' });
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState('');
+  const pagination = usePagination({ initialPageSize: 25 });
 
   const { sortedData: productosOrdenados, sortKey, sortDirection, handleSort } = useTableSort(productos, {
     valueExtractors: {
@@ -101,21 +105,27 @@ export const PaginaCatalogoProductos: React.FC = () => {
     ]
   }), [categorias, filtrosAplicados]);
 
-  useEffect(() => {
-    cargarDatos();
-  }, [categoriaFiltro]);
-
-  const cargarDatos = async () => {
+  const cargarDatos = useCallback(async () => {
     setCargando(true);
     setErrorCarga('');
     try {
       const [prodsData, catsData] = await Promise.all([
-        servicioCatalogo.getProducts(busqueda, categoriaFiltro),
-        servicioCatalogo.getCategories()
+        servicioCatalogo.getProducts(
+          filtrosAplicados.busqueda || undefined,
+          filtrosAplicados.categoriaId || undefined,
+          { page: pagination.pageNumber, pageSize: pagination.pageSize },
+          sortKey,
+          sortDirection
+        ),
+        categorias.length === 0 ? servicioCatalogo.getCategories() : Promise.resolve(categorias)
       ]);
-      setProductos(prodsData);
-      setCategorias(catsData);
-      setFiltrosAplicados({ busqueda: busqueda.trim(), categoriaId: categoriaFiltro });
+      const items = Array.isArray(prodsData) ? prodsData : prodsData.items;
+      setProductos(items);
+      if (!Array.isArray(prodsData)) pagination.setPaginationFromResult(prodsData);
+      if (categorias.length === 0) {
+        const catItems = Array.isArray(catsData) ? catsData : catsData.items;
+        setCategorias(catItems);
+      }
     } catch (error) {
       setProductos([]);
       setCategorias([]);
@@ -123,11 +133,23 @@ export const PaginaCatalogoProductos: React.FC = () => {
     } finally {
       setCargando(false);
     }
-  };
+  }, [categorias.length, filtrosAplicados, pagination.pageNumber, pagination.pageSize, sortDirection, sortKey, t]);
+
+  useEffect(() => {
+    void cargarDatos();
+  }, [cargarDatos]);
 
   const handleBuscarSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    cargarDatos();
+    pagination.resetPage();
+    setFiltrosAplicados({ busqueda: busqueda.trim(), categoriaId: categoriaFiltro });
+  };
+
+  const handleLimpiarFiltros = () => {
+    setBusqueda('');
+    setCategoriaFiltro('');
+    pagination.resetPage();
+    setFiltrosAplicados({ busqueda: '', categoriaId: '' });
   };
 
   // Limpieza de Caché y Apertura de Modal Crear (2.1)
@@ -393,7 +415,11 @@ export const PaginaCatalogoProductos: React.FC = () => {
             {canCreateCategory && <button className="lang-btn" onClick={() => setModalCategoriaAbierto(true)}>
               📁 {t('createCategory')}
             </button>}
-            <ExportButtons data={productos} config={exportConfig} />
+            <ExportButtons
+              data={productos}
+              config={exportConfig}
+              onLoadAllData={kind => loadAllPagesForExport(kind, paging => servicioCatalogo.getProducts(filtrosAplicados.busqueda || undefined, filtrosAplicados.categoriaId || undefined, paging, sortKey, sortDirection))}
+            />
           </div>
         </div>
 
@@ -423,13 +449,15 @@ export const PaginaCatalogoProductos: React.FC = () => {
           </select>
 
           <button type="submit" className="action-btn">{t('search')}</button>
+          <button type="button" className="lang-btn" onClick={handleLimpiarFiltros}>{t('clearFilters')}</button>
         </form>
 
         {/* Tabla de Productos con Columna de Imagen Thumbnail (Punto 2.0) */}
         {cargando ? (
           <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>{t('loading')}</div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <>
+            <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-main)', background: 'var(--background-container)' }}>
@@ -557,6 +585,16 @@ export const PaginaCatalogoProductos: React.FC = () => {
               </tbody>
             </table>
           </div>
+          <TablePagination
+            pageNumber={pagination.pageNumber}
+            pageSize={pagination.pageSize}
+            totalItems={pagination.totalItems}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPageNumber}
+            onPageSizeChange={pagination.setPageSize}
+            disabled={cargando}
+          />
+        </>
         )}
       </div>
 

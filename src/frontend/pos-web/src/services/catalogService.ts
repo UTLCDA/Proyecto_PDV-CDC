@@ -1,15 +1,25 @@
 import { apiClient } from './apiClient';
 import { Category, Product, Customer } from '../types/catalog';
+import { PagedResult } from '../types/pagination';
+import { appendPaging, appendSorting, PagingRequest } from '../utils/pagedExport';
 
 export const catalogService = {
-  getCategories: () => apiClient.request<Category[]>('/categories'),
-  getProducts: (search?: string, categoryId?: string) => {
-    let url = '/products';
+  getCategories: (search?: string, paging?: PagingRequest, sortBy?: string | null, sortDirection?: 'asc' | 'desc' | null) => {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    appendPaging(params, paging);
+    appendSorting(params, sortBy, sortDirection);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiClient.request<PagedResult<Category>>(`/categories${query}`);
+  },
+  getProducts: (search?: string, categoryId?: string, paging?: PagingRequest, sortBy?: string | null, sortDirection?: 'asc' | 'desc' | null) => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (categoryId) params.append('categoryId', categoryId);
-    if (params.toString()) url += `?${params.toString()}`;
-    return apiClient.request<Product[]>(url);
+    appendPaging(params, paging);
+    appendSorting(params, sortBy, sortDirection);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiClient.request<PagedResult<Product>>(`/products${query}`);
   },
   getProductByCode: (code: string) => apiClient.request<Product>(`/products/lookup/${code}`),
   updateProductPrice: (productId: string, unitPrice: number, wholesalePrice: number, reason: string) =>
@@ -17,12 +27,13 @@ export const catalogService = {
       method: 'PUT',
       body: JSON.stringify({ unitPrice, wholesalePrice, reason })
     }),
-  getCustomers: (search?: string, includeInactive = false) => {
+  getCustomers: (search?: string, includeInactive = false, paging?: PagingRequest, sortBy?: string | null, sortDirection?: 'asc' | 'desc' | null) => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (includeInactive) params.append('includeInactive', 'true');
-    const query = params.toString();
-    const url = `/customers${query ? `?${query}` : ''}`;
-    return apiClient.request<Customer[]>(url);
+    appendPaging(params, paging);
+    appendSorting(params, sortBy, sortDirection);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiClient.request<PagedResult<Customer>>(`/customers${query}`);
   }
 };

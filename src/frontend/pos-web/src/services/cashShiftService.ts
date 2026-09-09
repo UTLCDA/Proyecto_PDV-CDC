@@ -1,10 +1,7 @@
 import { apiClient } from './apiClient';
 import { CashGeneralMovement, CashShift } from '../types/reports';
-import { PagingRequest } from '../utils/pagedExport';
-
-const withPaging = (path: string, paging?: PagingRequest) => paging
-  ? `${path}?page=${paging.page}&pageSize=${paging.pageSize}`
-  : path;
+import { appendPaging, appendSorting, PagingRequest } from '../utils/pagedExport';
+import { PagedResult } from '../types/pagination';
 
 export const cashShiftService = {
   getCurrentShift: () => apiClient.request<CashShift | null>('/cashshifts/current'),
@@ -29,6 +26,18 @@ export const cashShiftService = {
       method: 'POST',
       body: JSON.stringify({ actualClosingAmount, notes })
     }),
-  getShiftHistory: (paging?: PagingRequest) => apiClient.request<CashShift[]>(withPaging('/cashshifts/history', paging)),
-  getGeneralMovements: (paging?: PagingRequest) => apiClient.request<CashGeneralMovement[]>(withPaging('/cashshifts/general-movements', paging))
+  getShiftHistory: (paging?: PagingRequest, sortBy?: string | null, sortDirection?: 'asc' | 'desc' | null) => {
+    const params = new URLSearchParams();
+    appendPaging(params, paging);
+    appendSorting(params, sortBy, sortDirection);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiClient.request<PagedResult<CashShift>>(`/cashshifts/history${query}`);
+  },
+  getGeneralMovements: (paging?: PagingRequest, sortBy?: string | null, sortDirection?: 'asc' | 'desc' | null) => {
+    const params = new URLSearchParams();
+    appendPaging(params, paging);
+    appendSorting(params, sortBy, sortDirection);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiClient.request<PagedResult<CashGeneralMovement>>(`/cashshifts/general-movements${query}`);
+  }
 };

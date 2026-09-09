@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Pos.Application.Common.Interfaces;
+using Pos.Application.Common.Models;
 using Pos.Application.Sales.DTOs;
 using Pos.Application.Sales.Services;
 using Pos.Domain.Common;
@@ -376,7 +377,7 @@ public class SaleApplicationService : ISaleApplicationService
         return (await GetSaleByIdAsync(sale.Id, cancellationToken))!;
     }
 
-    public async Task<List<SaleDto>> GetSalesAsync(
+    public async Task<PagedResult<SaleDto>> GetSalesAsync(
         string? search,
         Guid? customerId,
         string? status,
@@ -384,21 +385,72 @@ public class SaleApplicationService : ISaleApplicationService
         DateTime? endDate,
         CancellationToken cancellationToken = default,
         int page = 1,
-        int pageSize = 500)
+        int pageSize = 25,
+        string? sortBy = null,
+        string? sortDirection = null)
     {
         ValidateDateRange(startDate, endDate);
-        var query = ApplySaleFilters(BuildSaleQuery(), search, status, startDate, endDate);
-        if (customerId.HasValue) query = query.Where(sale => sale.ClienteId == customerId.Value);
 
-        var (skip, take) = QueryPaging.Normalize(page, pageSize, 500);
-        var sales = await query
-            .AsNoTracking()
-            .OrderByDescending(sale => sale.FechaCreacionUtc)
-            .ThenByDescending(sale => sale.IdVenta)
+        var baseQuery = _dbContext.Sales.AsNoTracking();
+        baseQuery = ApplySaleFilters(baseQuery, search, status, startDate, endDate);
+        if (customerId.HasValue)
+        {
+            baseQuery = baseQuery.Where(sale => sale.ClienteId == customerId.Value);
+        }
+
+        var totalItems = await baseQuery.CountAsync(cancellationToken);
+        if (totalItems == 0)
+        {
+            return new PagedResult<SaleDto>(new List<SaleDto>(), 0, page, pageSize);
+        }
+
+        bool isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        var sortedQuery = (sortBy?.ToLowerInvariant()) switch
+        {
+            "idventa" or "folio" => isDesc ? baseQuery.OrderByDescending(s => s.IdVenta) : baseQuery.OrderBy(s => s.IdVenta),
+            "createdatutc" or "fecha" => isDesc ? baseQuery.OrderByDescending(s => s.FechaCreacionUtc) : baseQuery.OrderBy(s => s.FechaCreacionUtc),
+            "customerdisplayname" or "cliente" => isDesc
+                ? baseQuery.OrderByDescending(s => s.Cliente != null ? (s.Cliente.NombreEmpresa ?? s.Cliente.Nombre) : "")
+                : baseQuery.OrderBy(s => s.Cliente != null ? (s.Cliente.NombreEmpresa ?? s.Cliente.Nombre) : ""),
+            "paymenttype" or "formapago" => isDesc ? baseQuery.OrderByDescending(s => s.TipoPago) : baseQuery.OrderBy(s => s.TipoPago),
+            "status" or "estado" => isDesc ? baseQuery.OrderByDescending(s => s.Estado) : baseQuery.OrderBy(s => s.Estado),
+            "totalamount" or "total" => isDesc ? baseQuery.OrderByDescending(s => s.MontoTotal) : baseQuery.OrderBy(s => s.MontoTotal),
+            "pendingbalance" or "saldopendiente" => isDesc ? baseQuery.OrderByDescending(s => s.SaldoPendiente) : baseQuery.OrderBy(s => s.SaldoPendiente),
+            _ => baseQuery.OrderByDescending(sale => sale.FechaCreacionUtc).ThenByDescending(sale => sale.IdVenta)
+        };
+
+        var (skip, take) = QueryPaging.Normalize(page, pageSize, QueryPaging.DefaultStandardPageSize, QueryPaging.ExportMaxPageSize);
+        var pagedSaleIds = await sortedQuery
             .Skip(skip)
             .Take(take)
+            .Select(s => s.Id)
             .ToListAsync(cancellationToken);
-        return sales.Select(MapSaleToDto).ToList();
+
+        if (pagedSaleIds.Count == 0)
+        {
+            return new PagedResult<SaleDto>(new List<SaleDto>(), totalItems, page, take);
+        }
+
+        var sales = await _dbContext.Sales
+            .AsNoTracking()
+            .Where(s => pagedSaleIds.Contains(s.Id))
+            .Include(sale => sale.Cliente)
+            .Include(sale => sale.Usuario)
+            .Include(sale => sale.Abonos)
+                .ThenInclude(payment => payment.Usuario)
+            .Include(sale => sale.Partidas)
+                .ThenInclude(item => item.Producto)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken);
+
+        var salesById = sales.ToDictionary(s => s.Id);
+        var orderedSales = pagedSaleIds
+            .Where(id => salesById.ContainsKey(id))
+            .Select(id => salesById[id])
+            .ToList();
+
+        var dtos = orderedSales.Select(MapSaleToDto).ToList();
+        return new PagedResult<SaleDto>(dtos, totalItems, page, take);
     }
 
     public async Task<SalesSummaryDto> GetSalesSummaryAsync(
@@ -409,8 +461,7 @@ public class SaleApplicationService : ISaleApplicationService
         CancellationToken cancellationToken = default)
     {
         ValidateDateRange(startDate, endDate);
-        var sales = await ApplySaleFilters(_dbContext.Sales.Include(sale => sale.Cliente), search, status, startDate, endDate)
-            .AsNoTracking()
+        var sales = await ApplySaleFilters(_dbContext.Sales.AsNoTracking(), search, status, startDate, endDate)
             .Select(sale => new
             {
                 sale.MontoTotal,
@@ -544,7 +595,8 @@ public class SaleApplicationService : ISaleApplicationService
         .Include(sale => sale.Abonos)
             .ThenInclude(payment => payment.Usuario)
         .Include(sale => sale.Partidas)
-            .ThenInclude(item => item.Producto);
+            .ThenInclude(item => item.Producto)
+        .AsSplitQuery();
 
     private static IQueryable<Venta> ApplySaleFilters(
         IQueryable<Venta> query,

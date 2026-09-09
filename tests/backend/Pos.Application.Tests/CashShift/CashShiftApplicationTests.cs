@@ -89,7 +89,7 @@ public class CashShiftApplicationTests
 
         var report = await service.GenerateXReportAsync(userId, "x-report", "127.0.0.1");
         var movements = await service.GetGeneralMovementsAsync();
-        var saleMovement = Assert.Single(movements, item => item.Category == "Venta");
+        var saleMovement = Assert.Single(movements.Items, item => item.Category == "Venta");
 
         Assert.Equal(CashShiftStatuses.Open, report.Status);
         Assert.Null(report.ClosedAtUtc);
@@ -125,7 +125,7 @@ public class CashShiftApplicationTests
         context.ChangeTracker.Clear();
 
         var movements = await service.GetGeneralMovementsAsync();
-        var installmentMovement = Assert.Single(movements, item => item.Category == "Abono");
+        var installmentMovement = Assert.Single(movements.Items, item => item.Category == "Abono");
 
         Assert.Equal(sale.IdVenta, installmentMovement.IdVenta);
         Assert.Contains(ReceiptReferences.Create(sale.IdVenta), installmentMovement.Reference);

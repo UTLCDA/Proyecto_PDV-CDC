@@ -3,6 +3,8 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Pos.Application.Auth.DTOs;
 using Pos.Application.Catalog.DTOs;
+using Pos.Application.Common.Models;
+using System.Text.Json;
 using Xunit;
 
 namespace Pos.Api.IntegrationTests.Controllers;
@@ -31,9 +33,9 @@ public class ProductsControllerIntegrationTests : IClassFixture<CustomWebApplica
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var products = await response.Content.ReadFromJsonAsync<List<ProductDto>>();
-        Assert.NotNull(products);
-        Assert.NotEmpty(products);
-        Assert.Contains(products, p => p.Sku.StartsWith("WPC-") || p.Sku.StartsWith("LAM-"));
+        var paged = await response.Content.ReadFromJsonAsync<PagedResult<ProductDto>>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(paged);
+        Assert.NotEmpty(paged.Items);
+        Assert.Contains(paged.Items, p => p.Sku.StartsWith("WPC-") || p.Sku.StartsWith("LAM-"));
     }
 }

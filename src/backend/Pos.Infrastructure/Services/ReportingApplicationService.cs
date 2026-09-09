@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Pos.Application.Common.Models;
 using Pos.Application.Reporting.DTOs;
 using Pos.Application.Reporting.Services;
 using Pos.Domain.Common;
@@ -204,7 +205,7 @@ public class ReportingApplicationService : IReportingApplicationService
                 .ToList());
     }
 
-    public async Task<List<AuditLogDto>> GetAuditLogsAsync(
+    public async Task<PagedResult<AuditLogDto>> GetAuditLogsAsync(
         string? correlationId,
         string? userSearch,
         string? action,
@@ -214,12 +215,14 @@ public class ReportingApplicationService : IReportingApplicationService
         string? module = null,
         string? eventType = null,
         string? resultStatus = null,
-        CancellationToken cancellationToken = default,
-        int page = 1,
-        int pageSize = 200)
+        int pageNumber = 1,
+        int pageSize = 25,
+        string? sortBy = null,
+        string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
         ValidateDateRange(startDate, endDate);
-        var query = _dbContext.AuditLogs.Include(log => log.Usuario).AsNoTracking().AsQueryable();
+        var baseQuery = _dbContext.AuditLogs.AsNoTracking();
 
         if (idVenta.HasValue)
         {
@@ -232,7 +235,7 @@ public class ReportingApplicationService : IReportingApplicationService
                 .Where(sale => sale.IdVenta == idVenta.Value)
                 .Select(sale => (Guid?)sale.Id)
                 .SingleOrDefaultAsync(cancellationToken);
-            if (!saleId.HasValue) return [];
+            if (!saleId.HasValue) return new PagedResult<AuditLogDto>([], 0, pageNumber, pageSize);
 
             var saleEntityId = saleId.Value.ToString();
             var installmentEntityIds = await _dbContext.PaymentInstallments.AsNoTracking()
@@ -244,7 +247,7 @@ public class ReportingApplicationService : IReportingApplicationService
                 .Select(item => item.Id.ToString())
                 .ToListAsync(cancellationToken);
 
-            query = query.Where(log =>
+            baseQuery = baseQuery.Where(log =>
                 (log.NombreEntidad == "Venta" && log.EntidadId == saleEntityId) ||
                 (log.NombreEntidad == "AbonoPago" && installmentEntityIds.Contains(log.EntidadId!)) ||
                 (log.NombreEntidad == "DevolucionCabecera" && returnEntityIds.Contains(log.EntidadId!)));
@@ -253,20 +256,20 @@ public class ReportingApplicationService : IReportingApplicationService
         if (!string.IsNullOrWhiteSpace(correlationId))
         {
             var normalizedCorrelationId = correlationId.Trim();
-            query = query.Where(log => log.IdCorrelacion == normalizedCorrelationId);
+            baseQuery = baseQuery.Where(log => log.IdCorrelacion == normalizedCorrelationId);
         }
 
         if (!string.IsNullOrWhiteSpace(userSearch))
         {
             var term = userSearch.Trim().ToLower();
-            query = query.Where(log => log.Usuario != null &&
+            baseQuery = baseQuery.Where(log => log.Usuario != null &&
                 (log.Usuario.NombreUsuario.ToLower().Contains(term) || log.Usuario.Email.ToLower().Contains(term)));
         }
 
         if (!string.IsNullOrWhiteSpace(action))
         {
             var normalizedAction = action.Trim().ToLower();
-            query = query.Where(log => log.Accion.ToLower().Contains(normalizedAction) ||
+            baseQuery = baseQuery.Where(log => log.Accion.ToLower().Contains(normalizedAction) ||
                 (log.Motivo != null && log.Motivo.ToLower().Contains(normalizedAction)) ||
                 (log.ValoresNuevosJson != null && log.ValoresNuevosJson.ToLower().Contains(normalizedAction)));
         }
@@ -274,39 +277,72 @@ public class ReportingApplicationService : IReportingApplicationService
         if (!string.IsNullOrWhiteSpace(module))
         {
             var normalizedModule = module.Trim().ToLower();
-            query = query.Where(log => log.ValoresNuevosJson != null && log.ValoresNuevosJson.ToLower().Contains(normalizedModule));
+            baseQuery = baseQuery.Where(log => log.ValoresNuevosJson != null && log.ValoresNuevosJson.ToLower().Contains(normalizedModule));
         }
 
         if (!string.IsNullOrWhiteSpace(eventType))
         {
             var normalizedEventType = eventType.Trim().ToLower();
-            query = query.Where(log => log.Accion.ToLower().Contains(normalizedEventType) ||
+            baseQuery = baseQuery.Where(log => log.Accion.ToLower().Contains(normalizedEventType) ||
                 (log.ValoresNuevosJson != null && log.ValoresNuevosJson.ToLower().Contains(normalizedEventType)));
         }
 
         if (!string.IsNullOrWhiteSpace(resultStatus))
         {
             var normalizedStatus = resultStatus.Trim().ToLower();
-            query = query.Where(log => log.ValoresNuevosJson != null && log.ValoresNuevosJson.ToLower().Contains(normalizedStatus));
+            baseQuery = baseQuery.Where(log => log.ValoresNuevosJson != null && log.ValoresNuevosJson.ToLower().Contains(normalizedStatus));
         }
 
         if (startDate.HasValue)
         {
-            query = query.Where(log => log.FechaCreacionUtc >= startDate.Value);
+            baseQuery = baseQuery.Where(log => log.FechaCreacionUtc >= startDate.Value);
         }
 
         if (endDate.HasValue)
         {
-            query = query.Where(log => log.FechaCreacionUtc <= endDate.Value);
+            baseQuery = baseQuery.Where(log => log.FechaCreacionUtc <= endDate.Value);
         }
 
-        var (skip, take) = QueryPaging.Normalize(page, pageSize, 200);
-        var logs = await query
-            .OrderByDescending(log => log.FechaCreacionUtc)
-            .ThenByDescending(log => log.Id)
+        var totalItems = await baseQuery.CountAsync(cancellationToken);
+        if (totalItems == 0)
+        {
+            return new PagedResult<AuditLogDto>([], 0, pageNumber, pageSize);
+        }
+
+        var isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        var sortedQuery = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "action" or "accion" => isDesc ? baseQuery.OrderByDescending(log => log.Accion) : baseQuery.OrderBy(log => log.Accion),
+            "entity" or "entidad" => isDesc ? baseQuery.OrderByDescending(log => log.NombreEntidad) : baseQuery.OrderBy(log => log.NombreEntidad),
+            "user" or "usuario" => isDesc ? baseQuery.OrderByDescending(log => log.Usuario != null ? log.Usuario.NombreUsuario : "") : baseQuery.OrderBy(log => log.Usuario != null ? log.Usuario.NombreUsuario : ""),
+            "correlationid" or "idcorrelacion" => isDesc ? baseQuery.OrderByDescending(log => log.IdCorrelacion) : baseQuery.OrderBy(log => log.IdCorrelacion),
+            _ => isDesc ? baseQuery.OrderByDescending(log => log.FechaCreacionUtc).ThenByDescending(log => log.Id) : baseQuery.OrderBy(log => log.FechaCreacionUtc).ThenBy(log => log.Id)
+        };
+
+        var (skip, take) = QueryPaging.Normalize(pageNumber, pageSize, 100);
+        var pagedLogIds = await sortedQuery
             .Skip(skip)
             .Take(take)
+            .Select(l => l.Id)
             .ToListAsync(cancellationToken);
+
+        if (pagedLogIds.Count == 0)
+        {
+            return new PagedResult<AuditLogDto>([], totalItems, pageNumber, take);
+        }
+
+        var rawLogs = await _dbContext.AuditLogs
+            .AsNoTracking()
+            .Where(l => pagedLogIds.Contains(l.Id))
+            .Include(log => log.Usuario)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken);
+
+        var logsById = rawLogs.ToDictionary(l => l.Id);
+        var logs = pagedLogIds
+            .Where(id => logsById.ContainsKey(id))
+            .Select(id => logsById[id])
+            .ToList();
 
         var saleIds = ParseEntityIds(logs.Where(log => log.NombreEntidad == "Venta").Select(log => log.EntidadId));
         var installmentIds = ParseEntityIds(logs.Where(log => log.NombreEntidad == "AbonoPago").Select(log => log.EntidadId));
@@ -324,7 +360,7 @@ public class ReportingApplicationService : IReportingApplicationService
             .Select(item => new { item.Id, IdVenta = item.IdVenta ?? item.Venta.IdVenta })
             .ToDictionaryAsync(item => item.Id, item => item.IdVenta, cancellationToken);
 
-        return logs.Select(log =>
+        var dtos = logs.Select(log =>
         {
             int? operationalId = null;
             if (Guid.TryParse(log.EntidadId, out var entityId))
@@ -371,6 +407,8 @@ public class ReportingApplicationService : IReportingApplicationService
                 extractedEventType,
                 extractedResultStatus);
         }).ToList();
+
+        return new PagedResult<AuditLogDto>(dtos, totalItems, pageNumber, take);
     }
 
     private static List<Guid> ParseEntityIds(IEnumerable<string?> values) => values

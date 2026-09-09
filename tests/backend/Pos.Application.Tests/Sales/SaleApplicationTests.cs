@@ -228,7 +228,7 @@ public class SaleApplicationTests
         Assert.Equal(157, byOperationalFolio.IdVenta);
         Assert.Equal(byGuid.FolioNumber, byOperationalFolio.FolioNumber);
         Assert.Equal(byGuid.TotalAmount, byOperationalFolio.TotalAmount);
-        Assert.Equal(sale.Id, Assert.Single(searchByOperationalFolio).Id);
+        Assert.Equal(sale.Id, Assert.Single(searchByOperationalFolio.Items).Id);
     }
 
     [Fact]
@@ -254,10 +254,10 @@ public class SaleApplicationTests
         var secondPage = await service.GetSalesAsync(null, null, null, null, null, CancellationToken.None, page: 2, pageSize: 2);
         var thirdPage = await service.GetSalesAsync(null, null, null, null, null, CancellationToken.None, page: 3, pageSize: 2);
 
-        Assert.Equal([5, 4], firstPage.Select(sale => sale.IdVenta));
-        Assert.Equal([3, 2], secondPage.Select(sale => sale.IdVenta));
-        Assert.Equal([1], thirdPage.Select(sale => sale.IdVenta));
-        Assert.Equal(5, firstPage.Concat(secondPage).Concat(thirdPage).Select(sale => sale.Id).Distinct().Count());
+        Assert.Equal([5, 4], firstPage.Items.Select(sale => sale.IdVenta));
+        Assert.Equal([3, 2], secondPage.Items.Select(sale => sale.IdVenta));
+        Assert.Equal([1], thirdPage.Items.Select(sale => sale.IdVenta));
+        Assert.Equal(5, firstPage.Items.Concat(secondPage.Items).Concat(thirdPage.Items).Select(sale => sale.Id).Distinct().Count());
     }
 
     [Fact]
@@ -308,6 +308,43 @@ public class SaleApplicationTests
         Assert.Equal(5m, movement.Cantidad);
     }
 
+    [Fact]
+    public async Task GetSalesAsync_WithDateRangeAndPaging_ShouldReturnPagedResult()
+    {
+        var context = GetInMemoryDbContext();
+        var passwordHasher = new PasswordHasherService();
+        var auditService = new AuditLogService(context, NullLogger<AuditLogService>.Instance);
+        await DbInitializer.SeedAsync(context, passwordHasher);
+
+        var service = new SaleApplicationService(context, auditService);
+        var userId = await context.Users.Select(u => u.Id).FirstAsync();
+
+        var sale = new Venta
+        {
+            IdVenta = 501,
+            NumeroFolio = "VENTA-501",
+            UsuarioId = userId,
+            TipoPago = SalePaymentTypes.FullPayment,
+            MontoTotal = 300m,
+            Estado = SaleStatuses.Completed,
+            EstaActivo = true,
+            FechaCreacionUtc = DateTime.Parse("2026-09-05T12:00:00.000Z").ToUniversalTime(),
+            Partidas = new List<PartidaVenta>()
+        };
+        context.Sales.Add(sale);
+        await context.SaveChangesAsync();
+
+        var start = DateTime.Parse("2026-09-01T06:00:00.000Z").ToUniversalTime();
+        var end = DateTime.Parse("2026-09-09T05:59:59.999Z").ToUniversalTime();
+
+        var result = await service.GetSalesAsync(null, null, null, start, end, CancellationToken.None, 1, 25);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.TotalItems);
+        Assert.Single(result.Items);
+        Assert.Equal(501, result.Items[0].IdVenta);
+    }
+
     private static CreateSaleDto CreateFullPaymentRequest(
         Guid productId,
         decimal quantity,
@@ -324,3 +361,4 @@ public class SaleApplicationTests
             "Venta de prueba",
             [new CreateSaleItemDto(productId, quantity, unitPrice, 0m)]);
 }
+

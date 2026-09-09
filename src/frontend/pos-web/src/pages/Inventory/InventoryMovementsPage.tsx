@@ -8,6 +8,8 @@ import { getOperationalDateInputValue, toOperationalUtcBoundary } from '../../ut
 import { loadAllPagesForExport } from '../../utils/pagedExport';
 import { useTableSort } from '../../hooks/useTableSort';
 import { SortableTh } from '../../components/common/SortableTh';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../../components/common/TablePagination';
 import './InventoryListPage.css';
 
 const today = getOperationalDateInputValue;
@@ -42,6 +44,7 @@ export const InventoryMovementsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [evidenceImage, setEvidenceImage] = useState<string | null>(null);
+  const pagination = usePagination({ initialPageSize: 25 });
 
   const { sortedData: sortedMovements, sortKey, sortDirection, handleSort } = useTableSort(movements, {
     valueExtractors: {
@@ -62,31 +65,61 @@ export const InventoryMovementsPage: React.FC = () => {
   });
 
   const loadMovements = useCallback(async () => {
-    if (startDate && endDate && startDate > endDate) {
+    if (appliedFilters.startDate && appliedFilters.endDate && appliedFilters.startDate > appliedFilters.endDate) {
       setError(t('invalidReportDateRange'));
       return;
     }
     setLoading(true);
     setError('');
     try {
-      const startUtc = toOperationalUtcBoundary(startDate);
-      const endUtc = toOperationalUtcBoundary(endDate, true);
-      setMovements(await inventoryService.getMovements({
-        search: search.trim() || undefined,
-        movementType: movementType || undefined,
+      const startUtc = toOperationalUtcBoundary(appliedFilters.startDate);
+      const endUtc = toOperationalUtcBoundary(appliedFilters.endDate, true);
+      const result = await inventoryService.getMovements({
+        search: appliedFilters.search || undefined,
+        movementType: appliedFilters.movementType || undefined,
         startDateUtc: startUtc,
         endDateUtc: endUtc
-      }));
-      setAppliedFilters({ search: search.trim(), movementType, startDate, endDate });
+      }, { page: pagination.pageNumber, pageSize: pagination.pageSize }, sortKey, sortDirection);
+      const items = Array.isArray(result) ? result : result.items;
+      setMovements(items);
+      if (!Array.isArray(result)) {
+        pagination.setPaginationFromResult(result);
+      }
     } catch (loadError) {
       setMovements([]);
       setError(loadError instanceof Error ? loadError.message : t('inventoryLoadError'));
     } finally {
       setLoading(false);
     }
-  }, [endDate, movementType, search, startDate, t]);
+  }, [appliedFilters, pagination.pageNumber, pagination.pageSize, sortDirection, sortKey, t]);
 
   useEffect(() => { void loadMovements(); }, [loadMovements]);
+
+  const handleApplyFilters = (event: React.FormEvent) => {
+    event.preventDefault();
+    pagination.resetPage();
+    setAppliedFilters({
+      search: search.trim(),
+      movementType,
+      startDate,
+      endDate
+    });
+  };
+
+  const handleClearFilters = () => {
+    const operationalToday = today();
+    setSearch('');
+    setMovementType('');
+    setStartDate(operationalToday);
+    setEndDate(operationalToday);
+    pagination.resetPage();
+    setAppliedFilters({
+      search: '',
+      movementType: '',
+      startDate: operationalToday,
+      endDate: operationalToday
+    });
+  };
 
   useEffect(() => {
     if (!evidenceImage) return;
@@ -140,7 +173,7 @@ export const InventoryMovementsPage: React.FC = () => {
             endDateUtc: toOperationalUtcBoundary(appliedFilters.endDate, true)
           }, paging))} />
         </div>
-        <form className="inventory-history-filters" onSubmit={event => { event.preventDefault(); void loadMovements(); }}>
+        <form className="inventory-history-filters" onSubmit={handleApplyFilters}>
           <input className="form-control" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('searchInventoryMovements')} />
           <select className="form-control" value={movementType} onChange={event => setMovementType(event.target.value)} aria-label={t('movementType')}>
             <option value="">{t('allMovementTypes')}</option>
@@ -156,12 +189,13 @@ export const InventoryMovementsPage: React.FC = () => {
             <label><span>{t('endDate')}</span><input className="form-control" type="date" min={startDate || undefined} value={endDate} onChange={event => setEndDate(event.target.value)} /></label>
           </div>
           <button className="action-btn">🔎 {t('search')}</button>
-          <button type="button" className="lang-btn" onClick={() => { const operationalToday = today(); setSearch(''); setMovementType(''); setStartDate(operationalToday); setEndDate(operationalToday); }}>{t('clearFilters')}</button>
+          <button type="button" className="lang-btn" onClick={handleClearFilters}>{t('clearFilters')}</button>
         </form>
       </header>
 
       {error && <div className="inventory-error-notice" role="alert">{error}</div>}
-      {loading ? <div className="inventory-empty-state">{t('loading')}</div> : <div className="inventory-table-wrap">
+      {loading ? <div className="inventory-empty-state">{t('loading')}</div> : <>
+        <div className="inventory-table-wrap">
         <table className="inventory-history-table">
           <thead><tr>
             <SortableTh columnKey="createdAtUtc" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
@@ -238,7 +272,9 @@ export const InventoryMovementsPage: React.FC = () => {
             })}
           </tbody>
         </table>
-      </div>}
+      </div>
+      <TablePagination pagination={pagination} disabled={loading} />
+    </>}
     </article>
 
     {evidenceImage && <div className="inventory-evidence-modal-overlay" role="presentation" onClick={() => setEvidenceImage(null)}>

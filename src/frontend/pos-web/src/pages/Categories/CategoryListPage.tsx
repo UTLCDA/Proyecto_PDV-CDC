@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { servicioCatalogo } from '../../services/servicioCatalogo';
@@ -7,6 +7,9 @@ import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
 import { useTableSort } from '../../hooks/useTableSort';
 import { SortableTh } from '../../components/common/SortableTh';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../../components/common/TablePagination';
+import { loadAllPagesForExport } from '../../utils/pagedExport';
 import './CategoryListPage.css';
 
 interface CategoryForm {
@@ -33,6 +36,7 @@ export const CategoryListPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const pagination = usePagination({ initialPageSize: 25 });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Categoria | null>(null);
   const [form, setForm] = useState<CategoryForm>(emptyForm);
@@ -58,22 +62,68 @@ export const CategoryListPage: React.FC = () => {
     ]
   }), [appliedFilters]);
 
-  const loadCategories = async () => {
+  // Find parent name for display
+  const getParentName = (parentId?: string) => {
+    if (!parentId) return '—';
+    const parent = categories.find(c => c.id === parentId);
+    return parent ? parent.name : '—';
+  };
+
+  const filteredCategories = useMemo(() => {
+    let result = [...categories];
+    if (appliedFilters.status === 'active') {
+      result = result.filter(c => c.isActive !== false);
+    } else if (appliedFilters.status === 'inactive') {
+      result = result.filter(c => c.isActive === false);
+    }
+    return result;
+  }, [categories, appliedFilters.status]);
+
+  const { sortedData: sortedCategories, sortKey, sortDirection, handleSort } = useTableSort(filteredCategories, {
+    valueExtractors: {
+      name: cat => cat.name,
+      slug: cat => cat.slug,
+      description: cat => cat.description || '',
+      parentCategory: cat => getParentName(cat.parentCategoryId),
+      isActive: cat => cat.isActive !== false ? 1 : 0
+    }
+  });
+
+  const loadCategories = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await servicioCatalogo.getCategories();
-      setCategories(data);
-      setAppliedFilters({ search, status: statusFilter });
+      const data = await servicioCatalogo.getCategories(
+        appliedFilters.search.trim() || undefined,
+        { page: pagination.pageNumber, pageSize: pagination.pageSize },
+        sortKey,
+        sortDirection
+      );
+      const items = Array.isArray(data) ? data : data.items;
+      setCategories(items);
+      if (!Array.isArray(data)) pagination.setPaginationFromResult(data);
     } catch (error: any) {
       setNotice({ type: 'error', text: error.message || 'Error al cargar las categorías.' });
     } finally {
       setLoading(false);
     }
-  };
+  }, [appliedFilters.search, pagination.pageNumber, pagination.pageSize, sortKey, sortDirection]);
 
   useEffect(() => {
     void loadCategories();
-  }, []);
+  }, [loadCategories]);
+
+  const handleApplyFilters = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    pagination.resetPage();
+    setAppliedFilters({ search, status: statusFilter });
+  };
+
+  const handleClearFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    pagination.resetPage();
+    setAppliedFilters({ search: '', status: 'all' });
+  };
 
   useEffect(() => {
     if (!isModalOpen) return;
@@ -85,24 +135,6 @@ export const CategoryListPage: React.FC = () => {
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [isModalOpen]);
-
-  const filteredCategories = useMemo(() => {
-    let result = [...categories];
-    if (statusFilter === 'active') {
-      result = result.filter(c => c.isActive !== false);
-    } else if (statusFilter === 'inactive') {
-      result = result.filter(c => c.isActive === false);
-    }
-    if (search.trim()) {
-      const term = search.trim().toLowerCase();
-      result = result.filter(c =>
-        c.name.toLowerCase().includes(term) ||
-        c.slug.toLowerCase().includes(term) ||
-        (c.description && c.description.toLowerCase().includes(term))
-      );
-    }
-    return result;
-  }, [categories, statusFilter, search]);
 
   const openCreate = () => {
     setEditingCategory(null);
@@ -179,23 +211,6 @@ export const CategoryListPage: React.FC = () => {
     }
   };
 
-  // Find parent name for display
-  const getParentName = (parentId?: string) => {
-    if (!parentId) return '—';
-    const parent = categories.find(c => c.id === parentId);
-    return parent ? parent.name : '—';
-  };
-
-  const { sortedData: sortedCategories, sortKey, sortDirection, handleSort } = useTableSort(filteredCategories, {
-    valueExtractors: {
-      name: cat => cat.name,
-      slug: cat => cat.slug,
-      description: cat => cat.description || '',
-      parentCategory: cat => getParentName(cat.parentCategoryId),
-      isActive: cat => cat.isActive !== false ? 1 : 0
-    }
-  });
-
   return (
     <div className="categories-page">
       <div className="card categories-header">
@@ -204,7 +219,10 @@ export const CategoryListPage: React.FC = () => {
           <p>Módulo para el ABC (Alta, Bajas/desactivar y Cambios) y clasificación de productos</p>
         </div>
 
-        <div className="categories-actions">
+        <form
+          className="categories-actions"
+          onSubmit={handleApplyFilters}
+        >
           <input
             type="search"
             className="form-control"
@@ -223,6 +241,9 @@ export const CategoryListPage: React.FC = () => {
             <option value="inactive">Inactivas</option>
           </select>
 
+          <button type="submit" className="lang-btn">🔎 {t('search')}</button>
+          <button type="button" className="lang-btn" onClick={handleClearFilters}>🔄 Limpiar filtros</button>
+
           {canCreate && (
             <button type="button" className="action-btn" onClick={openCreate}>
               ➕ Nueva Categoría
@@ -230,9 +251,13 @@ export const CategoryListPage: React.FC = () => {
           )}
 
           <div className="export-control">
-            <ExportButtons data={filteredCategories} config={exportConfig} />
+            <ExportButtons
+              data={filteredCategories}
+              config={exportConfig}
+              onLoadAllData={kind => loadAllPagesForExport(kind, paging => servicioCatalogo.getCategories(appliedFilters.search || undefined, paging, sortKey, sortDirection))}
+            />
           </div>
-        </div>
+        </form>
       </div>
 
       {notice && (
@@ -247,7 +272,8 @@ export const CategoryListPage: React.FC = () => {
         ) : filteredCategories.length === 0 ? (
           <div className="categories-empty">No se encontraron categorías con los filtros seleccionados.</div>
         ) : (
-          <div className="categories-table-wrap">
+          <>
+            <div className="categories-table-wrap">
             <table className="categories-table">
               <thead>
                 <tr>
@@ -327,7 +353,17 @@ export const CategoryListPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-        )}
+          <TablePagination
+            pageNumber={pagination.pageNumber}
+            pageSize={pagination.pageSize}
+            totalItems={pagination.totalItems}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPageNumber}
+            onPageSizeChange={pagination.setPageSize}
+            disabled={loading}
+          />
+        </>
+      )}
       </div>
 
       {/* Modal de Alta y Edición de Categoría */}

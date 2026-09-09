@@ -2,7 +2,9 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Pos.Application.Auth.DTOs;
+using Pos.Application.Common.Models;
 using Pos.Application.Inventory.DTOs;
+using System.Text.Json;
 using Xunit;
 
 namespace Pos.Api.IntegrationTests.Controllers;
@@ -32,9 +34,9 @@ public class InventoryControllerIntegrationTests : IClassFixture<CustomWebApplic
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var stocks = await response.Content.ReadFromJsonAsync<List<StockDto>>();
+        var stocks = await response.Content.ReadFromJsonAsync<PagedResult<StockDto>>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         Assert.NotNull(stocks);
-        Assert.NotEmpty(stocks);
+        Assert.NotEmpty(stocks.Items);
     }
 
     [Fact]
@@ -49,13 +51,13 @@ public class InventoryControllerIntegrationTests : IClassFixture<CustomWebApplic
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", auth.AccessToken);
 
         var stockResponse = await _client.GetAsync("/api/v1/inventory");
-        var stocks = await stockResponse.Content.ReadFromJsonAsync<List<StockDto>>();
+        var stocks = await stockResponse.Content.ReadFromJsonAsync<PagedResult<StockDto>>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         Assert.NotNull(stocks);
-        Assert.NotEmpty(stocks);
+        Assert.NotEmpty(stocks.Items);
 
         const string evidenceImageUrl = "data:image/png;base64,dGVzdA==";
         var request = new RegisterMovementDto(
-            stocks[0].ProductId,
+            stocks.Items[0].ProductId,
             "Entry",
             2m,
             "Validación de evidencia física desde API",

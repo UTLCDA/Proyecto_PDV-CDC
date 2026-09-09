@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Pos.Application.CashShift.DTOs;
 using Pos.Application.CashShift.Services;
 using Pos.Application.Common.Interfaces;
+using Pos.Application.Common.Models;
 using Pos.Domain.Common;
 using Pos.Domain.Entidades;
 using Pos.Infrastructure.Persistence;
@@ -307,31 +308,81 @@ public class CashShiftApplicationService : ICashShiftApplicationService
         return MapShiftToDto(await ReloadShiftAsync(shift.Id, cancellationToken));
     }
 
-    public async Task<List<CashShiftDto>> GetShiftHistoryAsync(CancellationToken cancellationToken = default, int page = 1, int pageSize = 100)
+    public async Task<PagedResult<CashShiftDto>> GetShiftHistoryAsync(
+        int pageNumber = 1,
+        int pageSize = 25,
+        string? sortBy = null,
+        string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
-        var (skip, take) = QueryPaging.Normalize(page, pageSize, 100);
-        var shifts = await BuildShiftQuery(asNoTracking: false)
-            .OrderByDescending(shift => shift.FechaAperturaUtc)
-            .ThenByDescending(shift => shift.Id)
+        var baseQuery = _dbContext.CashShifts.AsNoTracking();
+
+        var totalItems = await baseQuery.CountAsync(cancellationToken);
+        if (totalItems == 0)
+        {
+            return new PagedResult<CashShiftDto>([], 0, pageNumber, pageSize);
+        }
+
+        var isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        var sortedQuery = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "shiftnumber" or "numeroturno" => isDesc ? baseQuery.OrderByDescending(s => s.NumeroTurno) : baseQuery.OrderBy(s => s.NumeroTurno),
+            "openedatutc" or "fechaapertura" or "fecha" => isDesc ? baseQuery.OrderByDescending(s => s.FechaAperturaUtc) : baseQuery.OrderBy(s => s.FechaAperturaUtc),
+            "closedatutc" or "fechacierre" => isDesc ? baseQuery.OrderByDescending(s => s.FechaCierreUtc) : baseQuery.OrderBy(s => s.FechaCierreUtc),
+            "user" or "usuario" => isDesc ? baseQuery.OrderByDescending(s => s.Usuario != null ? s.Usuario.NombreUsuario : "") : baseQuery.OrderBy(s => s.Usuario != null ? s.Usuario.NombreUsuario : ""),
+            "initialamount" or "montoapertura" => isDesc ? baseQuery.OrderByDescending(s => s.MontoApertura) : baseQuery.OrderBy(s => s.MontoApertura),
+            "totalsales" or "totalventas" or "ventas" => isDesc ? baseQuery.OrderByDescending(s => s.TotalVentasEfectivo + s.TotalVentasTarjeta + s.TotalVentasTransferencia) : baseQuery.OrderBy(s => s.TotalVentasEfectivo + s.TotalVentasTarjeta + s.TotalVentasTransferencia),
+            "status" or "estado" => isDesc ? baseQuery.OrderByDescending(s => s.Estado) : baseQuery.OrderBy(s => s.Estado),
+            _ => isDesc ? baseQuery.OrderByDescending(s => s.FechaAperturaUtc).ThenByDescending(s => s.Id) : baseQuery.OrderBy(s => s.FechaAperturaUtc).ThenBy(s => s.Id)
+        };
+
+        var (skip, take) = QueryPaging.Normalize(pageNumber, pageSize, 100);
+        var pagedShiftIds = await sortedQuery
             .Skip(skip)
             .Take(take)
+            .Select(s => s.Id)
             .ToListAsync(cancellationToken);
 
-        foreach (var shift in shifts.Where(s => s.Estado == CashShiftStatuses.Open))
+        if (pagedShiftIds.Count == 0)
+        {
+            return new PagedResult<CashShiftDto>([], totalItems, pageNumber, take);
+        }
+
+        var shifts = await _dbContext.CashShifts
+            .Where(s => pagedShiftIds.Contains(s.Id))
+            .Include(shift => shift.Usuario)
+            .Include(shift => shift.Transacciones)
+                .ThenInclude(transaction => transaction.Usuario)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken);
+
+        var shiftsById = shifts.ToDictionary(s => s.Id);
+        var orderedShifts = pagedShiftIds
+            .Where(id => shiftsById.ContainsKey(id))
+            .Select(id => shiftsById[id])
+            .ToList();
+
+        foreach (var shift in orderedShifts.Where(s => s.Estado == CashShiftStatuses.Open))
         {
             await RefreshSalesTotalsAsync(shift, DateTime.UtcNow, cancellationToken);
         }
 
-        return shifts.Select(MapShiftToDto).ToList();
+        var dtos = orderedShifts.Select(MapShiftToDto).ToList();
+        return new PagedResult<CashShiftDto>(dtos, totalItems, pageNumber, take);
     }
 
-    public async Task<List<CashGeneralMovementDto>> GetGeneralMovementsAsync(CancellationToken cancellationToken = default, int page = 1, int pageSize = 250)
+    public async Task<PagedResult<CashGeneralMovementDto>> GetGeneralMovementsAsync(
+        int pageNumber = 1,
+        int pageSize = 25,
+        string? sortBy = null,
+        string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
         var shift = await _dbContext.CashShifts
             .AsNoTracking()
             .OrderByDescending(item => item.FechaAperturaUtc)
             .FirstOrDefaultAsync(item => item.Estado == CashShiftStatuses.Open, cancellationToken);
-        if (shift == null) return [];
+        if (shift == null) return new PagedResult<CashGeneralMovementDto>([], 0, pageNumber, pageSize);
 
         var cashTransactions = await _dbContext.CashTransactions
             .AsNoTracking()
@@ -420,16 +471,29 @@ public class CashShiftApplicationService : ICashShiftApplicationService
                 item.FechaCreacionUtc))
             .ToListAsync(cancellationToken);
 
-        var (skip, take) = QueryPaging.Normalize(page, pageSize, 250);
-        return cashTransactions
+        var allMovements = cashTransactions
             .Concat(sales)
             .Concat(installments)
-            .Concat(refunds)
-            .OrderByDescending(item => item.CreatedAtUtc)
-            .ThenByDescending(item => item.Id)
-            .Skip(skip)
-            .Take(take)
-            .ToList();
+            .Concat(refunds);
+
+        var isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        allMovements = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "idventa" or "folio" => isDesc ? allMovements.OrderByDescending(m => m.IdVenta) : allMovements.OrderBy(m => m.IdVenta),
+            "movementtype" or "category" or "tipo" => isDesc ? allMovements.OrderByDescending(m => m.Category) : allMovements.OrderBy(m => m.Category),
+            "description" or "reference" or "descripcion" => isDesc ? allMovements.OrderByDescending(m => m.Reference) : allMovements.OrderBy(m => m.Reference),
+            "paymentmethod" or "metodo" => isDesc ? allMovements.OrderByDescending(m => m.PaymentMethod) : allMovements.OrderBy(m => m.PaymentMethod),
+            "amount" or "monto" => isDesc ? allMovements.OrderByDescending(m => m.Amount) : allMovements.OrderBy(m => m.Amount),
+            "user" or "usuario" or "username" => isDesc ? allMovements.OrderByDescending(m => m.UserUsername) : allMovements.OrderBy(m => m.UserUsername),
+            "createdatutc" or "fecha" => isDesc ? allMovements.OrderByDescending(m => m.CreatedAtUtc) : allMovements.OrderBy(m => m.CreatedAtUtc),
+            _ => isDesc ? allMovements.OrderByDescending(m => m.CreatedAtUtc).ThenByDescending(m => m.Id) : allMovements.OrderBy(m => m.CreatedAtUtc).ThenBy(m => m.Id)
+        };
+
+        var list = allMovements.ToList();
+        var totalItems = list.Count;
+        var (skip, take) = QueryPaging.Normalize(pageNumber, pageSize, 100);
+        var paged = list.Skip(skip).Take(take).ToList();
+        return new PagedResult<CashGeneralMovementDto>(paged, totalItems, pageNumber, take);
     }
 
     private IQueryable<TurnoCaja> BuildShiftQuery(bool asNoTracking)

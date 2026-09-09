@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { cashShiftService } from '../../services/cashShiftService';
@@ -8,6 +8,8 @@ import { ConvertQuoteRequest, CreateQuoteRequest, Quote, QuoteOptions } from '..
 import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
 import { loadAllPagesForExport } from '../../utils/pagedExport';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../../components/common/TablePagination';
 import './QuoteListPage.css';
 
 type QuoteLine = { productId: string; quantity: string };
@@ -24,6 +26,7 @@ export const QuoteListPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const pagination = usePagination({ initialPageSize: 25 });
   const [createOpen, setCreateOpen] = useState(false);
   const [customerId, setCustomerId] = useState('');
   const [validityDays, setValidityDays] = useState('15');
@@ -112,24 +115,48 @@ export const QuoteListPage: React.FC = () => {
     ]
   }), [appliedFilters, t]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       const [quoteData, optionData] = await Promise.all([
-        commercialService.getQuotes(search.trim() || undefined, status || undefined),
-        commercialService.getQuoteOptions()
+        commercialService.getQuotes(
+          appliedFilters.search || undefined,
+          appliedFilters.status || undefined,
+          { page: pagination.pageNumber, pageSize: pagination.pageSize }
+        ),
+        options.customers.length === 0 ? commercialService.getQuoteOptions() : Promise.resolve(options)
       ]);
-      setQuotes(quoteData);
-      setOptions(optionData);
-      setAppliedFilters({ search: search.trim(), status });
+      const items = Array.isArray(quoteData) ? quoteData : quoteData.items;
+      setQuotes(items);
+      if (!Array.isArray(quoteData)) pagination.setPaginationFromResult(quoteData);
+      if (optionData && options.customers.length === 0) setOptions(optionData);
     } catch (error) {
       setNotice({ type: 'error', text: errorMessage(error, t('quoteLoadError')) });
     } finally {
       setLoading(false);
     }
+  }, [appliedFilters, options, pagination.pageNumber, pagination.pageSize, t]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const handleApplyFilters = (event: React.FormEvent) => {
+    event.preventDefault();
+    pagination.resetPage();
+    setAppliedFilters({
+      search: search.trim(),
+      status
+    });
   };
 
-  useEffect(() => { void load(); }, []);
+  const handleClearFilters = () => {
+    setSearch('');
+    setStatus('');
+    pagination.resetPage();
+    setAppliedFilters({
+      search: '',
+      status: ''
+    });
+  };
 
   const selectedCustomer = options.customers.find(customer => customer.id === customerId);
   const quoteSubtotal = lines.reduce((total, line) => {
@@ -269,27 +296,63 @@ export const QuoteListPage: React.FC = () => {
 
   return <section className="quotes-page">
     <header className="quotes-header"><div><h1>📑 {t('quotesManagement')}</h1><p>{t('quotesSubtitle')}</p></div><div className="quotes-header-actions"><ExportButtons data={quotes} config={exportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => commercialService.getQuotes(appliedFilters.search || undefined, appliedFilters.status || undefined, paging))} /><button className="action-btn" onClick={openCreate}>➕ {t('newQuote')}</button></div></header>
-    <form className="quotes-filters" onSubmit={event => { event.preventDefault(); void load(); }}>
+    <form className="quotes-filters" onSubmit={handleApplyFilters}>
       <input className="form-control" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('searchQuotesPlaceholder')} />
       <select className="form-control" value={status} onChange={event => setStatus(event.target.value)}><option value="">{t('allStatuses')}</option><option value="Activa">{t('statusActive')}</option><option value="Convertida">{t('statusConverted')}</option><option value="Expirada">{t('statusExpired')}</option><option value="Cancelada">{t('statusCancelled')}</option></select>
       <button className="lang-btn">🔎 {t('search')}</button>
+      <button type="button" className="lang-btn" onClick={handleClearFilters}>{t('clearFilters')}</button>
     </form>
     {notice && <div className={`quotes-notice quotes-notice--${notice.type}`} role="alert">{notice.text}</div>}
-    <article className="quotes-card">{loading ? <div className="quotes-empty">{t('loading')}</div> : quotes.length === 0 ? <div className="quotes-empty">{t('noQuotes')}</div> : <div className="quotes-table-wrap"><table><thead><tr><th>{t('quoteNumber')}</th><th>{t('customer')}</th><th>{t('quotedProducts')}</th><th>{t('quoteCreationDate') || 'Fecha Inicio'}</th><th>{t('expirationDate')}</th><th>{t('total')}</th><th>{t('status')}</th><th>{t('actions')}</th></tr></thead><tbody>{quotes.map(quote => <tr key={quote.id}>
-      <td><strong>{quote.quoteNumber}</strong></td>
-      <td>{quote.customerDisplayName || t('generalPublic')}</td>
-      <td><small style={{ color: 'var(--primary-main)', fontWeight: 600 }}>{quote.items.length} {t('quoteItems')}</small></td>
-      <td>{date.format(new Date(quote.createdAtUtc))}</td>
-      <td>{date.format(new Date(quote.expirationDateUtc))}</td>
-      <td><strong>{money.format(quote.totalAmount)}</strong></td>
-      <td><span className={`quotes-status quotes-status--${quote.status.toLowerCase()}`}>{t(quoteStatusKey(quote.status))}</span></td>
-      <td>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button type="button" className="pos-link-btn" onClick={() => setViewQuote(quote)}>👁️ {t('viewQuote')}</button>
-          {quote.status === 'Activa' && <button type="button" className="pos-link-btn" onClick={() => openConversion(quote)}>⚡ {t('convertAndCharge')}</button>}
-        </div>
-      </td>
-    </tr>)}</tbody></table></div>}</article>
+    <article className="quotes-card">
+      {loading ? <div className="quotes-empty">{t('loading')}</div> : quotes.length === 0 ? <div className="quotes-empty">{t('noQuotes')}</div> : (
+        <>
+          <div className="quotes-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t('quoteNumber')}</th>
+                  <th>{t('customer')}</th>
+                  <th>{t('quotedProducts')}</th>
+                  <th>{t('quoteCreationDate') || 'Fecha Inicio'}</th>
+                  <th>{t('expirationDate')}</th>
+                  <th>{t('total')}</th>
+                  <th>{t('status')}</th>
+                  <th>{t('actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {quotes.map(quote => (
+                  <tr key={quote.id}>
+                    <td><strong>{quote.quoteNumber}</strong></td>
+                    <td>{quote.customerDisplayName || t('generalPublic')}</td>
+                    <td><small style={{ color: 'var(--primary-main)', fontWeight: 600 }}>{quote.items.length} {t('quoteItems')}</small></td>
+                    <td>{date.format(new Date(quote.createdAtUtc))}</td>
+                    <td>{date.format(new Date(quote.expirationDateUtc))}</td>
+                    <td><strong>{money.format(quote.totalAmount)}</strong></td>
+                    <td><span className={`quotes-status quotes-status--${quote.status.toLowerCase()}`}>{t(quoteStatusKey(quote.status))}</span></td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <button type="button" className="pos-link-btn" onClick={() => setViewQuote(quote)}>👁️ {t('viewQuote')}</button>
+                        {quote.status === 'Activa' && <button type="button" className="pos-link-btn" onClick={() => openConversion(quote)}>⚡ {t('convertAndCharge')}</button>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <TablePagination
+            pageNumber={pagination.pageNumber}
+            pageSize={pagination.pageSize}
+            totalItems={pagination.totalItems}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPageNumber}
+            onPageSizeChange={pagination.setPageSize}
+            disabled={loading}
+          />
+        </>
+      )}
+    </article>
 
     {viewQuote && <Modal title={`📑 ${viewQuote.quoteNumber}`} onClose={() => setViewQuote(null)}>
       <div className="quotes-form">

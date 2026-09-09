@@ -10,12 +10,23 @@ import {
   PeticionCrearCliente,
   PeticionActualizarCliente
 } from '../types/tiposCatalogo';
-import { appendPaging, PagingRequest } from '../utils/pagedExport';
+import { appendPaging, appendSorting, PagingRequest } from '../utils/pagedExport';
+import { PagedResult } from '../types/pagination';
 
 export const servicioCatalogo = {
   // Categories
-  getCategories: async (): Promise<Categoria[]> => {
-    const response = await api.get<Categoria[]>('/categories');
+  getCategories: async (
+    search?: string,
+    paging?: PagingRequest,
+    sortBy?: string | null,
+    sortDirection?: 'asc' | 'desc' | null
+  ): Promise<PagedResult<Categoria>> => {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    appendPaging(params, paging);
+    appendSorting(params, sortBy, sortDirection);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const response = await api.get<PagedResult<Categoria>>(`/categories${query}`);
     return response.data;
   },
 
@@ -34,12 +45,21 @@ export const servicioCatalogo = {
   },
 
   // Products
-  getProducts: async (search?: string, categoryId?: string): Promise<Producto[]> => {
+  getProducts: async (
+    search?: string,
+    categoryId?: string,
+    paging?: PagingRequest,
+    sortBy?: string | null,
+    sortDirection?: 'asc' | 'desc' | null
+  ): Promise<PagedResult<Producto>> => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (categoryId) params.append('categoryId', categoryId);
+    appendPaging(params, paging);
+    appendSorting(params, sortBy, sortDirection);
 
-    const response = await api.get<Producto[]>(`/products?${params.toString()}`);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const response = await api.get<PagedResult<Producto>>(`/products${query}`);
     return response.data;
   },
 
@@ -59,14 +79,23 @@ export const servicioCatalogo = {
   },
 
   // Customers
-  getCustomers: async (search?: string, type?: string, includeInactive = false, paging?: PagingRequest): Promise<Cliente[]> => {
+  getCustomers: async (
+    search?: string,
+    type?: string,
+    includeInactive = false,
+    paging?: PagingRequest,
+    sortBy?: string | null,
+    sortDirection?: 'asc' | 'desc' | null
+  ): Promise<PagedResult<Cliente>> => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (type) params.append('type', type);
     if (includeInactive) params.append('includeInactive', 'true');
     appendPaging(params, paging);
+    appendSorting(params, sortBy, sortDirection);
 
-    const response = await api.get<Cliente[]>(`/customers?${params.toString()}`);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const response = await api.get<PagedResult<Cliente>>(`/customers${query}`);
     return response.data;
   },
 
