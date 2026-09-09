@@ -2,8 +2,13 @@
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
 
+- **Despliegue a Producción (Main y VPS Cloud)**:
+  - **Rama Git**: `main` (commit `69c9e7b`, sincronizado con `mantenimiento/mejoras-v2`).
+  - **Backend en VPS**: Código actualizado desde `main`, compilado en Release y publicado a `/var/www/pos-api/` con `systemctl restart pos-api` (servicio activo y respondiendo 200 OK en `https://api.wpcbajio.com/api/v1/health`).
+  - **Frontend en Cloudflare Pages**: Código integrado a `main` para despliegue automático de CDN Edge en `https://pos.wpcbajio.com`.
+
 - **Resolución de Visibilidad de Paginación en Frontend ("No veo la numeración en el front")**:
-  - **Rama Git Activa**: `mantenimiento/mejoras-v2`
+  - **Rama Git**: `main` / `mantenimiento/mejoras-v2`
   - **Problema Reportado**: Tras la implementación de la paginación numerada, el usuario no visualizaba los números ni la barra de paginación en el frontend.
   - **Causa Raíz Identificada**:
     1. *Serialización en `System.Text.Json` (`PagedResult<T>`)*: La clase `PagedResult<T>` implementaba `IReadOnlyList<T>` e `IEnumerable`. En ASP.NET Core, `System.Text.Json` trata a cualquier tipo que implemente `IEnumerable` como una colección JSON pura (`[...]`), descartando completamente todas las propiedades de objeto (`totalItems`, `totalPages`, `pageNumber`, `pageSize`).

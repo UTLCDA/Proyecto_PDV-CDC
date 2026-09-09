@@ -12,16 +12,19 @@
   4. **Implementación de Componente de Paginación Numerada Reutilizable (`TablePagination`)**:
      - Despliegue homogéneo en las tablas de los 11 módulos (incluyendo vistas independientes de transacciones, abonos y devoluciones en Operaciones Comerciales).
      - Paginador con números inteligentes y elipses (`getPageNumbers`), resumen bilingüe, selector de tamaño 25/50/100, y diseño armonizado con los tokens de WPC Bajío.
+- **Rama Git**: `main` (commit `69c9e7b`, sincronizado con `origin/main` y `mantenimiento/mejoras-v2`).
+- **Despliegue de Producción**:
+  - **VPS Cloud (`193.46.198.88`)**: Compilado y publicado a `/var/www/pos-api/`, `pos-api.service` activo y respondiendo 200 OK.
+  - **Cloudflare Pages**: Sincronizado con `main` para despliegue global en `https://pos.wpcbajio.com`.
 - **Estado de Pruebas**:
   - Frontend: Build de producción `npm run build` (`tsc && vite build`) completado con éxito (código de salida 0); 47/47 pruebas unitarias de Vitest superadas (100%).
   - Backend: 73/73 pruebas superadas al 100% (xUnit); `dotnet build` con 0 errores y 0 advertencias.
 
 ## 📌 Siguiente Tarea Recomendada
 
-Validación interactiva y aprobación local por parte del desarrollador humano en el navegador (`http://localhost:5173`). Una vez aprobado de manera local, realizar commit y merge a `main`, y desplegar a producción (Cloudflare y VPS) cuando el usuario lo autorice.
+Monitoreo y validación de usuario final en el entorno de producción (`https://pos.wpcbajio.com`).
 
 ### Criterios de Aceptación
-1. Revisión de funcionamiento de la paginación server-side (25 registros por página, cambio de página, selector de tamaño 25/50/100, restablecimiento a pág. 1 al filtrar/buscar).
-2. Verificación de que el ordenamiento de columnas (Table Sorting) y filtros sigan operando correctamente con la paginación.
-3. Verificación de que la exportación a PDF y Excel descargue todos los registros filtrados mediante `loadAllPagesForExport`.
-4. Aprobación explícita del desarrollador humano para proceder al commit y fusión a `main`.
+1. Confirmar visualización de la barra de paginación numerada en todas las pantallas operativas desde el dominio de producción (`https://pos.wpcbajio.com`).
+2. Validar navegación ágil de páginas y selector de tamaño (25, 50, 100) en Ventas, Productos, Inventarios, Clientes y Turnos de Caja.
+3. Verificar que las exportaciones a PDF y Excel continúen descargando la totalidad de los datos paginados sin bloqueos.
