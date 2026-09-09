@@ -614,11 +614,12 @@ export const PaginaCatalogoProductos: React.FC = () => {
                         <span style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '0.3rem',
-                          padding: '0.25rem 0.55rem',
+                          justifyContent: 'center',
+                          minWidth: '42px',
+                          padding: '0.25rem 0.6rem',
                           borderRadius: '16px',
                           fontWeight: 700,
-                          fontSize: '0.82rem',
+                          fontSize: '0.85rem',
                           background: (p.availableQuantity ?? 0) <= 0
                             ? 'var(--danger-bg, #fee2e2)'
                             : (p.availableQuantity ?? 0) <= 10
@@ -630,8 +631,10 @@ export const PaginaCatalogoProductos: React.FC = () => {
                               ? 'var(--warning, #d97706)'
                               : 'var(--success, #16a34a)',
                           border: `1px solid ${(p.availableQuantity ?? 0) <= 0 ? '#fca5a5' : (p.availableQuantity ?? 0) <= 10 ? '#fcd34d' : '#86efac'}`
-                        }}>
-                          📦 {p.availableQuantity ?? 0} {t('piecesCount', { count: p.availableQuantity ?? 0 })}
+                        }}
+                        title={`${p.availableQuantity ?? 0} pzas`}
+                        >
+                          {p.availableQuantity ?? 0}
                         </span>
                         {!p.isActive && (
                           <span style={{
@@ -683,38 +686,39 @@ export const PaginaCatalogoProductos: React.FC = () => {
                       </div>
                     </td>
                     <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                      <div className="catalog-actions-cell">
                         <button
                           type="button"
-                          className="lang-btn"
+                          className="catalog-icon-btn"
                           onClick={() => void downloadTechnicalDataSheet(p)}
-                          style={{ fontSize: '0.8rem', padding: '0.35rem 0.65rem' }}
-                          title="Descargar Ficha Técnica PDF"
+                          title={t('downloadTechSheet')}
+                          aria-label={t('downloadTechSheet')}
                         >
-                          📄 Ficha Técnica
+                          📄
                         </button>
                         {canEditProduct && (
-                          <button className="lang-btn" onClick={() => abrirModalEditar(p)} style={{ fontSize: '0.8rem', padding: '0.35rem 0.65rem' }}>
-                            ✏️ {t('editProduct') || 'Editar Producto'}
+                          <button
+                            type="button"
+                            className="catalog-icon-btn"
+                            onClick={() => abrirModalEditar(p)}
+                            title={t('editProduct')}
+                            aria-label={t('editProduct')}
+                          >
+                            ✏️
                           </button>
                         )}
                         {canEditProduct && p.isActive && (
                           <button
                             type="button"
-                            className="lang-btn"
+                            className="catalog-icon-btn catalog-icon-btn--danger"
                             onClick={() => {
                               setProductoABorrar(p);
                               setModalBajaAbierto(true);
                             }}
-                            style={{
-                              fontSize: '0.8rem',
-                              padding: '0.35rem 0.65rem',
-                              color: 'var(--danger, #dc2626)',
-                              borderColor: 'var(--danger, #dc2626)'
-                            }}
                             title={t('deleteProduct')}
+                            aria-label={t('deleteProduct')}
                           >
-                            🗑️ {t('deleteProduct')}
+                            🗑️
                           </button>
                         )}
                       </div>

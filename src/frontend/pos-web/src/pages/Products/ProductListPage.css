@@ -37,6 +37,52 @@
   border-color: var(--border-subtle);
 }
 
+.catalog-actions-cell {
+  display: flex;
+  gap: 0.35rem;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.catalog-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: var(--background-surface);
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  transition: all 0.15s ease-in-out;
+  user-select: none;
+}
+
+.catalog-icon-btn:hover:not(:disabled) {
+  background: var(--background-container);
+  border-color: var(--border-hover, var(--primary-main));
+  transform: translateY(-1px);
+}
+
+.catalog-icon-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.catalog-icon-btn--danger {
+  color: var(--danger, #dc2626);
+  border-color: #fca5a5;
+  background: var(--danger-bg, #fef2f2);
+}
+
+.catalog-icon-btn--danger:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: var(--danger, #dc2626);
+}
+
 @media (max-width: 640px) {
   .catalog-modal-overlay {
     padding: 0.5rem !important;
