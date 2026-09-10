@@ -244,7 +244,7 @@ export const ReportsDashboardPage: React.FC = () => {
                 <table className="reports-table">
                   <thead>
                     <tr>
-                      <th>SKU / {t('productCatalog')}</th>
+                      <th>{t('skuProduct')}</th>
                       <th>{t('category')}</th>
                       <th>{t('quantitySold')}</th>
                       <th>{t('quantityReturned')}</th>
@@ -284,7 +284,7 @@ export const ReportsDashboardPage: React.FC = () => {
           </div>
           <div className="reports-section-heading reports-low-stock-title"><h4>⚠️ {t('lowStockProductDetail')}</h4><ExportButtons data={inventorySummary.lowStockProductList} config={lowStockExportConfig} /></div>
           {inventorySummary.lowStockProductList.length === 0 ? <p className="reports-empty">{t('noLowStockProducts')}</p> : <div className="reports-table-wrap">
-            <table className="reports-table"><thead><tr><th>SKU / {t('productCatalog')}</th><th>{t('stockOnHand')}</th><th>{t('minThreshold')}</th><th>{t('suggestedReorderUnits')}</th><th>{t('stockStatus')}</th></tr></thead>
+            <table className="reports-table"><thead><tr><th>{t('skuProduct')}</th><th>{t('stockOnHand')}</th><th>{t('minThreshold')}</th><th>{t('suggestedReorderUnits')}</th><th>{t('stockStatus')}</th></tr></thead>
               <tbody>{inventorySummary.lowStockProductList.map(product => <tr key={product.productId}>
                 <td><strong>{product.productName}</strong><small>{product.sku}</small></td>
                 <td>{numberFormatter.format(product.quantityOnHand)} {product.unitOfMeasure}</td>

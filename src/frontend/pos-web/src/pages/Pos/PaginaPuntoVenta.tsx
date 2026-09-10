@@ -11,7 +11,7 @@ import SaleReceiptModal from '../Sales/SaleReceiptModal';
 import './PaginaPuntoVenta.css';
 
 type PaymentType = 'FullPayment' | 'CardPayment' | 'AdvanceDeposit' | 'MixedPayment';
-type Notice = { type: 'success' | 'error'; text: string } | null;
+type Notice = { type: 'success' | 'error'; text?: string; key?: string; params?: Record<string, unknown> } | null;
 
 export const PaginaPuntoVenta: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -102,9 +102,6 @@ export const PaginaPuntoVenta: React.FC = () => {
       setCategories(categoryItems.filter(c => c.isActive !== false));
       const isShiftOpen = Boolean(currentShift && currentShift.status === 'Abierto');
       setHasOpenShift(isShiftOpen);
-      if (!isShiftOpen) {
-        setNotice({ type: 'error', text: t('noOpenShiftBanner') });
-      }
     } catch (error) {
       setNotice({ type: 'error', text: errorMessage(error, t('posLoadError')) });
     } finally {
@@ -273,15 +270,15 @@ export const PaginaPuntoVenta: React.FC = () => {
 
   const processSale = async () => {
     if (!hasOpenShift) {
-      setNotice({ type: 'error', text: t('noOpenShiftSaleBlocked') });
+      setNotice({ type: 'error', key: 'noOpenShiftSaleBlocked', text: t('noOpenShiftSaleBlocked') });
       return;
     }
     if (cart.length === 0) {
-      setNotice({ type: 'error', text: t('emptyCartHint') });
+      setNotice({ type: 'error', key: 'emptyCartHint', text: t('emptyCartHint') });
       return;
     }
     if (appliedDiscount > subtotal) {
-      setNotice({ type: 'error', text: t('discountAboveSubtotal') });
+      setNotice({ type: 'error', key: 'discountAboveSubtotal', text: t('discountAboveSubtotal') });
       return;
     }
 
@@ -289,7 +286,7 @@ export const PaginaPuntoVenta: React.FC = () => {
     const card = paymentType === 'CardPayment' ? totalAmount : (paymentType === 'MixedPayment' ? Number(cardAmount || 0) : 0);
     const transfer = paymentType === 'MixedPayment' ? Number(transferAmount || 0) : 0;
     if (paymentType === 'MixedPayment' && Math.abs(cash + card + transfer - totalAmount) > 0.01) {
-      setNotice({ type: 'error', text: t('mixedPaymentMismatch', { total: money.format(totalAmount) }) });
+      setNotice({ type: 'error', key: 'mixedPaymentMismatch', params: { total: money.format(totalAmount) }, text: t('mixedPaymentMismatch', { total: money.format(totalAmount) }) });
       return;
     }
     if (paymentType === 'AdvanceDeposit') {
@@ -298,7 +295,7 @@ export const PaginaPuntoVenta: React.FC = () => {
         return;
       }
       if (cash <= 0 || cash >= totalAmount) {
-        setNotice({ type: 'error', text: t('invalidDepositAmount', { total: money.format(totalAmount) }) });
+        setNotice({ type: 'error', key: 'invalidDepositAmount', params: { total: money.format(totalAmount) }, text: t('invalidDepositAmount', { total: money.format(totalAmount) }) });
         return;
       }
     }
@@ -332,7 +329,7 @@ export const PaginaPuntoVenta: React.FC = () => {
       setTransferAmount('');
       setManualDiscount('');
       setNotes('');
-      setNotice({ type: 'success', text: t('saleCompleted', { idVenta: sale.idVenta }) });
+      setNotice({ type: 'success', key: 'saleCompleted', params: { idVenta: sale.idVenta }, text: t('saleCompleted', { idVenta: sale.idVenta }) });
       await loadData();
     } catch (error) {
       setNotice({ type: 'error', text: errorMessage(error, t('saleProcessError')) });
@@ -352,7 +349,17 @@ export const PaginaPuntoVenta: React.FC = () => {
       </form>
     </header>
 
-    {notice && <div className={`pos-notice pos-notice--${notice.type}`} role="alert">{notice.text}</div>}
+    {!hasOpenShift && (
+      <div className="pos-notice pos-notice--error" role="alert">
+        {t('noOpenShiftBanner')}
+      </div>
+    )}
+
+    {notice && (
+      <div className={`pos-notice pos-notice--${notice.type}`} role="alert">
+        {notice.key ? t(notice.key, notice.params) : notice.text}
+      </div>
+    )}
 
     <div className="pos-layout">
       <article className="pos-card">
@@ -368,9 +375,9 @@ export const PaginaPuntoVenta: React.FC = () => {
           <select
             value={selectedCategoryId}
             onChange={e => setSelectedCategoryId(e.target.value)}
-            aria-label="Filtrar por categoría"
+            aria-label={t('category')}
           >
-            <option value="">📂 Todas las categorías</option>
+            <option value="">📂 {t('allCategories')}</option>
             {categories.map(cat => (
               <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
@@ -379,8 +386,8 @@ export const PaginaPuntoVenta: React.FC = () => {
             type="search"
             value={cardSearch}
             onChange={e => setCardSearch(e.target.value)}
-            placeholder="🔍 Buscar producto en catálogo rápido (SKU, Nombre, Material)..."
-            aria-label="Buscar producto en catálogo rápido"
+            placeholder={`🔍 ${t('search')} (${t('product')}, SKU, ${t('material')})...`}
+            aria-label={t('search')}
           />
         </div>
 
@@ -394,7 +401,7 @@ export const PaginaPuntoVenta: React.FC = () => {
                 <div
                   className="pos-product__main"
                   onClick={() => setProductDetailModal(product)}
-                  title="Clic para ver detalle completo del producto"
+                  title={t('viewProductDetailTooltip')}
                   style={{ cursor: 'pointer' }}
                 >
                   {product.imageUrl ? <img src={product.imageUrl} alt={product.name} /> : <span className="pos-product__placeholder">📷</span>}
@@ -413,20 +420,20 @@ export const PaginaPuntoVenta: React.FC = () => {
                     type="button"
                     className="pos-btn-p"
                     disabled={unavailable}
-                    title="Agregar 1 Pieza al carrito"
+                    title={`${t('unitPza')} +1`}
                     onClick={(e) => { e.stopPropagation(); addProductToCart(product, 1); }}
                   >
-                    Pieza +
+                    {t('unitPza')} +
                   </button>
 
                   <button
                     type="button"
                     className="pos-btn-c"
                     disabled={unavailable}
-                    title={`Agregar 1 Caja (${ppb} pzas) al carrito`}
+                    title={`${t('unitCaja')} +1 (${ppb} ${t('deleteProductPieces')})`}
                     onClick={(e) => { e.stopPropagation(); addProductToCart(product, ppb); }}
                   >
-                    Caja +
+                    {t('unitCaja')} +
                   </button>
                 </div>
               </div>
@@ -444,9 +451,9 @@ export const PaginaPuntoVenta: React.FC = () => {
               className="action-btn"
               style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
               onClick={() => setIsCalculatorModalOpen(true)}
-              title="Calculadora de m² de Lambrín"
+              title={t('calculatorM2')}
             >
-              📐 Calculadora m²
+              📐 {t('calculatorM2')}
             </button>
             {cart.length > 0 && <button className="pos-link-btn" onClick={() => setCart([])}>{t('clearCart')}</button>}
           </div>
@@ -517,7 +524,7 @@ export const PaginaPuntoVenta: React.FC = () => {
               <span>🧾 {t('requiresInvoiceLabel')}</span>
             </label>
             <span className={`pos-invoice-badge ${requiresInvoice ? 'is-active' : ''}`}>
-              {requiresInvoice ? 'SÍ (+16%)' : 'NO (0%)'}
+              {requiresInvoice ? `${t('yes')} (+16%)` : `${t('no')} (0%)`}
             </span>
           </div>
 
@@ -536,7 +543,7 @@ export const PaginaPuntoVenta: React.FC = () => {
         <label className="pos-field">{t('paymentType')}
           <select value={paymentType} onChange={event => selectPaymentType(event.target.value as PaymentType)}>
             <option value="FullPayment">💵 {t('cashFullPayment')}</option>
-            <option value="CardPayment">💳 Pago total con tarjeta</option>
+            <option value="CardPayment">💳 {t('cardFullPayment')}</option>
             <option value="MixedPayment">🔀 {t('mixedPayment')}</option>
             <option value="AdvanceDeposit">📑 {t('advanceDeposit')}</option>
           </select>

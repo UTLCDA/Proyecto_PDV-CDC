@@ -1,5 +1,30 @@
 # HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
+## 📌 Hito Cumplido: Estandarización Bilingüe Universal de Columnas y Alertas Reactivas
+- **Rama Git**: `main`
+- **Descripción**: Estandarización al 100% en formato `"Nombre Español / Nombre Chino"` de todas las cabeceras de columnas en todos los módulos de la aplicación, y reactividad dinámica total para alertas críticas del sistema (como la alerta de turno de caja sin aperturar y notificaciones de ventas) para que conmuten instantáneamente de idioma al cambiar a Chino Simplificado (`zh`).
+- **Entregables Realizados**:
+  1. **Alertas Reactivas del Punto de Venta**:
+     - `noOpenShiftBanner` (*"⚠️ Atención: La caja no ha sido aperturada. Debes realizar la apertura de caja para poder procesar ventas."* / *"⚠️ 注意：钱箱尚未开扎。必须先开扎钱箱才能进行销售。"*) ahora es renderizado de forma reactiva con `t('noOpenShiftBanner')`. Al hacer clic en el botón de idioma del encabezado, el mensaje se traduce al instante en pantalla.
+     - El manejador de notificaciones `notice` en `PaginaPuntoVenta.tsx` admite claves reactivas `key` con parámetros, traduciendo de inmediato validaciones de carrito vacío, montos de anticipo, descuentos excedentes, etc.
+  2. **Estandarización de Encabezados de Tablas (Bilingüe Dual)**:
+     - Formato `"Nombre Español / Nombre Chino"` establecido en `es` y `zh` para todas las columnas en:
+       - Catálogo de Productos
+       - Categorías
+       - Clientes y modal de historial de compras
+       - Inventario (existencias y umbrales)
+       - Movimientos de Inventario y Evidencia Física
+       - Cotizaciones y modal de desglose de partidas
+       - Histórico de Ventas
+       - Operaciones Comerciales (Transacciones, Abonos y Devoluciones)
+       - Turno de Caja (Arqueos, Movimientos y Cortes)
+       - Usuarios y Roles
+       - Explorador de Bitácora de Auditoría
+       - Reportes Ejecutivos
+  3. **Verificación y Pruebas**:
+     - `npm run test` (Vitest): 47/47 pruebas superadas al 100%.
+     - `npm run build` (`tsc && vite build`): completado con éxito en 11.13s con 0 errores y 0 advertencias.
+
 ## 📌 Hito Cumplido: Mejoras al Módulo de Productos "Catálogo" (ABC, IdProducto e Inventario Actual)
 - **Rama Git**: `main` (commit `33eee52`, fusionado desde PR #4 `mantenimiento/mejoras-catalogo-productos`).
 - **Pull Request**: [PR #4 Merged](https://github.com/UTLCDA/Proyecto_PDV-CDC/pull/4)

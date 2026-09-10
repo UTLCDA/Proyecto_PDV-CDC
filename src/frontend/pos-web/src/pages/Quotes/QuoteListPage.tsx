@@ -368,10 +368,10 @@ export const QuoteListPage: React.FC = () => {
             <table className="customers-table" style={{ width: '100%', minWidth: '450px' }}>
               <thead>
                 <tr>
-                  <th>SKU</th>
-                  <th>Producto</th>
+                  <th>{t('skuProduct')}</th>
+                  <th>{t('product')}</th>
                   <th>{t('quantity')}</th>
-                  <th>Precio Unit.</th>
+                  <th>{t('price')}</th>
                   <th>{t('total')}</th>
                 </tr>
               </thead>

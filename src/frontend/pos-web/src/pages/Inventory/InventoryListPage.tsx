@@ -153,7 +153,7 @@ export const InventoryListPage: React.FC = () => {
       setEvidenceImageUrl(compressedBase64);
     } catch (err: any) {
       console.error('Error al procesar evidencia:', err);
-      alert(err.message || 'Error al procesar la imagen de evidencia.');
+      alert(err.message || t('evidenceProcessError'));
     } finally {
       e.target.value = '';
     }
@@ -181,7 +181,7 @@ export const InventoryListPage: React.FC = () => {
       setIsModalOpen(false);
       loadData();
     } catch (err: any) {
-      alert(err.message || 'Error al registrar el movimiento de inventario.');
+      alert(err.message || t('inventoryMovementError'));
     }
   };
 
@@ -246,13 +246,13 @@ export const InventoryListPage: React.FC = () => {
                 <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-main)', background: 'var(--background-container)' }}>
                   <th style={{ padding: '0.75rem', width: '70px' }}>{t('productImage')}</th>
                   <SortableTh columnKey="product" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
-                    SKU / {t('productCatalog')}
+                    {t('skuProduct')}
                   </SortableTh>
                   <SortableTh columnKey="location" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
                     {t('location')}
                   </SortableTh>
                   <SortableTh columnKey="quantityOnHand" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
-                    Piezas
+                    {t('stockOnHand')}
                   </SortableTh>
                   <SortableTh columnKey="minimumAlertThreshold" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
                     {t('minThreshold')}
