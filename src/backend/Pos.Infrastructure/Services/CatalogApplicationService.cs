@@ -220,9 +220,15 @@ public class CatalogApplicationService : ICatalogApplicationService
         int page = 1,
         int pageSize = 25,
         string? sortBy = null,
-        string? sortDirection = null)
+        string? sortDirection = null,
+        bool includeInactive = false)
     {
         var baseQuery = _dbContext.Products.AsNoTracking();
+
+        if (!includeInactive)
+        {
+            baseQuery = baseQuery.Where(p => p.EstaActivo);
+        }
 
         if (categoryId.HasValue)
         {
@@ -237,7 +243,9 @@ public class CatalogApplicationService : ICatalogApplicationService
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
-            baseQuery = baseQuery.Where(p => p.Nombre.ToLower().Contains(term) ||
+            var hasNumericId = int.TryParse(term, out var searchId) && searchId > 0;
+            baseQuery = baseQuery.Where(p => (hasNumericId && p.IdProducto == searchId) ||
+                                             p.Nombre.ToLower().Contains(term) ||
                                              p.Sku.ToLower().Contains(term) ||
                                              p.Barcode.Contains(term));
         }
@@ -251,6 +259,7 @@ public class CatalogApplicationService : ICatalogApplicationService
         bool isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
         var sortedQuery = (sortBy?.ToLowerInvariant()) switch
         {
+            "idproducto" or "id" => isDesc ? baseQuery.OrderByDescending(p => p.IdProducto) : baseQuery.OrderBy(p => p.IdProducto),
             "sku" => isDesc ? baseQuery.OrderByDescending(p => p.Sku) : baseQuery.OrderBy(p => p.Sku),
             "name" or "nombre" => isDesc ? baseQuery.OrderByDescending(p => p.Nombre) : baseQuery.OrderBy(p => p.Nombre),
             "categoryname" or "categoria" => isDesc ? baseQuery.OrderByDescending(p => p.Categoria.Nombre) : baseQuery.OrderBy(p => p.Categoria.Nombre),
@@ -258,6 +267,10 @@ public class CatalogApplicationService : ICatalogApplicationService
             "wholesaleprice" or "preciomayoreo" => isDesc ? baseQuery.OrderByDescending(p => p.PrecioMayoreo) : baseQuery.OrderBy(p => p.PrecioMayoreo),
             "piecesperbox" or "piezasporcaja" => isDesc ? baseQuery.OrderByDescending(p => p.PiezasPorCaja) : baseQuery.OrderBy(p => p.PiezasPorCaja),
             "coverageperunitsqm" or "cobertura" => isDesc ? baseQuery.OrderByDescending(p => p.CoberturaPorUnidadM2) : baseQuery.OrderBy(p => p.CoberturaPorUnidadM2),
+            "stock" or "inventario" or "existencias" or "availablequantity" => isDesc
+                ? baseQuery.OrderByDescending(p => _dbContext.Stocks.Where(s => s.ProductoId == p.Id).Select(s => s.CantidadDisponible).FirstOrDefault())
+                : baseQuery.OrderBy(p => _dbContext.Stocks.Where(s => s.ProductoId == p.Id).Select(s => s.CantidadDisponible).FirstOrDefault()),
+            "isactive" or "activo" => isDesc ? baseQuery.OrderByDescending(p => p.EstaActivo) : baseQuery.OrderBy(p => p.EstaActivo),
             _ => baseQuery.OrderBy(p => p.Nombre)
         };
 
@@ -517,6 +530,37 @@ public class CatalogApplicationService : ICatalogApplicationService
         return (await GetProductByIdAsync(product.Id, cancellationToken))!;
     }
 
+    public async Task DeleteProductAsync(Guid id, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default)
+    {
+        await EnsureActiveUserAsync(currentUserId, cancellationToken);
+        var product = await _dbContext.Products.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+        if (product == null)
+        {
+            throw new KeyNotFoundException($"Producto con ID '{id}' no encontrado.");
+        }
+
+        var oldValues = JsonSerializer.Serialize(new { product.IdProducto, product.Sku, product.Nombre, product.EstaActivo });
+        product.EstaActivo = false;
+        product.FechaActualizacionUtc = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogService.LogAsync(
+            correlationId,
+            currentUserId,
+            "PRODUCT_DELETED",
+            "Producto",
+            product.Id.ToString(),
+            oldValues,
+            JsonSerializer.Serialize(new { product.IdProducto, product.Sku, product.Nombre, product.EstaActivo }),
+            ipAddress,
+            $"Baja lógica de producto: {product.Nombre} (ID #{product.IdProducto}, SKU: {product.Sku})",
+            module: "Productos",
+            eventType: "PRODUCT_DELETED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
+    }
+
     // Customers CRUD
     public async Task<PagedResult<CustomerDto>> GetCustomersAsync(
         string? search,
@@ -705,6 +749,7 @@ public class CatalogApplicationService : ICatalogApplicationService
     {
         return new ProductDto(
             p.Id,
+            p.IdProducto,
             p.Sku,
             p.Barcode,
             p.Nombre,

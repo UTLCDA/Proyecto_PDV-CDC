@@ -4,6 +4,7 @@ namespace Pos.Domain.Entidades;
 
 public class Producto : EntidadBase
 {
+    public int IdProducto { get; set; }
     public string Sku { get; set; } = string.Empty;
     public string Barcode { get; set; } = string.Empty;
     public string Nombre { get; set; } = string.Empty;

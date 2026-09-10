@@ -95,6 +95,71 @@ public class ProductApplicationTests
             "127.0.0.1"));
     }
 
+    [Fact]
+    public async Task CreateProductAsync_ShouldAssignSequentialIdProducto()
+    {
+        var context = GetInMemoryDbContext();
+        var auditService = new AuditLogService(context, NullLogger<AuditLogService>.Instance);
+        await DbInitializer.SeedAsync(context, new PasswordHasherService());
+        var catalogService = new CatalogApplicationService(context, auditService);
+        var category = await context.Categories.FirstAsync();
+        var userId = await context.Users.Select(u => u.Id).FirstAsync();
+
+        var prod1 = await catalogService.CreateProductAsync(CreateValidRequest(category.Id) with { Sku = "WPC-SEQ-001", Barcode = "750000000001" }, userId, "corr-seq-1", "127.0.0.1");
+        var prod2 = await catalogService.CreateProductAsync(CreateValidRequest(category.Id) with { Sku = "WPC-SEQ-002", Barcode = "750000000002" }, userId, "corr-seq-2", "127.0.0.1");
+
+        Assert.True(prod1.IdProducto > 0);
+        Assert.True(prod2.IdProducto > prod1.IdProducto);
+    }
+
+    [Fact]
+    public async Task DeleteProductAsync_ShouldSoftDeleteProduct_AndCreateAuditLog()
+    {
+        var context = GetInMemoryDbContext();
+        var auditService = new AuditLogService(context, NullLogger<AuditLogService>.Instance);
+        await DbInitializer.SeedAsync(context, new PasswordHasherService());
+        var catalogService = new CatalogApplicationService(context, auditService);
+        var category = await context.Categories.FirstAsync();
+        var userId = await context.Users.Select(u => u.Id).FirstAsync();
+
+        var created = await catalogService.CreateProductAsync(CreateValidRequest(category.Id) with { Sku = "WPC-DEL-001", Barcode = "750000000099" }, userId, "corr-del-1", "127.0.0.1");
+        Assert.True(created.IsActive);
+
+        await catalogService.DeleteProductAsync(created.Id, userId, "corr-del-exec", "127.0.0.1");
+
+        var updated = await context.Products.FindAsync(created.Id);
+        Assert.NotNull(updated);
+        Assert.False(updated.EstaActivo);
+        Assert.NotNull(updated.FechaActualizacionUtc);
+
+        var audit = await context.AuditLogs.FirstOrDefaultAsync(l => l.Accion == "PRODUCT_DELETED" && l.EntidadId == created.Id.ToString());
+        Assert.NotNull(audit);
+        Assert.Equal("Producto", audit.NombreEntidad);
+    }
+
+    [Fact]
+    public async Task GetProductsAsync_ShouldFilterInactiveByDefault_AndIncludeWhenRequested()
+    {
+        var context = GetInMemoryDbContext();
+        var auditService = new AuditLogService(context, NullLogger<AuditLogService>.Instance);
+        await DbInitializer.SeedAsync(context, new PasswordHasherService());
+        var catalogService = new CatalogApplicationService(context, auditService);
+        var category = await context.Categories.FirstAsync();
+        var userId = await context.Users.Select(u => u.Id).FirstAsync();
+
+        var product = await catalogService.CreateProductAsync(CreateValidRequest(category.Id) with { Sku = "WPC-INACT-001", Barcode = "750000000088" }, userId, "corr-inact-1", "127.0.0.1");
+        await catalogService.DeleteProductAsync(product.Id, userId, "corr-inact-del", "127.0.0.1");
+
+        // By default, inactive products are excluded
+        var activeOnly = await catalogService.GetProductsAsync("WPC-INACT-001", null, null, default, 1, 25, null, null, includeInactive: false);
+        Assert.Empty(activeOnly.Items);
+
+        // When includeInactive is true, they appear
+        var withInactive = await catalogService.GetProductsAsync("WPC-INACT-001", null, null, default, 1, 25, null, null, includeInactive: true);
+        Assert.Single(withInactive.Items);
+        Assert.False(withInactive.Items[0].IsActive);
+    }
+
     private static CreateProductDto CreateValidRequest(Guid categoryId) => new(
         Sku: "WPC-TEST-001",
         Barcode: "750999888777",

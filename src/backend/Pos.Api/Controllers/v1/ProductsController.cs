@@ -31,11 +31,12 @@ public class ProductsController : ControllerBase
         [FromQuery] string? sortBy = null,
         [FromQuery] string? sortDirection = null,
         [FromQuery] int? page = null,
+        [FromQuery] bool includeInactive = false,
         CancellationToken cancellationToken = default)
     {
         var effectivePage = page.HasValue && page.Value > 0 ? page.Value : pageNumber;
         var products = await _catalogService.GetProductsAsync(
-            search, categoryId, isTopSellerOnly, cancellationToken, effectivePage, pageSize, sortBy, sortDirection);
+            search, categoryId, isTopSellerOnly, cancellationToken, effectivePage, pageSize, sortBy, sortDirection, includeInactive);
         return Ok(products);
     }
 
@@ -146,6 +147,34 @@ public class ProductsController : ControllerBase
         catch (Exception)
         {
             return StatusCode(500, new { message = "Ocurrió un error inesperado al actualizar el precio." });
+        }
+    }
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = PermissionCodes.Catalog.ProductsEdit)]
+    public async Task<IActionResult> DeleteProduct(Guid id, CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
+        Guid? currentUserId = Guid.TryParse(userIdClaim, out var userId) ? userId : null;
+        var correlationId = HttpContext.Items["CorrelationId"]?.ToString() ?? Guid.NewGuid().ToString();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+
+        try
+        {
+            await _catalogService.DeleteProductAsync(id, currentUserId, correlationId, ipAddress, cancellationToken);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, new { message = "Ocurrió un error inesperado al dar de baja el producto." });
         }
     }
 }

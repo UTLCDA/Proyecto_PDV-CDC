@@ -12,15 +12,18 @@ export const catalogService = {
     const query = params.toString() ? `?${params.toString()}` : '';
     return apiClient.request<PagedResult<Category>>(`/categories${query}`);
   },
-  getProducts: (search?: string, categoryId?: string, paging?: PagingRequest, sortBy?: string | null, sortDirection?: 'asc' | 'desc' | null) => {
+  getProducts: (search?: string, categoryId?: string, paging?: PagingRequest, sortBy?: string | null, sortDirection?: 'asc' | 'desc' | null, includeInactive = false) => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (categoryId) params.append('categoryId', categoryId);
+    if (includeInactive) params.append('includeInactive', 'true');
     appendPaging(params, paging);
     appendSorting(params, sortBy, sortDirection);
     const query = params.toString() ? `?${params.toString()}` : '';
     return apiClient.request<PagedResult<Product>>(`/products${query}`);
   },
+  deleteProduct: (productId: string) =>
+    apiClient.request<void>(`/products/${productId}`, { method: 'DELETE' }),
   getProductByCode: (code: string) => apiClient.request<Product>(`/products/lookup/${code}`),
   updateProductPrice: (productId: string, unitPrice: number, wholesalePrice: number, reason: string) =>
     apiClient.request<Product>(`/products/${productId}/price`, {

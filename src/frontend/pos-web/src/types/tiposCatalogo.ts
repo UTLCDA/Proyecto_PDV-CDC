@@ -23,6 +23,7 @@ export interface PeticionActualizarCategoria {
 
 export interface Producto {
   id: string;
+  idProducto: number;
   sku: string;
   barcode: string;
   name: string;

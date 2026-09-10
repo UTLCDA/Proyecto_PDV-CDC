@@ -50,11 +50,13 @@ export const servicioCatalogo = {
     categoryId?: string,
     paging?: PagingRequest,
     sortBy?: string | null,
-    sortDirection?: 'asc' | 'desc' | null
+    sortDirection?: 'asc' | 'desc' | null,
+    includeInactive = false
   ): Promise<PagedResult<Producto>> => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (categoryId) params.append('categoryId', categoryId);
+    if (includeInactive) params.append('includeInactive', 'true');
     appendPaging(params, paging);
     appendSorting(params, sortBy, sortDirection);
 
@@ -76,6 +78,10 @@ export const servicioCatalogo = {
   updateProduct: async (id: string, data: PeticionActualizarProducto): Promise<Producto> => {
     const response = await api.put<Producto>(`/products/${id}`, data);
     return response.data;
+  },
+
+  deleteProduct: async (id: string): Promise<void> => {
+    await api.request(`/products/${id}`, { method: 'DELETE' });
   },
 
   // Customers
