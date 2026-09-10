@@ -2,8 +2,8 @@
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
 
-- **Mantenimiento Catálogo de Productos (Rama `mantenimiento/mejoras-catalogo-productos`)**:
-  - **Rama Git Activa**: `mantenimiento/mejoras-catalogo-productos`
+- **Mantenimiento Catálogo de Productos (Fusión a `main` via PR #4)**:
+  - **Rama Git**: `main` (commit `33eee52`, fusionado desde PR #4 `mantenimiento/mejoras-catalogo-productos`).
   - **Objetivo**: Mejoras al módulo de productos "catálogo" solicitadas por el cliente:
     1. **Identificador Secuencial `IdProducto` (Identity 1-1)**:
        - Incorporado campo `int IdProducto` en entidades de Dominio (`Producto.cs` y `Product.cs`) y DTOs (`ProductDto.cs`, `Producto.ts`, `Product.ts`).

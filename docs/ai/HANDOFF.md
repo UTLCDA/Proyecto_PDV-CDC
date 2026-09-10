@@ -1,7 +1,8 @@
 # HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
 ## 📌 Hito Cumplido: Mejoras al Módulo de Productos "Catálogo" (ABC, IdProducto e Inventario Actual)
-- **Rama Git**: `mantenimiento/mejoras-catalogo-productos`
+- **Rama Git**: `main` (commit `33eee52`, fusionado desde PR #4 `mantenimiento/mejoras-catalogo-productos`).
+- **Pull Request**: [PR #4 Merged](https://github.com/UTLCDA/Proyecto_PDV-CDC/pull/4)
 - **Descripción**: Mejoras al módulo de productos "catálogo" solicitadas por el cliente.
 - **Entregables Realizados**:
   1. **Identificador Secuencial `IdProducto` (Identity 1-1)**:
