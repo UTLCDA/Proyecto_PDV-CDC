@@ -434,7 +434,7 @@ export const CashShiftPage: React.FC = () => {
         <div className="cash-card__heading"><div><h2>{t('generalMovementsTitle')}</h2><p>{t('generalMovementsSubtitle')}</p></div><div className="cash-export-heading"><strong>{generalMovements.length}</strong><ExportButtons data={generalMovements} config={generalMovementsExportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => cashShiftService.getGeneralMovements(paging))} /></div></div>
         <div className="cash-table-wrapper">
           <table className="cash-table">
-            <thead><tr><th>{t('date')}</th><th>Categoría</th><th>{t('folio')}</th><th>Tipo Movimiento</th><th>Descripción</th><th>{t('user')}</th><th>{t('amount')}</th></tr></thead>
+            <thead><tr><th>{t('date')}</th><th>{t('category')}</th><th>{t('folio')}</th><th>{t('movementType')}</th><th>{t('description')}</th><th>{t('user')}</th><th>{t('amount')}</th></tr></thead>
             <tbody>{generalMovements.map(item => {
               if (!item) return null;
               const categoryBadge = formatMovementCategory(item.category);

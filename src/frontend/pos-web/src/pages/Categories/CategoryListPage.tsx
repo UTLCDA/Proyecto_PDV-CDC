@@ -278,21 +278,21 @@ export const CategoryListPage: React.FC = () => {
               <thead>
                 <tr>
                   <SortableTh columnKey="name" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
-                    Categoría
+                    {t('category')}
                   </SortableTh>
                   <SortableTh columnKey="slug" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
-                    Slug / Clave
+                    {t('categoryKey')}
                   </SortableTh>
                   <SortableTh columnKey="description" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
-                    Descripción
+                    {t('description')}
                   </SortableTh>
                   <SortableTh columnKey="parentCategory" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
-                    Categoría Padre
+                    {t('parentCategory')}
                   </SortableTh>
                   <SortableTh columnKey="isActive" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
-                    Estado
+                    {t('status')}
                   </SortableTh>
-                  <th style={{ textAlign: 'right' }}>Acciones</th>
+                  <th style={{ textAlign: 'right' }}>{t('actions')}</th>
                 </tr>
               </thead>
               <tbody>

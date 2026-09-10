@@ -268,7 +268,7 @@ export const CustomerListPage: React.FC = () => {
       {loading ? <div className="customers-empty">{t('loading')}</div> : customers.length === 0 ? <div className="customers-empty">{t('noCustomers')}</div> : (
         <>
           <div className="customers-table-wrap"><table className="customers-table"><thead><tr>
-            <th>{t('customerCompany')}</th><th>{t('taxIdLabel')}</th><th>{t('customerContact')}</th><th>{t('customerLocation')}</th><th>{t('customerType')}</th><th>{t('customerDiscount')}</th><th>Límite Cajas/Día</th><th>{t('customerStatus')}</th><th>{t('actions')}</th>
+            <th>{t('customerCompany')}</th><th>{t('taxIdLabel')}</th><th>{t('customerContact')}</th><th>{t('customerLocation')}</th><th>{t('customerType')}</th><th>{t('customerDiscount')}</th><th>{t('dailyBoxLimitHeader')}</th><th>{t('customerStatus')}</th><th>{t('actions')}</th>
           </tr></thead><tbody>{customers.map(customer => <tr key={customer.id}>
             <td><strong>{customer.displayName}</strong>{customer.companyName && <small>{customer.companyName}</small>}</td>
             <td><code>{customer.taxId || '—'}</code></td>
@@ -343,11 +343,11 @@ export const CustomerListPage: React.FC = () => {
               <table className="customers-table">
                 <thead>
                   <tr>
-                    <th>Folio / Fecha</th>
-                    <th>Forma de Pago</th>
-                    <th>Partidas / Cantidad</th>
-                    <th>Monto Total</th>
-                    <th>Estatus</th>
+                    <th>{t('folioDateHeader')}</th>
+                    <th>{t('paymentType')}</th>
+                    <th>{t('itemsQuantityHeader')}</th>
+                    <th>{t('total')}</th>
+                    <th>{t('status')}</th>
                   </tr>
                 </thead>
                 <tbody>

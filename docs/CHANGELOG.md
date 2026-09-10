@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.8.0] Estandarización Bilingüe Universal de Columnas y Alertas Reactivas - 2026-09-10
+
+### Añadido / Mejorado
+- **Estandarización Bilingüe Universal de Encabezados de Tablas (`Nombre Español / Nombre Chino`)**:
+  - Estandarizados los encabezados de columnas de todas las tablas del sistema al formato bilingüe dual (tanto en el diccionario `es` como en `zh`):
+    - **Catálogo de Productos**: `ID / 编号`, `Imagen / 图片`, `SKU / Código / 编码`, `Categoría / 分类`, `Precio Menudeo / 零售价`, `Precio Mayoreo / 批发价`, `Inventario Actual / 当前库存`, `Piezas/Caja / 每箱片数`, `Cobertura (m²) / 覆盖面积`, `Acciones / 操作`.
+    - **Categorías**: `Categoría / 分类`, `Clave / 标识符`, `Descripción / 描述`, `Categoría Padre / 父级分类`, `Estado / 状态`, `Acciones / 操作`.
+    - **Clientes**: `Cliente / Empresa / 客户 / 公司`, `RFC / 税号`, `Contacto / 联系方式`, `Ubicación / 地址`, `Tipo / 类型`, `Descuento / 折扣`, `Límite Cajas/Día / 每日箱数上限`, `Estado / 状态`, `Acciones / 操作`, y en el historial de compras: `Folio / Fecha / 单号 / 日期`, `Modalidad de Pago / 付款方式`, `Partidas / Cantidad / 明细 / 数量`, `Total / 合计`, `Estado / 状态`.
+    - **Inventario**: `Imagen / 图片`, `SKU / Código / 编码`, `Ubicación / 仓库位置`, `Piezas / 件数`, `Mínimo / 最低预警`, `Estado / 状态`.
+    - **Movimientos de Inventario**: `Fecha / 日期`, `Producto / 产品`, `Tipo / 类型`, `Cantidad / 数量`, `Costo Actual / 成本单价`, `Precio Venta / 销售单价`, `Monto Total / 总付款`, `Impuesto / 税额`, `Costo Neto / 净成本`, `Ganancia / 利润`, `Evidencia / 实物凭证`, `Motivo / 原因`, `Referencia / 参考`, `Usuario / 操作员`.
+    - **Cotizaciones**: `Folio / 单号`, `Cliente / 客户`, `Productos Cotizados / 报价产品`, `Fecha Inicio / 起始日期`, `Vencimiento / 有效期至`, `Total / 合计`, `Estado / 状态`, `Acciones / 操作`, y en el modal de detalle: `SKU / Código / 编码`, `Producto / 产品`, `Cantidad / 数量`, `Precio / 单价`, `Total / 合计`.
+    - **Histórico de Ventas**: `Folio / 单号`, `Fecha / 日期`, `Cliente / 客户`, `Modalidad de Pago / 付款方式`, `Estado / 状态`, `Total / 合计`, `Saldo Pendiente / 余款`, `Acciones / 操作`.
+    - **Operaciones Comerciales (Abonos, Transacciones y Devoluciones)**: `Folio / 单号`, `Recibo / Referencia / 收据编号 / 参考号`, `Recibo / 收据编号`, `N° Devolución / 退货单号`, `Fecha / 日期`, `Fecha de Devolución / 退货日期`, `Movimiento / 资金变动`, `Modalidad de Pago / 付款方式`, `Monto Abonado / 实付金额`, `Saldo Pendiente / 余款`, `Cliente / 客户`, `Usuario / 操作员`, `Acciones / 操作`, `Método Reembolso / 退款方式`, `Monto Reembolsado / 退款金额`.
+    - **Turno de Caja**: `Folio Turno / 班次单号`, `Usuario / 操作员`, `Apertura / 开班时间`, `Cierre / 关班时间`, `Esperado / 预期金额`, `Real / 实际结扎`, `Diferencia / 差额`, `Estado / 状态`, `Tipo / 类型`, `Motivo / 原因`, `Monto / 金额`, `Categoría / 分类`, `Tipo Movimiento / 变动类型`, `Descripción / 描述`.
+    - **Usuarios y Roles**: `Usuario / Empleado / 用户 / 员工`, `Correo Electrónico / 电子邮箱`, `Puesto / 职务`, `Rol en Sistema / 系统角色`, `Estado / 状态`, `Acciones / 操作`.
+    - **Bitácora de Auditoría**: `Fecha / 日期`, `Usuario / 操作员`, `Módulo / 模块`, `Actividad / 活动`, `Resultado / 结果`, `Detalles / 详情`.
+    - **Reportes**: `SKU / Código / 编码`, `Categoría / 分类`, `Cantidad Vendida / 销售数量`, `Cantidad Devuelta / 退货数量`, `Cantidad Neta / 净销售数量`, `Venta Neta / 净销售额`, `Piezas / 件数`, `Mínimo / 最低预警`, `Unidades Sugeridas / 建议补货`, `Estado / 状态`.
+- **Traducción Reactiva de Alertas de Caja y Ventas**:
+  - `noOpenShiftBanner` (*"⚠️ Atención: La caja no ha sido aperturada. Debes realizar la apertura de caja para poder procesar ventas."* / *"⚠️ 注意：钱箱尚未开扎。必须先开扎钱箱才能进行销售。"*) ahora es renderizado de forma reactiva con `t('noOpenShiftBanner')`. Al hacer clic en el botón de idioma del encabezado, el mensaje se traduce al instante en pantalla.
+  - Refactorizado el estado de avisos `notice` en el Punto de Venta para admitir claves i18n reactivas (`key`, `params`), permitiendo traducción instantánea de validaciones de carrito, montos y límites.
+
 ## [2.7.0] Mantenimiento Catálogo de Productos - 2026-09-09
 
 ### Añadido / Mejorado

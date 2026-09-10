@@ -493,13 +493,13 @@ Por medio del presente documento, WPC Bajío acuerda la comercialización y sumi
             <table className="customers-table" style={{ width: '100%' }}>
               <thead>
                 <tr>
-                  <SortableTh sortKey="idVenta" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Folio Venta</SortableTh>
-                  <SortableTh sortKey="referenceNumber" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>N° Recibo / Referencia</SortableTh>
+                  <SortableTh sortKey="idVenta" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('folio')}</SortableTh>
+                  <SortableTh sortKey="referenceNumber" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('receiptOrReference')}</SortableTh>
                   <SortableTh sortKey="createdAtUtc" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('date')}</SortableTh>
-                  <SortableTh sortKey="transactionType" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Movimiento</SortableTh>
+                  <SortableTh sortKey="transactionType" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('movement')}</SortableTh>
                   <SortableTh sortKey="paymentMethod" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('paymentType')}</SortableTh>
-                  <SortableTh sortKey="amount" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Monto Pagado</SortableTh>
-                  <SortableTh sortKey="customerDisplayName" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>Cliente</SortableTh>
+                  <SortableTh sortKey="amount" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('amountPaid')}</SortableTh>
+                  <SortableTh sortKey="customerDisplayName" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('customer')}</SortableTh>
                   <SortableTh sortKey="userUsername" currentSortKey={txSortKey} currentSortDirection={txSortDirection} onSort={handleTxSort}>{t('user')}</SortableTh>
                   <th>{t('action')}</th>
                 </tr>
@@ -601,8 +601,8 @@ Por medio del presente documento, WPC Bajío acuerda la comercialización y sumi
               <table className="customers-table" style={{ width: '100%' }}>
                 <thead>
                   <tr>
-                    <SortableTh sortKey="idVenta" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>Folio Venta</SortableTh>
-                    <SortableTh sortKey="receiptNumber" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>N° Recibo</SortableTh>
+                    <SortableTh sortKey="idVenta" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('folio')}</SortableTh>
+                    <SortableTh sortKey="receiptNumber" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('receiptNumberHeader')}</SortableTh>
                     <SortableTh sortKey="createdAtUtc" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('date')}</SortableTh>
                     <SortableTh sortKey="paymentMethod" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('paymentType')}</SortableTh>
                     <SortableTh sortKey="amountPaid" currentSortKey={instSortKey} currentSortDirection={instSortDirection} onSort={handleInstSort}>{t('amountPaid')}</SortableTh>
@@ -646,11 +646,11 @@ Por medio del presente documento, WPC Bajío acuerda la comercialización y sumi
             <table className="customers-table" style={{ width: '100%' }}>
               <thead>
                 <tr>
-                  <th>N° Devolución</th>
-                  <th>Folio Venta</th>
+                  <th>{t('returnNumberHeader')}</th>
+                  <th>{t('folio')}</th>
                   <th>{t('returnDate')}</th>
-                  <th>Método Reembolso</th>
-                  <th>Monto Reembolsado</th>
+                  <th>{t('refundMethodHeader')}</th>
+                  <th>{t('refundAmountHeader')}</th>
                 </tr>
               </thead>
               <tbody>

@@ -2,6 +2,30 @@
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
 
+- **Estandarización Bilingüe Universal de Columnas y Alertas Reactivas i18n**:
+  - **Rama Git**: `main`
+  - **Objetivo**:
+    1. **Alertas y Avisos Reactivos Dinámicos**:
+       - La alerta de turno de caja cerrado (`noOpenShiftBanner`: *"⚠️ Atención: La caja no ha sido aperturada. Debes realizar la apertura de caja para poder procesar ventas."* / *"⚠️ 注意：钱箱尚未开扎。必须先开扎钱箱才能进行销售。"*) ahora se renderiza dinámicamente mediante `{t('noOpenShiftBanner')}`, conmutando de idioma de inmediato al alternar entre Español y Chino Simplificado sin requerir recargar datos.
+       - En `PaginaPuntoVenta.tsx`, el estado `notice` fue refactorizado para admitir claves de traducción reactivas (`key` y `params`), permitiendo que todos los avisos de error y éxito de la venta se traduzcan reactivamente.
+    2. **Estandarización de Encabezados de Tabla en Todos los Módulos (`Nombre Español / Nombre Chino`)**:
+       - En ambos diccionarios (`es` y `zh`), los encabezados de columnas de todas las tablas se estandarizaron al formato bilingüe dual `"Nombre Español / Nombre Chino"`:
+         - **Catálogo de Productos**: `ID / 编号`, `Imagen / 图片`, `SKU / Código / 编码`, `Categoría / 分类`, `Precio Menudeo / 零售价`, `Precio Mayoreo / 批发价`, `Inventario Actual / 当前库存`, `Piezas/Caja / 每箱片数`, `Cobertura (m²) / 覆盖面积`, `Acciones / 操作`.
+         - **Categorías**: `Categoría / 分类`, `Clave / 标识符`, `Descripción / 描述`, `Categoría Padre / 父级分类`, `Estado / 状态`, `Acciones / 操作`.
+         - **Clientes**: `Cliente / Empresa / 客户 / 公司`, `RFC / 税号`, `Contacto / 联系方式`, `Ubicación / 地址`, `Tipo / 类型`, `Descuento / 折扣`, `Límite Cajas/Día / 每日箱数上限`, `Estado / 状态`, `Acciones / 操作`, y en el historial de compras del modal: `Folio / Fecha / 单号 / 日期`, `Modalidad de Pago / 付款方式`, `Partidas / Cantidad / 明细 / 数量`, `Total / 合计`, `Estado / 状态`.
+         - **Inventario**: `Imagen / 图片`, `SKU / Código / 编码`, `Ubicación / 仓库位置`, `Piezas / 件数`, `Mínimo / 最低预警`, `Estado / 状态`.
+         - **Movimientos de Inventario**: `Fecha / 日期`, `Producto / 产品`, `Tipo / 类型`, `Cantidad / 数量`, `Costo Actual / 成本单价`, `Precio Venta / 销售单价`, `Monto Total / 总付款`, `Impuesto / 税额`, `Costo Neto / 净成本`, `Ganancia / 利润`, `Evidencia / 实物凭证`, `Motivo / 原因`, `Referencia / 参考`, `Usuario / 操作员`.
+         - **Cotizaciones**: `Folio / 单号`, `Cliente / 客户`, `Productos Cotizados / 报价产品`, `Fecha Inicio / 起始日期`, `Vencimiento / 有效期至`, `Total / 合计`, `Estado / 状态`, `Acciones / 操作`, y en el modal de detalle de cotización: `SKU / Código / 编码`, `Producto / 产品`, `Cantidad / 数量`, `Precio / 单价`, `Total / 合计`.
+         - **Histórico de Ventas**: `Folio / 单号`, `Fecha / 日期`, `Cliente / 客户`, `Modalidad de Pago / 付款方式`, `Estado / 状态`, `Total / 合计`, `Saldo Pendiente / 余款`, `Acciones / 操作`.
+         - **Operaciones Comerciales (Abonos, Transacciones y Devoluciones)**: `Folio / 单号`, `Recibo / Referencia / 收据编号 / 参考号`, `Recibo / 收据编号`, `N° Devolución / 退货单号`, `Fecha / 日期`, `Fecha de Devolución / 退货日期`, `Movimiento / 资金变动`, `Modalidad de Pago / 付款方式`, `Monto Abonado / 实付金额`, `Saldo Pendiente / 余款`, `Cliente / 客户`, `Usuario / 操作员`, `Acciones / 操作`, `Método Reembolso / 退款方式`, `Monto Reembolsado / 退款金额`.
+         - **Turno de Caja**: `Folio Turno / 班次单号`, `Usuario / 操作员`, `Apertura / 开班时间`, `Cierre / 关班时间`, `Esperado / 预期金额`, `Real / 实际结扎`, `Diferencia / 差额`, `Estado / 状态`, `Tipo / 类型`, `Motivo / 原因`, `Monto / 金额`, `Categoría / 分类`, `Tipo Movimiento / 变动类型`, `Descripción / 描述`.
+         - **Usuarios y Roles**: `Usuario / Empleado / 用户 / 员工`, `Correo Electrónico / 电子邮箱`, `Puesto / 职务`, `Rol en Sistema / 系统角色`, `Estado / 状态`, `Acciones / 操作`.
+         - **Bitácora y Auditoría**: `Fecha / 日期`, `Usuario / 操作员`, `Módulo / 模块`, `Actividad / 活动`, `Resultado / 结果`, `Detalles / 详情`.
+         - **Reportes Ejecutivos**: `SKU / Código / 编码`, `Categoría / 分类`, `Cantidad Vendida / 销售数量`, `Cantidad Devuelta / 退货数量`, `Cantidad Neta / 净销售数量`, `Venta Neta / 净销售额`, `Piezas / 件数`, `Mínimo / 最低预警`, `Unidades Sugeridas / 建议补货`, `Estado / 状态`.
+  - **Pruebas y Verificación**:
+    - Frontend Build: `tsc && vite build` completado exitosamente en 11s con 0 errores y 0 advertencias.
+    - Frontend Tests: Suite completa Vitest (47/47 pruebas pasando al 100%).
+
 - **Mantenimiento Catálogo de Productos (Fusión a `main` via PR #4)**:
   - **Rama Git**: `main` (commit `33eee52`, fusionado desde PR #4 `mantenimiento/mejoras-catalogo-productos`).
   - **Objetivo**: Mejoras al módulo de productos "catálogo" solicitadas por el cliente:
@@ -27,17 +51,7 @@
     5. **Reordenamiento y Formato Bilingüe Universal de Columnas**:
        - Columna `ID` (`#{p.idProducto}`) reubicada en primera posición, seguida de la columna de `Imagen` (2ª) y `SKU / Código` (3ª).
        - En la columna `SKU / Código`, el SKU se destaca en tipografía grande monospace (`1.15rem`, negrita 800) y el código de barras debajo (`Cod: ...`).
-       - Formato bilingüe dual (`Español / 中文`) aplicado al 100% de los encabezados de tabla:
-         - `ID / 编号`
-         - `Imagen / 图片`
-         - `SKU / Código / 编码`
-         - `Categoría / 分类`
-         - `Precio Menudeo / 零售价`
-         - `Precio Mayoreo / 批发价`
-         - `Inventario Actual / 当前库存`
-         - `Piezas/Caja / 每箱片数`
-         - `Cobertura (m²) / 覆盖面积`
-         - `Acciones / 操作`
+       - Formato bilingüe dual (`Español / 中文`) aplicado al 100% de los encabezados de tabla.
   - **Pruebas y Verificación**:
     - Backend: 77/77 pruebas superadas al 100% (xUnit: Domain, Application, IntegrationTests).
     - Frontend: 47/47 pruebas unitarias de Vitest superadas (100%).
