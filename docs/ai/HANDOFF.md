@@ -1,5 +1,14 @@
 # HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
+## 📌 Hito Cumplido: Optimización de Espacios en Punto de Venta (Ampliación de Catálogo y Compactación de Checkout)
+- **Rama Git**: `mantenimiento-ajuste-pdv`
+- **Descripción**: Reducción de ancho y compactación de espaciados de la columna de checkout (`.pos-checkout`) para permitir que la vista de catálogo (`.pos-card`) gane amplitud y muestre más tarjetas de productos en pantalla aprovechando al máximo la resolución horizontal.
+- **Entregables Realizados**:
+  1. **Redistribución de Columnas**: `.pos-layout` ahora asigna `minmax(0, 1fr)` al catálogo y fija/clampa el checkout a `clamp(295px, 24vw, 340px)`.
+  2. **Grid de Productos Expandido**: `.pos-products` con rejilla auto-fill `minmax(235px, 1fr)` y gap `0.75rem`.
+  3. **Compactación de Checkout**: Margen, relleno, tipografía y elementos de cliente, lista de carrito, facturación, totales, modalidad de pago y botón de cobro optimizados con dimensiones más esbeltas y sin espacios en blanco excesivos.
+  4. **Pruebas y Verificación**: 47/47 pruebas Vitest aprobadas, build de producción 100% limpio y 77/77 pruebas de backend operativas.
+
 ## 📌 Hito Cumplido: Sincronización de Base de Datos Producción (VPS) a Entorno Local DEV y Respaldo Semanal
 - **Descripción**: Respaldo completo de la base de datos de producción (`193.46.198.88`) extraído desde el contenedor `mssql-server` y restaurado localmente en `PosLambrinDb` y `PosLambrinDb_Dev`, permitiendo al desarrollador trabajar con los datos reales que los usuarios han insertado en producción (74 productos, 13 categorías, 74 existencias en stock, clientes y auditoría), además de la automatización de respaldos periódicos semanales en el VPS.
 - **Entregables Realizados**:

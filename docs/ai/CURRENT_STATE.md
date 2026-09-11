@@ -2,6 +2,23 @@
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
 
+- **Optimización de Espacios en Punto de Venta (Ampliación de Catálogo y Compactación de Checkout)**:
+  - **Rama Git**: `mantenimiento-ajuste-pdv`
+  - **Objetivo**: Reducir el ancho y los espaciados del panel lateral de carrito/checkout (`.pos-checkout`) para permitir que el área de tarjetas de productos (`.pos-card`) se expanda significativamente en pantalla, y rediseñar los elementos del carrito (`.pos-cart-item`) en una estructura de 2 niveles espaciosos para evitar que se amontonen los botones de cantidad, detalles y precios.
+  - **Cambios Realizados**:
+    - `.pos-layout`: Reconfigurado a `grid-template-columns: minmax(0, 1fr) clamp(310px, 24vw, 355px);` con `align-items: start`. El catálogo de productos ahora ocupa más del 75% del ancho de pantalla.
+    - `.pos-products`: Rejilla ajustada a `minmax(235px, 1fr)` con `gap: 0.75rem`, permitiendo una distribución fluida de 4 a 6 columnas en pantallas panorámicas.
+    - `.pos-cart-item` (Estructura de 2 Filas Espaciosas):
+      - **Fila Superior**: Miniatura del producto + SKU destacado + Nombre completo con el ancho completo disponible + Botón de eliminar `×` a la derecha.
+      - **Fila Inferior**: Controles de cantidad `[-] [ 1 ] [+]` a la izquierda, información unitaria y cobertura en el centro, y subtotal en negrita a la derecha.
+      - **Corrección de texto redundante**: Eliminada la duplicación como `1 Pzas (1 Pzas)`. Ahora muestra limpiamente `1 Pza`, `2 Pzas`, o el desglose por cajas solo cuando aplica (ej. `14 Pzas (1 Cja + 4 Pzas)`).
+    - Checkout compacto: gaps y paddings reducidos en cliente, notas, modalidad de pago, totales y botón procesar.
+  - **Pruebas y Verificación**:
+    - Frontend: 47/47 pruebas unitarias de Vitest superadas (100%).
+    - Build: `tsc && vite build` completado exitosamente en 10.53s con 0 errores y 0 advertencias.
+    - Backend: 77/77 pruebas superadas al 100%.
+
+
 - **Sincronización de Base de Datos Producción (VPS) a Entorno DEV Local y Respaldo Semanal**:
   - **Fecha**: 10 de Septiembre, 2026
   - **Objetivo**: Descargar el respaldo completo de la base de datos de producción (`193.46.198.88`) y restaurarlo en el motor SQL Server local del desarrollador (`PosLambrinDb` y `PosLambrinDb_Dev`), e implementar un cron job de respaldo automatizado semanal en el VPS.
