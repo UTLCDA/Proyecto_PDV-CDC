@@ -1019,33 +1019,78 @@ export const PaginaCatalogoProductos: React.FC = () => {
               <div style={{ padding: '1rem', background: 'var(--background-container)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                 <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--accent-primary)' }}>{t('productImageSection')}</h4>
 
-                <div className="catalog-image-grid" style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '1.25rem', alignItems: 'center' }}>
-                  {/* Vista Previa de Imagen (1.2) */}
+                <div className="catalog-image-grid" style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '1.25rem', alignItems: 'center' }}>
+                  {/* Vista Previa de Imagen (1.2) con botón de eliminación */}
                   <div style={{ textAlign: 'center' }}>
                     {procesandoImagen ? (
-                      <div style={{ width: '95px', height: '95px', borderRadius: '8px', background: 'var(--background-surface)', border: '1px dashed var(--accent-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-primary)', fontSize: '0.72rem', padding: '0.25rem' }}>
+                      <div style={{ width: '105px', height: '105px', borderRadius: '8px', background: 'var(--background-surface)', border: '1px dashed var(--accent-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-primary)', fontSize: '0.72rem', padding: '0.25rem' }}>
                         <span style={{ fontSize: '1.2rem', marginBottom: '4px' }}>⏳</span>
                         {t('optimizingImage')}
                       </div>
                     ) : (imagenPreviewUrl || imagenUrl) ? (
-                      <div>
-                        <img
-                          src={imagenPreviewUrl || imagenUrl}
-                          alt="Preview"
-                          style={{ width: '95px', height: '95px', objectFit: 'cover', borderRadius: '8px', border: '2px solid var(--accent-primary)', display: 'block', margin: '0 auto' }}
-                        />
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.45rem' }}>
+                        <div style={{ position: 'relative', width: '105px', height: '105px', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--accent-primary)', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
+                          <img
+                            src={imagenPreviewUrl || imagenUrl}
+                            alt="Preview"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          />
+                          {/* Botón flotante rápido para quitar */}
+                          <button
+                            type="button"
+                            onClick={handleQuitarImagen}
+                            title={t('removeProductImage')}
+                            style={{
+                              position: 'absolute',
+                              top: '4px',
+                              right: '4px',
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              background: 'rgba(220, 38, 38, 0.9)',
+                              color: '#fff',
+                              border: 'none',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '0.85rem',
+                              fontWeight: 'bold',
+                              boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+                              lineHeight: 1
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
                         <button
                           type="button"
                           onClick={handleQuitarImagen}
-                          className="lang-btn"
-                          style={{ marginTop: '0.4rem', fontSize: '0.72rem', color: '#dc2626', width: '100%', padding: '0.2rem 0.4rem' }}
-                          title={t('removePhoto')}
+                          className="action-btn"
+                          style={{
+                            background: '#fee2e2',
+                            color: '#b91c1c',
+                            borderColor: '#fca5a5',
+                            fontSize: '0.74rem',
+                            padding: '0.35rem 0.65rem',
+                            width: '100%',
+                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.3rem',
+                            cursor: 'pointer',
+                            borderRadius: '4px',
+                            fontWeight: 600
+                          }}
+                          title={t('removeProductImage')}
                         >
-                          {t('removePhoto')}
+                          🗑️ {t('removeProductImage')}
                         </button>
                       </div>
                     ) : (
-                      <div style={{ width: '95px', height: '95px', borderRadius: '8px', background: 'var(--background-surface)', border: '1px dashed var(--border-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                      <div style={{ width: '105px', height: '105px', borderRadius: '8px', background: 'var(--background-surface)', border: '1px dashed var(--border-input)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.78rem', gap: '0.25rem' }}>
+                        <span style={{ fontSize: '1.4rem' }}>📷</span>
                         {t('noPhoto')}
                       </div>
                     )}
@@ -1053,17 +1098,43 @@ export const PaginaCatalogoProductos: React.FC = () => {
 
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.35rem' }}>
-                      {esEdicion && imagenUrl ? t('changeProductImage') : t('uploadProductImage')}
+                      {esEdicion && (imagenUrl || imagenPreviewUrl) ? t('changeProductImage') : t('uploadProductImage')}
                     </label>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*,.heic,.heif,.HEIC,.HEIF"
-                      className="input-field"
-                      disabled={procesandoImagen}
-                      onChange={handleImageFileChange}
-                      style={{ cursor: procesandoImagen ? 'wait' : 'pointer' }}
-                    />
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,.heic,.heif,.HEIC,.HEIF"
+                        className="input-field"
+                        disabled={procesandoImagen}
+                        onChange={handleImageFileChange}
+                        style={{ cursor: procesandoImagen ? 'wait' : 'pointer', flex: 1 }}
+                      />
+                      {(imagenPreviewUrl || imagenUrl || imagenArchivo) && (
+                        <button
+                          type="button"
+                          onClick={handleQuitarImagen}
+                          className="action-btn"
+                          style={{
+                            background: '#fee2e2',
+                            color: '#b91c1c',
+                            borderColor: '#fca5a5',
+                            padding: '0.5rem 0.75rem',
+                            fontSize: '0.8rem',
+                            whiteSpace: 'nowrap',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            cursor: 'pointer',
+                            borderRadius: '6px',
+                            fontWeight: 600
+                          }}
+                          title={t('removeProductImage')}
+                        >
+                          🗑️ {t('removeProductImage')}
+                        </button>
+                      )}
+                    </div>
                     <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '0.35rem', lineHeight: '1.3' }}>
                       {procesandoImagen
                         ? t('convertingHeic')

@@ -22,10 +22,13 @@ All notable changes to this project will be documented in this file.
     - El Punto de Venta ahora inicia con `pageSize: 40` en lugar de solicitar 500 productos pesados en un solo bloque.
     - El escáner de código de barras USB consulta el catálogo en memoria y, si el producto no está presente, consulta de forma instantánea al backend mediante `GET /api/v1/products/code/{code}`.
     - Atributos `loading="lazy"` y `decoding="async"` incorporados en todas las imágenes de productos (catálogo, POS, carrito y modal).
+  - **Botón de Eliminación Rápida de Imagen en Modal de Catálogo**:
+    - Incorporado en el modal de creación y edición de productos un botón flotante `✕` sobre la miniatura y botones de acción destacados (`🗑️ Eliminar Imagen / 删除图片`) tanto al pie de la miniatura como junto al selector de archivos.
+    - Permite al usuario descartar la foto actual o cancelar una selección errónea sin alterar ningún otro campo del formulario (SKU, precios, inventario, dimensiones, etc.), marcando `imagenFueEliminada` para coordinar el borrado en backend o frontend de forma limpia.
   - **Auditoría Limpia**: Los eventos de auditoría (`PRODUCT_IMAGE_UPLOADED`, `PRODUCT_IMAGE_REMOVED`, `PRODUCT_IMAGES_MIGRATED`) registran metadatos y rutas sin almacenar cadenas Base64.
 - **Pruebas y Verificación**:
   - Backend: 84/84 pruebas unitarias e integración superadas al 100% (+7 pruebas nuevas para el servicio de almacenamiento y endpoints).
-  - Frontend: 47/47 pruebas Vitest aprobadas y build de producción limpio (10.70s, 0 errores).
+  - Frontend: 47/47 pruebas Vitest aprobadas y build de producción limpio (11.69s, 0 errores).
 
 ## [2.8.0] Estandarización Bilingüe Universal de Columnas y Alertas Reactivas - 2026-09-10
 

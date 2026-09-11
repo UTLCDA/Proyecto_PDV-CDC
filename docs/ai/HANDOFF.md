@@ -18,12 +18,12 @@
   4. **Optimización de Memoria y Rendimiento SQL**:
      - Removido `.Include(p => p.Imagenes)` en `GetProductsAsync`. Las consultas de catálogo ahora retornan DTOs esbeltos sin sobrecarga de memoria.
   5. **Frontend React + Vite**:
-     - `PaginaCatalogoProductos.tsx`: Reemplazada la conversión Base64 en frontend por vista previa con `URL.createObjectURL` y subida multipart vía `uploadProductImage`. `loading="lazy"` y `decoding="async"`.
+     - `PaginaCatalogoProductos.tsx`: Reemplazada la conversión Base64 en frontend por vista previa con `URL.createObjectURL` y subida multipart vía `uploadProductImage`. `loading="lazy"` y `decoding="async"`. Incorporado botón flotante `✕` y botón de acción destacado `🗑️ Eliminar Imagen / 删除图片` en el modal para remover la foto actual o descartar una selección por error sin afectar ni reiniciar ningún otro dato del producto.
      - `PaginaPuntoVenta.tsx`: Carga inicial reducida a `pageSize: 40`. Si un código de barras escaneado no está en memoria, `findAndAddProduct` consulta `GET /api/v1/products/code/{code}` para agregarlo al carrito al instante.
      - `apiClient.ts`: Soporte nativo de `FormData` sin forzar `application/json`.
   6. **Pruebas y Verificación**:
      - Backend: 84/84 pruebas unitarias y de integración superadas (100%).
-     - Frontend: 47/47 pruebas Vitest aprobadas (100%) y build exitoso (10.70s).
+     - Frontend: 47/47 pruebas Vitest aprobadas (100%) y build exitoso (11.69s, 0 errores).
 - **Instrucciones para Despliegue en VPS (Producción)**:
   - Crear carpeta física en VPS: `mkdir -p /var/wpcbajio/data/products && chown -R www-data:www-data /var/wpcbajio/data/products` (o el usuario del contenedor/servicio).
   - Variable de entorno o `appsettings.Production.json`:

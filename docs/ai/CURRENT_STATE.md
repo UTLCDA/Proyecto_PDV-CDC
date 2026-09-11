@@ -32,12 +32,15 @@
       - El POS carga inicialmente `pageSize: 40` (reducción de más del 90% en la transferencia inicial respecto a los 500 productos anteriores).
       - En el escaneo de código de barras USB (`findAndAddProduct`), si el producto no se encuentra en el caché en memoria de 40 productos, se realiza un fallback instantáneo al endpoint `GET /api/v1/products/code/{code}` para añadirlo al carrito sin interrupciones ni recargar la página.
       - Inclusión de atributos `loading="lazy"` y `decoding="async"` en todas las imágenes de productos.
+    - **Modal de Edición/Creación de Producto con Eliminación de Imagen Segura**:
+      - Incorporado botón flotante `✕` y botón de acción `🗑️ Eliminar Imagen / 删除图片` en el modal de catálogo de `PaginaCatalogoProductos.tsx`.
+      - Permite revertir una selección de archivo o eliminar la imagen existente sin modificar ni reiniciar ninguno de los demás campos del formulario (precios, códigos, dimensiones, categoría, etc.).
     - **Auditoría Limpia**:
       - Eventos `PRODUCT_IMAGE_UPLOADED`, `PRODUCT_IMAGE_REMOVED` y `PRODUCT_IMAGES_MIGRATED` registrados en `AuditLogs` con URLs y metadatos, sin almacenar cadenas Base64.
   - **Pruebas y Verificación**:
     - Backend: 84/84 pruebas xUnit superadas al 100% (`dotnet test src/backend/Pos.sln`), incluyendo 6 pruebas unitarias específicas para `LocalProductImageStorageService` y prueba de integración de subida de imágenes con validación de static files.
     - Frontend: 47/47 pruebas unitarias de Vitest superadas (100%).
-    - Build: `tsc && vite build` completado exitosamente en 10.70s con 0 errores.
+    - Build: `tsc && vite build` completado exitosamente en 11.69s con 0 errores y 0 advertencias.
 
   - **Rama Git**: `mantenimiento/unificar-columna-precios-catalogo`
   - **Objetivo**: Combinar las columnas de "Precio Menudeo / 零售价" y "Precio Mayoreo / 批发价" en una sola columna visual en la tabla del catálogo para ahorrar espacio horizontal en pantalla, manteniendo la exportación a Excel y PDF intacta con ambas columnas separadas.
