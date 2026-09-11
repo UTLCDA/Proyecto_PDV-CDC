@@ -4,15 +4,18 @@
 
 - **Optimización de Espacios en Punto de Venta (Ampliación de Catálogo y Compactación de Checkout)**:
   - **Rama Git**: `mantenimiento-ajuste-pdv`
-  - **Objetivo**: Reducir el ancho y los espaciados internos del panel lateral de carrito/checkout (`.pos-checkout`) para permitir que el área de tarjetas de productos (`.pos-card`) se expanda significativamente en pantalla y muestre más productos por fila sin espacios desperdiciados.
+  - **Objetivo**: Reducir el ancho y los espaciados del panel lateral de carrito/checkout (`.pos-checkout`) para permitir que el área de tarjetas de productos (`.pos-card`) se expanda significativamente en pantalla, y rediseñar los elementos del carrito (`.pos-cart-item`) en una estructura de 2 niveles espaciosos para evitar que se amontonen los botones de cantidad, detalles y precios.
   - **Cambios Realizados**:
-    - `.pos-layout`: Reconfigurado a `grid-template-columns: minmax(0, 1fr) clamp(295px, 24vw, 340px);` con `align-items: start`. El catálogo de productos ahora ocupa más del 75% del ancho de pantalla.
+    - `.pos-layout`: Reconfigurado a `grid-template-columns: minmax(0, 1fr) clamp(310px, 24vw, 355px);` con `align-items: start`. El catálogo de productos ahora ocupa más del 75% del ancho de pantalla.
     - `.pos-products`: Rejilla ajustada a `minmax(235px, 1fr)` con `gap: 0.75rem`, permitiendo una distribución fluida de 4 a 6 columnas en pantallas panorámicas.
-    - `.pos-checkout`: Reducción de gap a `0.45rem`, padding de contenedor a `0.75rem 0.85rem`, cabecera compacta con título `0.98rem`, botones secundarios a `0.35rem 0.55rem`, campos de cliente, pago y notas estilizados con inputs de `0.8rem` y textarea de `38px`.
-    - Lista de carrito y totales compactados: items con imágenes miniatura de `32x32px`, controles de cantidad `22x22px`, fila de facturación y desglose de totales optimizados.
+    - `.pos-cart-item` (Estructura de 2 Filas Espaciosas):
+      - **Fila Superior**: Miniatura del producto + SKU destacado + Nombre completo con el ancho completo disponible + Botón de eliminar `×` a la derecha.
+      - **Fila Inferior**: Controles de cantidad `[-] [ 1 ] [+]` a la izquierda, información unitaria y cobertura en el centro, y subtotal en negrita a la derecha.
+      - **Corrección de texto redundante**: Eliminada la duplicación como `1 Pzas (1 Pzas)`. Ahora muestra limpiamente `1 Pza`, `2 Pzas`, o el desglose por cajas solo cuando aplica (ej. `14 Pzas (1 Cja + 4 Pzas)`).
+    - Checkout compacto: gaps y paddings reducidos en cliente, notas, modalidad de pago, totales y botón procesar.
   - **Pruebas y Verificación**:
     - Frontend: 47/47 pruebas unitarias de Vitest superadas (100%).
-    - Build: `tsc && vite build` completado exitosamente en 11.14s con 0 errores y 0 advertencias.
+    - Build: `tsc && vite build` completado exitosamente en 10.53s con 0 errores y 0 advertencias.
     - Backend: 77/77 pruebas superadas al 100%.
 
 
