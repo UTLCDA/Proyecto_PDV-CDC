@@ -47,3 +47,6 @@ publish/
 dist_vps_api/
 *.tar.gz
 *.zip
+backups/
+*.bak
+

@@ -2,6 +2,23 @@
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
 
+- **Sincronización de Base de Datos Producción (VPS) a Entorno DEV Local y Respaldo Semanal**:
+  - **Fecha**: 10 de Septiembre, 2026
+  - **Objetivo**: Descargar el respaldo completo de la base de datos de producción (`193.46.198.88`) y restaurarlo en el motor SQL Server local del desarrollador (`PosLambrinDb` y `PosLambrinDb_Dev`), e implementar un cron job de respaldo automatizado semanal en el VPS.
+  - **Implementación en VPS**:
+    - Script bash de respaldo automatizado: `/usr/local/bin/backup-pos-db.sh` (replicado en repositorio como `scripts/deployment/backup-pos-db.sh`).
+    - Almacenamiento seguro en host: `/var/backups/pos-database/` con nombres fechados (`PosLambrinDb_YYYYMMDD_HHMMSS.bak`) y copia fija `PosLambrinDb_latest.bak`.
+    - Política de retención: Consolidación y conservación de los últimos 8 respaldos semanales (eliminación automática de los más antiguos).
+    - Bitácora de ejecución de respaldos: `/var/log/pos-db-backup.log`.
+    - Tarea programada (Cron): `0 3 * * 0 /usr/local/bin/backup-pos-db.sh >> /var/log/pos-db-backup.log 2>&1` (ejecución automática todos los domingos a las 03:00 UTC / 21:00 MX).
+  - **Implementación en Local**:
+    - Script PowerShell `scripts/development/sync-db-from-vps.ps1` que invoca el respaldo en el VPS, descarga el archivo por SCP y restaura automáticamente `PosLambrinDb` y `PosLambrinDb_Dev`.
+    - `.bak` y carpeta `backups/` excluidos en `.gitignore`.
+  - **Pruebas y Verificación**:
+    - Backend: 77/77 pruebas superadas al 100% (Domain, Application, IntegrationTests).
+    - Cron y script ejecutados y verificados con éxito en VPS. Conteos sincronizados: 74 productos, 13 categorías, 74 existencias en stock, 2002 logs de auditoría.
+
+
 - **Estandarización Bilingüe Universal de Columnas y Alertas Reactivas i18n**:
   - **Rama Git**: `main`
   - **Objetivo**:

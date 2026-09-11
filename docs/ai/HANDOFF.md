@@ -1,5 +1,14 @@
 # HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
+## 📌 Hito Cumplido: Sincronización de Base de Datos Producción (VPS) a Entorno Local DEV y Respaldo Semanal
+- **Descripción**: Respaldo completo de la base de datos de producción (`193.46.198.88`) extraído desde el contenedor `mssql-server` y restaurado localmente en `PosLambrinDb` y `PosLambrinDb_Dev`, permitiendo al desarrollador trabajar con los datos reales que los usuarios han insertado en producción (74 productos, 13 categorías, 74 existencias en stock, clientes y auditoría), además de la automatización de respaldos periódicos semanales en el VPS.
+- **Entregables Realizados**:
+  1. **Respaldo Automatizado en VPS**: Script `/usr/local/bin/backup-pos-db.sh` con política de retención para 8 semanas, registro en `/var/log/pos-db-backup.log` y archivo `/var/backups/pos-database/PosLambrinDb_latest.bak`.
+  2. **Tarea Programada (Cron)**: Configurada en `crontab` de root para ejecutarse cada domingo a las 03:00 UTC (21:00 MX).
+  3. **Restauración en SQL Server Local**: Restauración con reubicación física de archivos (`WITH MOVE`) en `PosLambrinDb` (base principal de desarrollo) y `PosLambrinDb_Dev` (réplica limpia de apoyo).
+  4. **Script PowerShell Local**: [scripts/development/sync-db-from-vps.ps1](file:///d:/Proyecto_PDV-CDC/scripts/development/sync-db-from-vps.ps1) para sincronizar en cualquier momento con un solo comando.
+  5. **Pruebas y Verificación**: 77/77 pruebas unitarias y de integración de backend pasando al 100%.
+
 ## 📌 Hito Cumplido: Estandarización Bilingüe Universal de Columnas y Alertas Reactivas
 - **Rama Git**: `main`
 - **Descripción**: Estandarización al 100% en formato `"Nombre Español / Nombre Chino"` de todas las cabeceras de columnas en todos los módulos de la aplicación, y reactividad dinámica total para alertas críticas del sistema (como la alerta de turno de caja sin aperturar y notificaciones de ventas) para que conmuten instantáneamente de idioma al cambiar a Chino Simplificado (`zh`).
