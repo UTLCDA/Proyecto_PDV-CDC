@@ -532,10 +532,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
                     {t('category')}
                   </SortableTh>
                   <SortableTh columnKey="unitPrice" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
-                    {t('unitPrice')}
-                  </SortableTh>
-                  <SortableTh columnKey="wholesalePrice" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem' }}>
-                    {t('wholesalePrice')}
+                    {t('pricesCombined')}
                   </SortableTh>
                   <SortableTh columnKey="stock" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} style={{ padding: '0.75rem', textAlign: 'center' }}>
                     {t('currentInventory')}
@@ -551,7 +548,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
               </thead>
               <tbody>
                 {productosOrdenados.length === 0 && (
-                  <tr><td colSpan={10} className="catalog-empty-state">{t('noCatalogProducts')}</td></tr>
+                  <tr><td colSpan={9} className="catalog-empty-state">{t('noCatalogProducts')}</td></tr>
                 )}
                 {productosOrdenados.map(p => (
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--border-subtle)', opacity: p.isActive ? 1 : 0.65 }}>
@@ -618,11 +615,51 @@ export const PaginaCatalogoProductos: React.FC = () => {
                       </div>
                     </td>
                     <td style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>{p.categoryName}</td>
-                    <td style={{ padding: '0.75rem', fontWeight: 700, color: 'var(--accent-gold)' }}>
-                      ${p.unitPrice?.toFixed(2)} MXN
-                    </td>
-                    <td style={{ padding: '0.75rem', color: 'var(--success)' }}>
-                      ${p.wholesalePrice?.toFixed(2)} ({t('wholesaleMin', { qty: p.wholesaleMinQuantity, unit: p.unitOfMeasure })})
+                    {/* Columna Combinada: Precio Menudeo y Mayoreo */}
+                    <td style={{ padding: '0.75rem', minWidth: '140px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.86rem', whiteSpace: 'nowrap' }}>
+                          <span style={{
+                            fontSize: '0.66rem',
+                            fontWeight: 750,
+                            textTransform: 'uppercase',
+                            color: 'var(--text-muted)',
+                            background: 'var(--background-container)',
+                            padding: '0.08rem 0.32rem',
+                            borderRadius: '3px',
+                            border: '1px solid var(--border-subtle)',
+                            letterSpacing: '0.3px'
+                          }}>
+                            Men
+                          </span>
+                          <strong style={{ color: 'var(--accent-gold, #b45309)', fontWeight: 800 }}>
+                            ${p.unitPrice?.toFixed(2)}
+                          </strong>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>MXN</span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.84rem', whiteSpace: 'nowrap' }}>
+                          <span style={{
+                            fontSize: '0.66rem',
+                            fontWeight: 750,
+                            textTransform: 'uppercase',
+                            color: 'var(--success, #16a34a)',
+                            background: 'var(--success-surface, rgba(22, 163, 74, 0.08))',
+                            padding: '0.08rem 0.32rem',
+                            borderRadius: '3px',
+                            border: '1px solid var(--success-border, rgba(22, 163, 74, 0.2))',
+                            letterSpacing: '0.3px'
+                          }}>
+                            May
+                          </span>
+                          <strong style={{ color: 'var(--success, #16a34a)', fontWeight: 750 }}>
+                            ${p.wholesalePrice?.toFixed(2)}
+                          </strong>
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                            ({t('wholesaleMin', { qty: p.wholesaleMinQuantity, unit: p.unitOfMeasure })})
+                          </span>
+                        </div>
+                      </div>
                     </td>
                     {/* Columna Inventario Actual (Piezas Totales en Existencia) */}
                     <td style={{ padding: '0.75rem', textAlign: 'center' }}>

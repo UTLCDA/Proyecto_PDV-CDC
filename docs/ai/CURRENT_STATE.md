@@ -2,6 +2,21 @@
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
 
+- **Unificación Visual de Columnas de Precio (Menudeo / Mayoreo) en Catálogo de Productos**:
+  - **Rama Git**: `mantenimiento/unificar-columna-precios-catalogo`
+  - **Objetivo**: Combinar las columnas de "Precio Menudeo / 零售价" y "Precio Mayoreo / 批发价" en una sola columna visual en la tabla del catálogo para ahorrar espacio horizontal en pantalla, manteniendo la exportación a Excel y PDF intacta con ambas columnas separadas.
+  - **Cambios Realizados**:
+    - `PaginaCatalogoProductos.tsx`:
+      - Encabezado `<th>`: Unificado mediante `t('pricesCombined')` (`Precios (Men. / May.) / 价格 (零售 / 批发)`) con ordenamiento interactivo por precio base (`unitPrice`).
+      - Celdas `<td>`: Ambas tarifas integradas en una estructura limpia con badges compactos de distinción (`Men` en dorado/ámbar con monto en MXN y `May` en verde con umbral de mayoreo `Min X Pzas`).
+      - `colSpan` de empty state ajustado de 10 a 9 columnas.
+      - **Exportación intacta**: La configuración `exportConfig` mantiene las columnas independientes `unitPrice` y `wholesalePrice`, garantizando que las descargas de Excel (XLSX) y reportes PDF conserven ambas columnas separadas.
+    - `i18n/index.ts`: Añadida la clave bilingüe dual `pricesCombined: 'Precios (Men. / May.) / 价格 (零售 / 批发)'` en los diccionarios español y chino simplificado.
+  - **Pruebas y Verificación**:
+    - Frontend: 47/47 pruebas unitarias de Vitest superadas (100%).
+    - Build: `tsc && vite build` completado exitosamente en 10.98s con 0 errores y 0 advertencias.
+
+
 - **Optimización de Espacios en Punto de Venta (Ampliación de Catálogo y Compactación de Checkout)**:
   - **Rama Git**: `mantenimiento-ajuste-pdv`
   - **Objetivo**: Reducir el ancho y los espaciados del panel lateral de carrito/checkout (`.pos-checkout`) para permitir que el área de tarjetas de productos (`.pos-card`) se expanda significativamente en pantalla, y rediseñar los elementos del carrito (`.pos-cart-item`) en una estructura de 2 niveles espaciosos para evitar que se amontonen los botones de cantidad, detalles y precios.
