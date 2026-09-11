@@ -1,5 +1,10 @@
 # HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
+## 📌 Hito Cumplido: Optimización de Categorías en PDV y Catálogo (Sin saturar el API)
+- **Archivos Modificados**: `PaginaPuntoVenta.tsx`, `PaginaCatalogoProductos.tsx`.
+- **Descripción**: Se eliminaron las consultas masivas a `GET /categories` que se realizaban en cada carga inicial del Punto de Venta y en cada recarga/paginación del Catálogo de Productos. Se preconfigura la categoría comercial única del negocio (`7938934b-d6cb-44fd-98de-b0645c66017d` - `Lambrin Interior 格栅板`), evitando saturar el backend con peticiones redundantes.
+- **Pruebas**: 47/47 pruebas de Vitest aprobadas al 100%, compilación exitosa con Vite.
+
 ## 📌 Hito Cumplido: Optimización de Almacenamiento y Entrega de Imágenes de Productos (Desplegado a Producción VPS y Main)
 - **Rama Git**: `main` (desplegada y sincronizada con `origin/main` en commit `3551058`).
 - **Descripción**: Migración integral de la gestión de imágenes de productos desde cadenas Base64 embebidas en SQL Server (`nvarchar(max)`) y JSON a almacenamiento físico en disco en formato WebP optimizado con 3 variantes (`thumbnail.webp`, `pos.webp`, `preview.webp`), servido mediante ASP.NET Core Static Files con caché HTTP (`Cache-Control: public, max-age=604800, must-revalidate`), carga ágil en Punto de Venta (`pageSize: 40`), escaneo resiliente por código de barras hacia la API y migración automática de imágenes legadas.

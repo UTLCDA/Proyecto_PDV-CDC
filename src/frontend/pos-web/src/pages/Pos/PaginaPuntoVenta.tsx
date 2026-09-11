@@ -31,7 +31,16 @@ export const PaginaPuntoVenta: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [manualCode, setManualCode] = useState('');
   const [cardSearch, setCardSearch] = useState('');
-  const [categories, setCategories] = useState<Categoria[]>([]);
+  const [categories] = useState<Categoria[]>([
+    {
+      id: '7938934b-d6cb-44fd-98de-b0645c66017d',
+      name: 'Lambrin Interior 格栅板',
+      slug: 'lambrin-interior',
+      description: 'Lambrin Interior 格栅板',
+      isActive: true,
+      subCategories: []
+    }
+  ]);
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [productDetailModal, setProductDetailModal] = useState<Producto | null>(null);
   const [receipt, setReceipt] = useState<Venta | null>(null);
@@ -87,20 +96,17 @@ export const PaginaPuntoVenta: React.FC = () => {
       const startDateIso = `${year}-${month}-${day}T00:00:00.000Z`;
       const endDateIso = `${year}-${month}-${day}T23:59:59.999Z`;
 
-      const [catalog, customerDirectory, summary, currentShift, categoryList] = await Promise.all([
+      const [catalog, customerDirectory, summary, currentShift] = await Promise.all([
         servicioCatalogo.getProducts(undefined, undefined, { page: 1, pageSize: 40 }),
         servicioCatalogo.getCustomers(undefined, undefined, undefined, { page: 1, pageSize: 500 }),
         servicioVentas.getSalesSummary(undefined, undefined, undefined, startDateIso, endDateIso),
-        cashShiftService.getCurrentShift().catch(() => null),
-        servicioCatalogo.getCategories(undefined, { page: 1, pageSize: 500 }).catch(() => null)
+        cashShiftService.getCurrentShift().catch(() => null)
       ]);
       const productItems = Array.isArray(catalog) ? catalog : catalog.items;
       setProducts(productItems.filter(product => product.isActive));
       const customerItems = Array.isArray(customerDirectory) ? customerDirectory : customerDirectory.items;
       setCustomers(customerItems);
       setSalesSummary(summary);
-      const categoryItems = Array.isArray(categoryList) ? categoryList : categoryList?.items ?? [];
-      setCategories(categoryItems.filter(c => c.isActive !== false));
       const isShiftOpen = Boolean(currentShift && currentShift.status === 'Abierto');
       setHasOpenShift(isShiftOpen);
     } catch (error) {

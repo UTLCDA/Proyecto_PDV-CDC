@@ -2,6 +2,10 @@
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
  
+- **Optimización de Categorías en PDV y Catálogo (Prevención de Saturación del API)**:
+  - **Objetivo**: Evitar llamadas masivas a `GET /categories` en el Punto de Venta (`PaginaPuntoVenta.tsx`) y en el Catálogo (`PaginaCatalogoProductos.tsx`), preconfigurando la categoría comercial exclusiva de Lambrín Interior (`7938934b-d6cb-44fd-98de-b0645c66017d` - `Lambrin Interior 格栅板`).
+  - **Impacto**: Se elimina la consulta `servicioCatalogo.getCategories()` en la carga del POS y en cada carga/paginación del catálogo, eliminando tráfico innecesario en la API y optimizando el tiempo de respuesta visual.
+
 - **Optimización de Almacenamiento y Entrega de Imágenes de Productos (Desplegado en Producción VPS y Main)**:
   - **Rama Git**: `main` (desplegada y sincronizada con `origin/main` en commit `3551058`).
   - **Estado en VPS (`193.46.198.88`)**:

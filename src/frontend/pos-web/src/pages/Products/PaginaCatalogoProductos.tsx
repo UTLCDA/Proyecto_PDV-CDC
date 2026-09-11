@@ -16,6 +16,17 @@ import TablePagination from '../../components/common/TablePagination';
 import { loadAllPagesForExport } from '../../utils/pagedExport';
 import './ProductListPage.css';
 
+const DEFAULT_CATEGORIES: Categoria[] = [
+  {
+    id: '7938934b-d6cb-44fd-98de-b0645c66017d',
+    name: 'Lambrin Interior 格栅板',
+    slug: 'lambrin-interior',
+    description: 'Lambrin Interior 格栅板',
+    isActive: true,
+    subCategories: []
+  }
+];
+
 export const PaginaCatalogoProductos: React.FC = () => {
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
@@ -23,7 +34,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const canEditProduct = hasPermission('catalogo', 'productos_editar');
   const canCreateCategory = hasPermission('catalogo', 'categorias_crear');
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>(DEFAULT_CATEGORIES);
   const [busqueda, setBusqueda] = useState('');
   const [categoriaFiltro, setCategoriaFiltro] = useState('');
   const [filtrosAplicados, setFiltrosAplicados] = useState({ busqueda: '', categoriaId: '', estado: 'active' });
@@ -123,35 +134,27 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setErrorCarga('');
     try {
       const includeInactive = filtrosAplicados.estado === 'all' || filtrosAplicados.estado === 'inactive';
-      const [prodsData, catsData] = await Promise.all([
-        servicioCatalogo.getProducts(
-          filtrosAplicados.busqueda || undefined,
-          filtrosAplicados.categoriaId || undefined,
-          { page: pagination.pageNumber, pageSize: pagination.pageSize },
-          sortKey,
-          sortDirection,
-          includeInactive
-        ),
-        categorias.length === 0 ? servicioCatalogo.getCategories() : Promise.resolve(categorias)
-      ]);
+      const prodsData = await servicioCatalogo.getProducts(
+        filtrosAplicados.busqueda || undefined,
+        filtrosAplicados.categoriaId || undefined,
+        { page: pagination.pageNumber, pageSize: pagination.pageSize },
+        sortKey,
+        sortDirection,
+        includeInactive
+      );
       let items = Array.isArray(prodsData) ? prodsData : prodsData.items;
       if (filtrosAplicados.estado === 'inactive') {
         items = items.filter(p => !p.isActive);
       }
       setProductos(items);
       if (!Array.isArray(prodsData)) pagination.setPaginationFromResult(prodsData);
-      if (categorias.length === 0) {
-        const catItems = Array.isArray(catsData) ? catsData : catsData.items;
-        setCategorias(catItems);
-      }
     } catch (error) {
       setProductos([]);
-      setCategorias([]);
       setErrorCarga(error instanceof Error ? error.message : t('catalogLoadError'));
     } finally {
       setCargando(false);
     }
-  }, [categorias.length, filtrosAplicados, pagination.pageNumber, pagination.pageSize, sortDirection, sortKey, t]);
+  }, [filtrosAplicados, pagination, sortDirection, sortKey, t]);
 
   useEffect(() => {
     void cargarDatos();
@@ -199,7 +202,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setNombre('');
     setColor('');
     setDescripcion('');
-    setCategoriaId(categorias.length > 0 ? categorias[0].id : '');
+    setCategoriaId(categorias.length > 0 ? categorias[0].id : '7938934b-d6cb-44fd-98de-b0645c66017d');
     setPrecioUnitario('');
     setCostoUnitario('');
     setPrecioMayoreo('');
@@ -242,7 +245,18 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setNombre(p.name || '');
     setColor(p.color || '');
     setDescripcion(p.description || '');
-    setCategoriaId(p.categoryId || '');
+    const activeCatId = p.categoryId || (categorias.length > 0 ? categorias[0].id : '7938934b-d6cb-44fd-98de-b0645c66017d');
+    setCategoriaId(activeCatId);
+    if (p.categoryId && !categorias.some(c => c.id === p.categoryId)) {
+      setCategorias(prev => [...prev, {
+        id: p.categoryId!,
+        name: p.categoryName || p.categoryId!,
+        slug: p.categoryId!,
+        description: p.categoryName || p.categoryId!,
+        isActive: true,
+        subCategories: []
+      }]);
+    }
     setPrecioUnitario(p.unitPrice?.toString() || '0');
     setCostoUnitario(p.unitCost?.toString() || '0');
     setPrecioMayoreo(p.wholesalePrice?.toString() || '0');
@@ -461,14 +475,14 @@ export const PaginaCatalogoProductos: React.FC = () => {
     e.preventDefault();
     if (!nombreCategoria.trim()) return;
     try {
-      await servicioCatalogo.createCategory({
+      const nueva = await servicioCatalogo.createCategory({
         name: nombreCategoria.trim(),
         description: descripcionCategoria
       });
+      setCategorias(prev => [...prev, nueva]);
       setNombreCategoria('');
       setDescripcionCategoria('');
       setModalCategoriaAbierto(false);
-      cargarDatos();
     } catch (err: any) {
       alert(err.message || t('categoryCreateError'));
     }
