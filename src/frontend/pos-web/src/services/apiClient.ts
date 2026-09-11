@@ -1,6 +1,6 @@
 import { AuthResponse } from '../types/auth';
 
-const getApiBaseUrl = (): string => {
+export const getApiBaseUrl = (): string => {
   const customApiUrl = (import.meta as any).env?.VITE_API_URL;
   if (customApiUrl) {
     return customApiUrl;
@@ -9,8 +9,13 @@ const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
     const { hostname, port, protocol } = window.location;
 
-    // 1. Dominio de producción o preview en Cloudflare Pages
-    if (hostname === 'pos.wpcbajio.com' || hostname.endsWith('.pages.dev') || hostname.includes('wpcbajio')) {
+    // 1. Dominio de producción o preview en Cloudflare Pages / Workers
+    if (
+      hostname === 'pos.wpcbajio.com' ||
+      hostname.endsWith('.pages.dev') ||
+      hostname.endsWith('.workers.dev') ||
+      hostname.includes('wpcbajio')
+    ) {
       return 'https://api.wpcbajio.com/api/v1';
     }
 
@@ -28,6 +33,28 @@ const getApiBaseUrl = (): string => {
     return 'http://localhost:5000/api/v1';
   }
   return '/api/v1';
+};
+
+/**
+ * Resuelve la URL de una imagen de producto para que funcione tanto en desarrollo local
+ * (a través del proxy de Vite o localhost:5000) como en producción en Cloudflare
+ * (apuntando al origen público de la API https://api.wpcbajio.com).
+ */
+export const resolveProductImageUrl = (url: string | null | undefined): string => {
+  if (!url) return '';
+  if (url.startsWith('data:image') || url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  const apiBase = getApiBaseUrl();
+  if (apiBase.startsWith('http://') || apiBase.startsWith('https://')) {
+    try {
+      const origin = new URL(apiBase).origin;
+      return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
+    } catch {
+      return url;
+    }
+  }
+  return url;
 };
 
 class ApiClient {

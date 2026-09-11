@@ -5,6 +5,7 @@ import { cashShiftService } from '../../services/cashShiftService';
 import { commercialService } from '../../services/commercialService';
 import { servicioCatalogo } from '../../services/servicioCatalogo';
 import { ConvertQuoteRequest, CreateQuoteRequest, Quote, QuoteOptions } from '../../types/commercial';
+import { resolveProductImageUrl } from '../../services/apiClient';
 import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
 import { loadAllPagesForExport } from '../../utils/pagedExport';
@@ -417,7 +418,7 @@ export const QuoteListPage: React.FC = () => {
       <div className="quotes-lines"><header><strong>{t('quoteProducts')}</strong><button type="button" className="pos-link-btn" onClick={() => setLines(current => [...current, { productId: '', quantity: '1' }])}>➕ {t('addLine')}</button></header>{lines.map((line, index) => {
         const selectedProduct = options.products.find(product => product.id === line.productId);
         return <div className="quotes-line" key={index}>
-          <div className="quotes-product-preview">{selectedProduct?.imageUrl ? <img src={selectedProduct.imageUrl} alt={selectedProduct.name} /> : <span>📷</span>}</div>
+          <div className="quotes-product-preview">{selectedProduct?.imageUrl ? <img src={resolveProductImageUrl(selectedProduct.imageUrl)} alt={selectedProduct.name} /> : <span>📷</span>}</div>
           <select required value={line.productId} onChange={event => setLines(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, productId: event.target.value } : item))}><option value="">{t('selectProductPlaceholder')}</option>{options.products.map(product => <option key={product.id} value={product.id}>{product.sku} — {product.name}</option>)}</select>
           <div className="quotes-quantity-control"><button type="button" onClick={() => changeLineQuantity(index, -1)}>−</button><input required type="number" min="1" step="1" value={line.quantity} onChange={event => setLines(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: event.target.value } : item))} placeholder="0" /><button type="button" onClick={() => changeLineQuantity(index, 1)}>+</button></div>
           {lines.length > 1 && <button type="button" onClick={() => setLines(current => current.filter((_, itemIndex) => itemIndex !== index))}>×</button>}

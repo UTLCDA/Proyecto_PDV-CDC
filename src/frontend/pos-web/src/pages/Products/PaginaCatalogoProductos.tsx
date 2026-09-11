@@ -8,6 +8,7 @@ import { ExportReportConfig } from '../../components/export/exportTypes';
 import { generateBarcodeBase64, saveBarcodeLocally, getLocalBarcode } from '../../utils/barcodeGenerator';
 import { downloadTechnicalDataSheet } from '../../utils/technicalSheetGenerator';
 import { processAndCompressImage, isImageFile, isHeicFile } from '../../utils/imageProcessor';
+import { resolveProductImageUrl } from '../../services/apiClient';
 import { useTableSort } from '../../hooks/useTableSort';
 import { SortableTh } from '../../components/common/SortableTh';
 import { usePagination } from '../../hooks/usePagination';
@@ -614,7 +615,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
                     <td style={{ padding: '0.75rem' }}>
                       {p.imageUrl ? (
                         <img
-                          src={p.imageUrl}
+                          src={resolveProductImageUrl(p.imageUrl)}
                           alt={p.sku}
                           loading="lazy"
                           decoding="async"
@@ -1030,7 +1031,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
                     ) : (imagenPreviewUrl || imagenUrl) ? (
                       <div style={{ position: 'relative', width: '105px', height: '105px', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--accent-primary)', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', margin: '0 auto' }}>
                         <img
-                          src={imagenPreviewUrl || imagenUrl}
+                          src={resolveProductImageUrl(imagenPreviewUrl || imagenUrl)}
                           alt="Preview"
                           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                         />

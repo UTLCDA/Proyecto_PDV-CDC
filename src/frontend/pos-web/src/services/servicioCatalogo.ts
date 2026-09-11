@@ -1,4 +1,4 @@
-import api from './apiClient';
+import api, { resolveProductImageUrl } from './apiClient';
 import {
   Producto,
   Categoria,
@@ -14,6 +14,14 @@ import {
 } from '../types/tiposCatalogo';
 import { appendPaging, appendSorting, PagingRequest } from '../utils/pagedExport';
 import { PagedResult } from '../types/pagination';
+
+const normalizeProduct = (p: Producto): Producto => {
+  if (!p) return p;
+  return {
+    ...p,
+    imageUrl: resolveProductImageUrl(p.imageUrl)
+  };
+};
 
 export const servicioCatalogo = {
   // Categories
@@ -64,22 +72,26 @@ export const servicioCatalogo = {
 
     const query = params.toString() ? `?${params.toString()}` : '';
     const response = await api.get<PagedResult<Producto>>(`/products${query}`);
-    return response.data;
+    const data = response.data;
+    return {
+      ...data,
+      items: data.items ? data.items.map(normalizeProduct) : []
+    };
   },
 
   getProductByCode: async (code: string): Promise<Producto> => {
     const response = await api.get<Producto>(`/products/code/${code}`);
-    return response.data;
+    return normalizeProduct(response.data);
   },
 
   createProduct: async (data: PeticionCrearProducto): Promise<Producto> => {
     const response = await api.post<Producto>('/products', data);
-    return response.data;
+    return normalizeProduct(response.data);
   },
 
   updateProduct: async (id: string, data: PeticionActualizarProducto): Promise<Producto> => {
     const response = await api.put<Producto>(`/products/${id}`, data);
-    return response.data;
+    return normalizeProduct(response.data);
   },
 
   deleteProduct: async (id: string): Promise<void> => {
@@ -90,7 +102,12 @@ export const servicioCatalogo = {
     const formData = new FormData();
     formData.append('image', file, fileName);
     const response = await api.post<ProductImageResult>(`/products/${productId}/image`, formData);
-    return response.data;
+    const res = response.data;
+    return {
+      thumbnailUrl: resolveProductImageUrl(res.thumbnailUrl),
+      posUrl: resolveProductImageUrl(res.posUrl),
+      previewUrl: resolveProductImageUrl(res.previewUrl)
+    };
   },
 
   deleteProductImage: async (productId: string): Promise<void> => {

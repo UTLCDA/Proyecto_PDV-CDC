@@ -6,6 +6,7 @@ import { cashShiftService } from '../../services/cashShiftService';
 import { servicioCatalogo } from '../../services/servicioCatalogo';
 import { ElementoCarrito, servicioVentas } from '../../services/servicioVentas';
 import { Cliente, Producto, Categoria } from '../../types/tiposCatalogo';
+import { resolveProductImageUrl } from '../../services/apiClient';
 import { ResumenVentas, Venta } from '../../types/tiposVentas';
 import SaleReceiptModal from '../Sales/SaleReceiptModal';
 import './PaginaPuntoVenta.css';
@@ -417,7 +418,7 @@ export const PaginaPuntoVenta: React.FC = () => {
                   title={t('viewProductDetailTooltip')}
                   style={{ cursor: 'pointer' }}
                 >
-                  {product.imageUrl ? <img src={product.imageUrl} alt={product.name} loading="lazy" decoding="async" /> : <span className="pos-product__placeholder">📷</span>}
+                  {product.imageUrl ? <img src={resolveProductImageUrl(product.imageUrl)} alt={product.name} loading="lazy" decoding="async" /> : <span className="pos-product__placeholder">📷</span>}
                   <span className="pos-product__details">
                     <small>{product.sku}</small>
                     <strong>{product.name}</strong>
@@ -506,7 +507,7 @@ export const PaginaPuntoVenta: React.FC = () => {
             return (
               <div className="pos-cart-item" key={item.product.id}>
                 <div className="pos-cart-item__top">
-                  {item.product.imageUrl && <img src={item.product.imageUrl} alt="" className="pos-cart-item__img" loading="lazy" decoding="async" />}
+                  {item.product.imageUrl && <img src={resolveProductImageUrl(item.product.imageUrl)} alt="" className="pos-cart-item__img" loading="lazy" decoding="async" />}
                   <div className="pos-cart-item__title">
                     <small className="pos-cart-item__sku">{item.product.sku}</small>
                     <strong>{item.product.name}</strong>
@@ -809,7 +810,7 @@ export const PaginaPuntoVenta: React.FC = () => {
           <div style={{ display: 'flex', gap: '1.25rem', marginTop: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
             {productDetailModal.imageUrl ? (
               <img
-                src={productDetailModal.imageUrl}
+                src={resolveProductImageUrl(productDetailModal.imageUrl)}
                 alt={productDetailModal.name}
                 loading="lazy"
                 decoding="async"
