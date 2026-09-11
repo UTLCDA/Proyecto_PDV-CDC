@@ -8,6 +8,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1400
   },
   server: {
+    host: '0.0.0.0',
     port: 5173,
     allowedHosts: true,
     proxy: {
@@ -15,6 +16,16 @@ export default defineConfig({
         target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false
+      },
+      '/products': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+        bypass(req) {
+          if (req.headers.accept && req.headers.accept.includes('text/html')) {
+            return '/index.html';
+          }
+        }
       }
     }
   },
