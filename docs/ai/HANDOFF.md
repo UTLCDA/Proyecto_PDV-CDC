@@ -1,5 +1,14 @@
 # HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
+## 📌 Hito Cumplido: Unificación Visual de Columnas de Precio en Catálogo de Productos
+- **Rama Git**: `mantenimiento/unificar-columna-precios-catalogo`
+- **Descripción**: Integración de las columnas "Precio Menudeo / 零售价" y "Precio Mayoreo / 批发价" en una sola columna visual en la tabla del catálogo para compactar el espacio horizontal, preservando la exportación a Excel y PDF con ambas columnas por separado.
+- **Entregables Realizados**:
+  1. **Columna Combinada en Catálogo**: Encabezado unificado `Precios (Men. / May.) / 价格 (零售 / 批发)` con ordenamiento interactivo por precio base. Celdas estilizadas con badges compactos `Men` y `May` con sus montos y umbrales mínimos.
+  2. **Exportación Normal Preservada**: `exportConfig` mantiene las columnas independientes `unitPrice` y `wholesalePrice`, asegurando que las descargas en Excel y PDF no se vean alteradas.
+  3. **Diccionario i18n Bilingüe**: Añadida clave `pricesCombined` para español y chino simplificado.
+  4. **Pruebas y Verificación**: 47/47 pruebas Vitest y 77/77 pruebas de backend superadas con build limpio.
+
 ## 📌 Hito Cumplido: Optimización de Espacios en Punto de Venta (Ampliación de Catálogo y Compactación de Checkout)
 - **Rama Git**: `mantenimiento-ajuste-pdv`
 - **Descripción**: Reducción de ancho y compactación de espaciados de la columna de checkout (`.pos-checkout`) para permitir que la vista de catálogo (`.pos-card`) gane amplitud y muestre más tarjetas de productos en pantalla aprovechando al máximo la resolución horizontal.
