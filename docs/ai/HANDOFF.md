@@ -1,5 +1,41 @@
 # HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
+## 📌 Hito Cumplido: Optimización de Almacenamiento y Entrega de Imágenes de Productos (Migración WebP + Static Files)
+- **Rama Git**: `feature/optimizacion-storage-imagenes-productos`
+- **Descripción**: Migración integral de la gestión de imágenes de productos desde cadenas Base64 embebidas en SQL Server (`nvarchar(max)`) y JSON a almacenamiento físico en disco en formato WebP optimizado con 3 variantes (`thumbnail.webp`, `pos.webp`, `preview.webp`), servido mediante ASP.NET Core Static Files con caché HTTP (`Cache-Control: public, max-age=604800, must-revalidate`), carga ágil en Punto de Venta (`pageSize: 40`), escaneo resiliente por código de barras hacia la API y migración automática de imágenes legadas.
+- **Entregables Realizados**:
+  1. **Servicio de Almacenamiento WebP (`LocalProductImageStorageService`)**:
+     - Motor `SixLabors.ImageSharp` 4.1.1 con preservación de aspect ratio, eliminación de metadatos EXIF y compresión WebP por variante: `thumbnail.webp` (128x128, q75), `pos.webp` (256x256, q80), `preview.webp` (512x512, q85).
+     - Almacenamiento atómico por carpeta `{productId}/` fuera de `wwwroot`.
+     - Protección contra path-traversal y nombres fijos para prevenir archivos huérfanos.
+  2. **Entrega de Archivos Estáticos y Caché**:
+     - Configuración en `Program.cs` mediante `PhysicalFileProvider` sobre la ruta configurada en `Storage:ProductImagesPath`.
+     - Encabezado `Cache-Control: public, max-age=604800, must-revalidate` (7 días).
+  3. **Endpoints REST de Productos**:
+     - `POST /api/v1/products/{id}/image`: Carga multipart (`IFormFile`) con validación de tipo MIME y tamaño máx 10 MB.
+     - `DELETE /api/v1/products/{id}/image`: Eliminación física de archivos y reseteo de `ImagenUrl`.
+     - `POST /api/v1/products/migrate-base64-images`: Migración masiva de Base64 legacy a WebP con reporte de convertidos/errores.
+  4. **Optimización de Memoria y Rendimiento SQL**:
+     - Removido `.Include(p => p.Imagenes)` en `GetProductsAsync`. Las consultas de catálogo ahora retornan DTOs esbeltos sin sobrecarga de memoria.
+  5. **Frontend React + Vite**:
+     - `PaginaCatalogoProductos.tsx`: Reemplazada la conversión Base64 en frontend por vista previa con `URL.createObjectURL` y subida multipart vía `uploadProductImage`. `loading="lazy"` y `decoding="async"`.
+     - `PaginaPuntoVenta.tsx`: Carga inicial reducida a `pageSize: 40`. Si un código de barras escaneado no está en memoria, `findAndAddProduct` consulta `GET /api/v1/products/code/{code}` para agregarlo al carrito al instante.
+     - `apiClient.ts`: Soporte nativo de `FormData` sin forzar `application/json`.
+  6. **Pruebas y Verificación**:
+     - Backend: 84/84 pruebas unitarias y de integración superadas (100%).
+     - Frontend: 47/47 pruebas Vitest aprobadas (100%) y build exitoso (10.70s).
+- **Instrucciones para Despliegue en VPS (Producción)**:
+  - Crear carpeta física en VPS: `mkdir -p /var/wpcbajio/data/products && chown -R www-data:www-data /var/wpcbajio/data/products` (o el usuario del contenedor/servicio).
+  - Variable de entorno o `appsettings.Production.json`:
+    ```json
+    "Storage": {
+      "ProductImagesPath": "/var/wpcbajio/data/products",
+      "ProductImagesRequestPath": "/products"
+    }
+    ```
+  - Si el backend corre en Docker, mapear el volumen: `-v /var/wpcbajio/data/products:/app/data/products` y configurar `"ProductImagesPath": "/app/data/products"`.
+  - Ejecutar migración de imágenes legadas mediante `POST /api/v1/products/migrate-base64-images` con token de administrador.
+
 ## 📌 Hito Cumplido: Unificación Visual de Columnas de Precio en Catálogo de Productos
 - **Rama Git**: `mantenimiento/unificar-columna-precios-catalogo`
 - **Descripción**: Integración de las columnas "Precio Menudeo / 零售价" y "Precio Mayoreo / 批发价" en una sola columna visual en la tabla del catálogo para compactar el espacio horizontal, preservando la exportación a Excel y PDF con ambas columnas por separado.

@@ -19,11 +19,16 @@ public class CatalogApplicationService : ICatalogApplicationService
 {
     private readonly PosDbContext _dbContext;
     private readonly IAuditLogService _auditLogService;
+    private readonly IProductImageStorageService _imageStorageService;
 
-    public CatalogApplicationService(PosDbContext dbContext, IAuditLogService auditLogService)
+    public CatalogApplicationService(
+        PosDbContext dbContext,
+        IAuditLogService auditLogService,
+        IProductImageStorageService? imageStorageService = null)
     {
         _dbContext = dbContext;
         _auditLogService = auditLogService;
+        _imageStorageService = imageStorageService ?? new NoOpProductImageStorageService();
     }
 
     // Categories
@@ -290,8 +295,6 @@ public class CatalogApplicationService : ICatalogApplicationService
             .AsNoTracking()
             .Where(p => pagedProductIds.Contains(p.Id))
             .Include(p => p.Categoria)
-            .Include(p => p.Imagenes)
-            .AsSplitQuery()
             .ToListAsync(cancellationToken);
 
         var productsById = products.ToDictionary(p => p.Id);
@@ -561,6 +564,136 @@ public class CatalogApplicationService : ICatalogApplicationService
             cancellationToken: cancellationToken);
     }
 
+    public async Task<ProductDto> UpdateProductImageAsync(Guid id, string imageUrl, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default)
+    {
+        await EnsureActiveUserAsync(currentUserId, cancellationToken);
+        var product = await _dbContext.Products.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+        if (product == null)
+        {
+            throw new KeyNotFoundException($"Producto con ID '{id}' no encontrado.");
+        }
+
+        var normalizedUrl = NormalizeImageUrl(imageUrl) ?? string.Empty;
+        var oldUrl = product.ImagenUrl;
+        product.ImagenUrl = normalizedUrl;
+        product.FechaActualizacionUtc = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogService.LogAsync(
+            correlationId,
+            currentUserId,
+            "PRODUCT_IMAGE_UPLOADED",
+            "Producto",
+            product.Id.ToString(),
+            oldUrl.StartsWith("data:image/") ? "[BASE64_IMAGE]" : oldUrl,
+            normalizedUrl.StartsWith("data:image/") ? "[BASE64_IMAGE]" : normalizedUrl,
+            ipAddress,
+            $"Imagen de producto actualizada: {product.Nombre} (ID #{product.IdProducto}, SKU: {product.Sku})",
+            module: "Productos",
+            eventType: "PRODUCT_IMAGE_UPLOADED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
+
+        return (await GetProductByIdAsync(product.Id, cancellationToken))!;
+    }
+
+    public async Task<ProductDto> RemoveProductImageAsync(Guid id, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default)
+    {
+        await EnsureActiveUserAsync(currentUserId, cancellationToken);
+        var product = await _dbContext.Products.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+        if (product == null)
+        {
+            throw new KeyNotFoundException($"Producto con ID '{id}' no encontrado.");
+        }
+
+        var oldUrl = product.ImagenUrl;
+        await _imageStorageService.DeleteProductImageAsync(product.Id, cancellationToken);
+
+        product.ImagenUrl = string.Empty;
+        product.FechaActualizacionUtc = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogService.LogAsync(
+            correlationId,
+            currentUserId,
+            "PRODUCT_IMAGE_REMOVED",
+            "Producto",
+            product.Id.ToString(),
+            oldUrl.StartsWith("data:image/") ? "[BASE64_IMAGE]" : oldUrl,
+            string.Empty,
+            ipAddress,
+            $"Imagen de producto eliminada: {product.Nombre} (ID #{product.IdProducto}, SKU: {product.Sku})",
+            module: "Productos",
+            eventType: "PRODUCT_IMAGE_REMOVED",
+            resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
+
+        return (await GetProductByIdAsync(product.Id, cancellationToken))!;
+    }
+
+    public async Task<MigrateBase64ImagesResultDto> MigrateExistingBase64ImagesAsync(Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default)
+    {
+        await EnsureActiveUserAsync(currentUserId, cancellationToken);
+
+        var productsWithBase64 = await _dbContext.Products
+            .Where(p => p.ImagenUrl.StartsWith("data:image/"))
+            .ToListAsync(cancellationToken);
+
+        var totalScanned = productsWithBase64.Count;
+        var migratedCount = 0;
+        var skippedCount = 0;
+        var failedCount = 0;
+        var errors = new List<string>();
+
+        foreach (var product in productsWithBase64)
+        {
+            try
+            {
+                var result = await _imageStorageService.MigrateBase64ImageAsync(product.Id, product.ImagenUrl, cancellationToken);
+                if (result != null)
+                {
+                    product.ImagenUrl = result.PosUrl;
+                    product.FechaActualizacionUtc = DateTime.UtcNow;
+                    migratedCount++;
+                }
+                else
+                {
+                    skippedCount++;
+                }
+            }
+            catch (Exception ex)
+            {
+                failedCount++;
+                var errorMsg = $"Error al migrar producto #{product.IdProducto} (SKU: {product.Sku}): {ex.Message}";
+                errors.Add(errorMsg);
+            }
+        }
+
+        if (migratedCount > 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            await _auditLogService.LogAsync(
+                correlationId,
+                currentUserId,
+                "PRODUCT_IMAGES_MIGRATED",
+                "Producto",
+                "BATCH",
+                $"Migración ejecutada para {totalScanned} productos.",
+                $"Migrados con éxito: {migratedCount}, Fallidos: {failedCount}",
+                ipAddress,
+                $"Migración de imágenes Base64 a WebP completada. Migrados: {migratedCount}, Fallidos: {failedCount}",
+                module: "Productos",
+                eventType: "PRODUCT_IMAGES_MIGRATED",
+                resultStatus: "SUCCESS",
+                cancellationToken: cancellationToken);
+        }
+
+        return new MigrateBase64ImagesResultDto(totalScanned, migratedCount, skippedCount, failedCount, errors);
+    }
+
     // Customers CRUD
     public async Task<PagedResult<CustomerDto>> GetCustomersAsync(
         string? search,
@@ -777,7 +910,7 @@ public class CatalogApplicationService : ICatalogApplicationService
             p.SoloCotizacion,
             p.VisibleMasVendido,
             p.EstaActivo,
-            p.Imagenes.Select(img => img.UrlImagen).ToList(),
+            p.Imagenes != null ? p.Imagenes.Select(img => img.UrlImagen).ToList() : new List<string>(),
             availableQuantity
         );
     }
@@ -1100,4 +1233,29 @@ public class CatalogApplicationService : ICatalogApplicationService
         string CustomerType,
         decimal Discount,
         string Notes);
+}
+
+public class NoOpProductImageStorageService : IProductImageStorageService
+{
+    public Task<ProductImageResultDto> SaveProductImageAsync(Guid productId, Stream imageStream, string originalFileName, CancellationToken cancellationToken = default)
+    {
+        var idStr = productId.ToString("D");
+        return Task.FromResult(new ProductImageResultDto($"/products/{idStr}/thumbnail.webp", $"/products/{idStr}/pos.webp", $"/products/{idStr}/preview.webp"));
+    }
+
+    public Task<bool> DeleteProductImageAsync(Guid productId, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
+    }
+
+    public Task<ProductImageResultDto?> MigrateBase64ImageAsync(Guid productId, string base64Data, CancellationToken cancellationToken = default)
+    {
+        var idStr = productId.ToString("D");
+        return Task.FromResult<ProductImageResultDto?>(new ProductImageResultDto($"/products/{idStr}/thumbnail.webp", $"/products/{idStr}/pos.webp", $"/products/{idStr}/preview.webp"));
+    }
+
+    public string? GetVariantUrl(string? rawImageUrl, ProductImageVariant variant)
+    {
+        return rawImageUrl;
+    }
 }

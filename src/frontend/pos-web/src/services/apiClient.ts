@@ -52,10 +52,14 @@ class ApiClient {
 
   async request<T>(endpoint: string, options: RequestInit = {}, allowRefresh = true): Promise<T> {
     const token = this.getToken();
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...(options.headers as Record<string, string>)
     };
+
+    if (!isFormData && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -141,19 +145,26 @@ class ApiClient {
     return { data };
   }
 
-  async post<T>(endpoint: string, body: any): Promise<{ data: T }> {
+  async post<T>(endpoint: string, body?: any): Promise<{ data: T }> {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
     const data = await this.request<T>(endpoint, {
       method: 'POST',
-      body: JSON.stringify(body)
+      body: isFormData ? body : (body !== undefined ? JSON.stringify(body) : undefined)
     });
     return { data };
   }
 
   async put<T>(endpoint: string, body: any): Promise<{ data: T }> {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
     const data = await this.request<T>(endpoint, {
       method: 'PUT',
-      body: JSON.stringify(body)
+      body: isFormData ? body : JSON.stringify(body)
     });
+    return { data };
+  }
+
+  async delete<T = void>(endpoint: string): Promise<{ data: T }> {
+    const data = await this.request<T>(endpoint, { method: 'DELETE' });
     return { data };
   }
 

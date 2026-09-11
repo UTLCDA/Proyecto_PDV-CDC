@@ -8,7 +8,9 @@ import {
   PeticionCrearProducto,
   PeticionActualizarProducto,
   PeticionCrearCliente,
-  PeticionActualizarCliente
+  PeticionActualizarCliente,
+  ProductImageResult,
+  MigrateBase64ImagesResult
 } from '../types/tiposCatalogo';
 import { appendPaging, appendSorting, PagingRequest } from '../utils/pagedExport';
 import { PagedResult } from '../types/pagination';
@@ -82,6 +84,22 @@ export const servicioCatalogo = {
 
   deleteProduct: async (id: string): Promise<void> => {
     await api.request(`/products/${id}`, { method: 'DELETE' });
+  },
+
+  uploadProductImage: async (productId: string, file: File | Blob, fileName = 'image.jpg'): Promise<ProductImageResult> => {
+    const formData = new FormData();
+    formData.append('image', file, fileName);
+    const response = await api.post<ProductImageResult>(`/products/${productId}/image`, formData);
+    return response.data;
+  },
+
+  deleteProductImage: async (productId: string): Promise<void> => {
+    await api.delete(`/products/${productId}/image`);
+  },
+
+  migrateBase64Images: async (): Promise<MigrateBase64ImagesResult> => {
+    const response = await api.post<MigrateBase64ImagesResult>('/products/migrate-base64-images');
+    return response.data;
   },
 
   // Customers

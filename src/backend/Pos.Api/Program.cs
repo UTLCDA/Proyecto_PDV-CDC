@@ -225,6 +225,36 @@ using (var scope = app.Services.CreateScope())
 // Configure HTTP pipeline — CORS MUST be first to guarantee headers on all responses & errors
 app.UseCors("AllowFrontend");
 
+// Servir archivos estáticos de imágenes de productos fuera de wwwroot (persistencia VPS)
+var productImagesConfigPath = builder.Configuration["Storage:ProductImagesPath"];
+if (string.IsNullOrWhiteSpace(productImagesConfigPath))
+{
+    productImagesConfigPath = Path.Combine(Directory.GetCurrentDirectory(), "data", "products");
+}
+var fullProductImagesPath = Path.GetFullPath(productImagesConfigPath);
+if (!Directory.Exists(fullProductImagesPath))
+{
+    Directory.CreateDirectory(fullProductImagesPath);
+}
+
+var productImagesRequestPath = builder.Configuration["Storage:ProductImagesRequestPath"] ?? "/products";
+if (!productImagesRequestPath.StartsWith('/'))
+{
+    productImagesRequestPath = "/" + productImagesRequestPath;
+}
+productImagesRequestPath = productImagesRequestPath.TrimEnd('/');
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(fullProductImagesPath),
+    RequestPath = productImagesRequestPath,
+    OnPrepareResponse = ctx =>
+    {
+        // 7 días de caché público en navegador y Cloudflare CDN
+        ctx.Context.Response.Headers.Append("Cache-Control", "public, max-age=604800, must-revalidate");
+    }
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

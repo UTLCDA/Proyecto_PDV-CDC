@@ -7,7 +7,7 @@ import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
 import { generateBarcodeBase64, saveBarcodeLocally, getLocalBarcode } from '../../utils/barcodeGenerator';
 import { downloadTechnicalDataSheet } from '../../utils/technicalSheetGenerator';
-import { processAndCompressImage, isImageFile } from '../../utils/imageProcessor';
+import { processAndCompressImage, isImageFile, isHeicFile } from '../../utils/imageProcessor';
 import { useTableSort } from '../../hooks/useTableSort';
 import { SortableTh } from '../../components/common/SortableTh';
 import { usePagination } from '../../hooks/usePagination';
@@ -73,6 +73,9 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const [anchoCm, setAnchoCm] = useState<string>('');
   const [cantidadInventarioInicial, setCantidadInventarioInicial] = useState<string>('');
   const [imagenUrl, setImagenUrl] = useState<string>('');
+  const [imagenArchivo, setImagenArchivo] = useState<File | null>(null);
+  const [imagenPreviewUrl, setImagenPreviewUrl] = useState<string>('');
+  const [imagenFueEliminada, setImagenFueEliminada] = useState<boolean>(false);
   const [soloCotizacion, setSoloCotizacion] = useState(false);
   const [visibleMasVendido, setVisibleMasVendido] = useState(true);
 
@@ -208,6 +211,12 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setAnchoCm('');
     setCantidadInventarioInicial('');
     setImagenUrl('');
+    if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(imagenPreviewUrl);
+    }
+    setImagenArchivo(null);
+    setImagenPreviewUrl('');
+    setImagenFueEliminada(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
     setSoloCotizacion(false);
     setVisibleMasVendido(false);
@@ -245,6 +254,12 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setAnchoCm(p.widthCm?.toString() || '0');
     setCantidadInventarioInicial(p.initialInventoryQuantity?.toString() || '0');
     setImagenUrl(p.imageUrl || '');
+    if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(imagenPreviewUrl);
+    }
+    setImagenArchivo(null);
+    setImagenPreviewUrl('');
+    setImagenFueEliminada(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
     setSoloCotizacion(p.isQuoteOnly);
     setVisibleMasVendido(p.isTopSellerVisible);
@@ -270,7 +285,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
     }
   };
 
-  // Manejo de Selección, Conversión HEIC y Compresión Canvas (Soporta HEIC, JPG, PNG, WEBP sin límite de 2MB)
+  // Manejo de Selección, Conversión HEIC y Vista Previa Rápida sin Base64 masivo
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -283,24 +298,38 @@ export const PaginaCatalogoProductos: React.FC = () => {
 
     setProcesandoImagen(true);
     try {
-      const compressedBase64 = await processAndCompressImage(file, {
-        maxDimension: 1200,
-        quality: 0.82
-      });
-      setImagenUrl(compressedBase64);
+      let fileToUse: File = file;
+      if (isHeicFile(file)) {
+        const heic2anyModule = await import('heic2any');
+        const heic2any = heic2anyModule.default || heic2anyModule;
+        const resultBlob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.88 });
+        const finalBlob = Array.isArray(resultBlob) ? resultBlob[0] : resultBlob;
+        fileToUse = new File([finalBlob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
+      }
+
+      if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(imagenPreviewUrl);
+      }
+      const preview = URL.createObjectURL(fileToUse);
+      setImagenArchivo(fileToUse);
+      setImagenPreviewUrl(preview);
+      setImagenFueEliminada(false);
     } catch (err: any) {
       console.error('Error al procesar imagen:', err);
       alert(err.message || t('imageProcessError'));
     } finally {
       setProcesandoImagen(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
 
   const handleQuitarImagen = () => {
+    if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(imagenPreviewUrl);
+    }
+    setImagenArchivo(null);
+    setImagenPreviewUrl('');
     setImagenUrl('');
+    setImagenFueEliminada(true);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -349,7 +378,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
     }
 
     try {
-      const isBoxUnit = unidadMedida === 'Caja';
+      let savedProductId = productoEdicionId;
       if (esEdicion && productoEdicionId) {
         await servicioCatalogo.updateProduct(productoEdicionId, {
           sku: sku.trim(),
@@ -363,7 +392,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
           wholesaleMinQuantity: parseFloat(cantidadMinimaMayoreo) || 1,
           unitOfMeasure: unidadMedida,
           coveragePerUnitSqM: parseFloat(coberturaUnidadM2) || 0,
-          imageUrl: imagenUrl,
+          imageUrl: imagenFueEliminada ? '' : imagenUrl,
           piecesPerBox: parseInt(piezasPorCaja) || 1,
           lengthCm: parseFloat(largoCm) || 0,
           heightCm: parseFloat(altoCm) || 0,
@@ -378,7 +407,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
           isActive: true
         });
       } else {
-        await servicioCatalogo.createProduct({
+        const created = await servicioCatalogo.createProduct({
           sku: sku.trim(),
           barcode: codigoBarras.trim(),
           name: nombre.trim(),
@@ -390,7 +419,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
           wholesaleMinQuantity: parseFloat(cantidadMinimaMayoreo) || 1,
           unitOfMeasure: unidadMedida,
           coveragePerUnitSqM: parseFloat(coberturaUnidadM2) || 0,
-          imageUrl: imagenUrl,
+          imageUrl: '',
           piecesPerBox: parseInt(piezasPorCaja) || 1,
           initialInventoryQuantity: parseFloat(cantidadInventarioInicial) || 0,
           lengthCm: parseFloat(largoCm) || 0,
@@ -404,8 +433,22 @@ export const PaginaCatalogoProductos: React.FC = () => {
           isQuoteOnly: soloCotizacion,
           isTopSellerVisible: visibleMasVendido
         });
+        savedProductId = created.id;
       }
 
+      // Si se seleccionó una imagen nueva, subir mediante FormData al endpoint dedicado
+      if (imagenArchivo && savedProductId) {
+        await servicioCatalogo.uploadProductImage(savedProductId, imagenArchivo, imagenArchivo.name);
+      } else if (imagenFueEliminada && esEdicion && productoEdicionId) {
+        await servicioCatalogo.deleteProductImage(productoEdicionId);
+      }
+
+      if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(imagenPreviewUrl);
+      }
+      setImagenArchivo(null);
+      setImagenPreviewUrl('');
+      setImagenFueEliminada(false);
       setModalProductoAbierto(false);
       cargarDatos();
     } catch (err: any) {
@@ -573,6 +616,8 @@ export const PaginaCatalogoProductos: React.FC = () => {
                         <img
                           src={p.imageUrl}
                           alt={p.sku}
+                          loading="lazy"
+                          decoding="async"
                           style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}
                         />
                       ) : (
@@ -982,9 +1027,13 @@ export const PaginaCatalogoProductos: React.FC = () => {
                         <span style={{ fontSize: '1.2rem', marginBottom: '4px' }}>⏳</span>
                         {t('optimizingImage')}
                       </div>
-                    ) : imagenUrl ? (
+                    ) : (imagenPreviewUrl || imagenUrl) ? (
                       <div>
-                        <img src={imagenUrl} alt="Preview" style={{ width: '95px', height: '95px', objectFit: 'cover', borderRadius: '8px', border: '2px solid var(--accent-primary)', display: 'block', margin: '0 auto' }} />
+                        <img
+                          src={imagenPreviewUrl || imagenUrl}
+                          alt="Preview"
+                          style={{ width: '95px', height: '95px', objectFit: 'cover', borderRadius: '8px', border: '2px solid var(--accent-primary)', display: 'block', margin: '0 auto' }}
+                        />
                         <button
                           type="button"
                           onClick={handleQuitarImagen}

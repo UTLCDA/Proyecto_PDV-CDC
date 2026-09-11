@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Pos.Application.Catalog.DTOs;
 using Pos.Application.Catalog.Services;
+using Pos.Application.Common.Interfaces;
 using Pos.Application.Common.Models;
 using Pos.Application.Common.Security;
 
@@ -14,10 +15,14 @@ namespace Pos.Api.Controllers.v1;
 public class ProductsController : ControllerBase
 {
     private readonly ICatalogApplicationService _catalogService;
+    private readonly IProductImageStorageService _imageStorageService;
 
-    public ProductsController(ICatalogApplicationService catalogService)
+    public ProductsController(
+        ICatalogApplicationService catalogService,
+        IProductImageStorageService imageStorageService)
     {
         _catalogService = catalogService;
+        _imageStorageService = imageStorageService;
     }
 
     [HttpGet]
@@ -175,6 +180,87 @@ public class ProductsController : ControllerBase
         catch (Exception)
         {
             return StatusCode(500, new { message = "Ocurrió un error inesperado al dar de baja el producto." });
+        }
+    }
+
+    [HttpPost("{id:guid}/image")]
+    [Authorize(Policy = PermissionCodes.Catalog.ProductsEdit)]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<ProductImageResultDto>> UploadProductImage(Guid id, IFormFile? image, CancellationToken cancellationToken)
+    {
+        if (image == null || image.Length == 0)
+        {
+            return BadRequest(new { message = "Debe proporcionar un archivo de imagen válido." });
+        }
+
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
+        Guid? currentUserId = Guid.TryParse(userIdClaim, out var userId) ? userId : null;
+        var correlationId = HttpContext.Items["CorrelationId"]?.ToString() ?? Guid.NewGuid().ToString();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+
+        try
+        {
+            using var stream = image.OpenReadStream();
+            var storageResult = await _imageStorageService.SaveProductImageAsync(id, stream, image.FileName, cancellationToken);
+            await _catalogService.UpdateProductImageAsync(id, storageResult.PosUrl, currentUserId, correlationId, ipAddress, cancellationToken);
+
+            return Ok(storageResult);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, new { message = "Ocurrió un error inesperado al procesar y almacenar la imagen." });
+        }
+    }
+
+    [HttpDelete("{id:guid}/image")]
+    [Authorize(Policy = PermissionCodes.Catalog.ProductsEdit)]
+    public async Task<IActionResult> DeleteProductImage(Guid id, CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
+        Guid? currentUserId = Guid.TryParse(userIdClaim, out var userId) ? userId : null;
+        var correlationId = HttpContext.Items["CorrelationId"]?.ToString() ?? Guid.NewGuid().ToString();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+
+        try
+        {
+            await _catalogService.RemoveProductImageAsync(id, currentUserId, correlationId, ipAddress, cancellationToken);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, new { message = "Ocurrió un error inesperado al eliminar la imagen del producto." });
+        }
+    }
+
+    [HttpPost("migrate-base64-images")]
+    [Authorize(Policy = PermissionCodes.Catalog.ProductsEdit)]
+    public async Task<ActionResult<MigrateBase64ImagesResultDto>> MigrateBase64Images(CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
+        Guid? currentUserId = Guid.TryParse(userIdClaim, out var userId) ? userId : null;
+        var correlationId = HttpContext.Items["CorrelationId"]?.ToString() ?? Guid.NewGuid().ToString();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+
+        try
+        {
+            var result = await _catalogService.MigrateExistingBase64ImagesAsync(currentUserId, correlationId, ipAddress, cancellationToken);
+            return Ok(result);
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, new { message = "Ocurrió un error inesperado al ejecutar la migración de imágenes." });
         }
     }
 }

@@ -106,4 +106,64 @@ public class ProductsControllerIntegrationTests : IClassFixture<CustomWebApplica
         Assert.NotNull(inactivePaged);
         Assert.Contains(inactivePaged.Items, p => p.Id == targetProduct.Id && !p.IsActive);
     }
+
+    [Fact]
+    public async Task UploadProductImage_ReturnsWebpUrls_AndStaticFilesEndpointServesImage()
+    {
+        // 1. Login as admin
+        var loginResponse = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequestDto("admin@lambrin.com", "Admin123!"));
+        var auth = await loginResponse.Content.ReadFromJsonAsync<AuthResponseDto>();
+        Assert.NotNull(auth);
+
+        _client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        // 2. Get an existing product
+        var prodsResponse = await _client.GetAsync("/api/v1/products");
+        var prodsPaged = await prodsResponse.Content.ReadFromJsonAsync<PagedResult<ProductDto>>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(prodsPaged);
+        Assert.NotEmpty(prodsPaged.Items);
+        var product = prodsPaged.Items.First();
+
+        // 3. Prepare an image payload (PNG 100x100)
+        using var testImage = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(100, 100);
+        using var ms = new MemoryStream();
+        SixLabors.ImageSharp.ImageExtensions.SaveAsPng(testImage, ms);
+        ms.Position = 0;
+
+        using var form = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(ms.ToArray());
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+        form.Add(fileContent, "image", "test-lambrin.png");
+
+        // 4. Upload image
+        var uploadResponse = await _client.PostAsync($"/api/v1/products/{product.Id}/image", form);
+        Assert.Equal(HttpStatusCode.OK, uploadResponse.StatusCode);
+
+        var result = await uploadResponse.Content.ReadFromJsonAsync<ProductImageResultDto>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(result);
+        Assert.Contains("thumbnail.webp", result.ThumbnailUrl);
+        Assert.Contains("pos.webp", result.PosUrl);
+        Assert.Contains("preview.webp", result.PreviewUrl);
+
+        // 5. Verify product was updated in GET endpoint
+        var updatedProductResponse = await _client.GetAsync($"/api/v1/products/{product.Id}");
+        var updatedProduct = await updatedProductResponse.Content.ReadFromJsonAsync<ProductDto>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(updatedProduct);
+        Assert.Equal(result.PosUrl, updatedProduct.ImageUrl);
+
+        // 6. Verify Static Files server delivers the WebP image
+        var staticFileResponse = await _client.GetAsync(result.PosUrl);
+        Assert.Equal(HttpStatusCode.OK, staticFileResponse.StatusCode);
+        Assert.True(staticFileResponse.Headers.Contains("Cache-Control"));
+
+        // 7. Delete image
+        var deleteImgResponse = await _client.DeleteAsync($"/api/v1/products/{product.Id}/image");
+        Assert.Equal(HttpStatusCode.NoContent, deleteImgResponse.StatusCode);
+
+        // 8. Verify product now has empty image
+        var clearedProductResponse = await _client.GetAsync($"/api/v1/products/{product.Id}");
+        var clearedProduct = await clearedProductResponse.Content.ReadFromJsonAsync<ProductDto>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(clearedProduct);
+        Assert.True(string.IsNullOrEmpty(clearedProduct.ImageUrl));
+    }
 }

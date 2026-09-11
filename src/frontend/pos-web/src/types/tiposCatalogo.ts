@@ -149,3 +149,17 @@ export interface PeticionCrearCliente {
 export interface PeticionActualizarCliente extends PeticionCrearCliente {
   isActive: boolean;
 }
+
+export interface ProductImageResult {
+  thumbnailUrl: string;
+  posUrl: string;
+  previewUrl: string;
+}
+
+export interface MigrateBase64ImagesResult {
+  totalScanned: number;
+  migratedCount: number;
+  skippedCount: number;
+  failedCount: number;
+  errors: string[];
+}

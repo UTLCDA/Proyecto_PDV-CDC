@@ -2,7 +2,43 @@
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
 
-- **Unificación Visual de Columnas de Precio (Menudeo / Mayoreo) en Catálogo de Productos**:
+- **Optimización de Almacenamiento y Entrega de Imágenes de Productos (Migración WebP + Static Files)**:
+  - **Rama Git**: `feature/optimizacion-storage-imagenes-productos`
+  - **Objetivo**: Migrar el almacenamiento de imágenes de productos desde cadenas Base64 embebidas en base de datos (`nvarchar(max)`) y payloads JSON masivos hacia archivos físicos WebP organizados por producto fuera de `wwwroot`, servidos mediante el middleware de archivos estáticos de ASP.NET Core con cabeceras de caché HTTP (`Cache-Control: public, max-age=604800, must-revalidate`), aligerar la carga del Punto de Venta desacoplando la consulta inicial (`pageSize: 40`) e implementando búsqueda directa en servidor para el escáner de códigos de barras USB.
+  - **Arquitectura de Almacenamiento de Imágenes**:
+    - **Servicio de Dominio e Infraestructura**: `IProductImageStorageService` implementado por `LocalProductImageStorageService` utilizando `SixLabors.ImageSharp` (4.1.1).
+    - **Variantes WebP Generadas de Forma Atómica**:
+      - `thumbnail.webp`: 128x128 px, calidad WebP 75 (para tablas y listas compactas).
+      - `pos.webp`: 256x256 px, calidad WebP 80 (para cuadrícula de tarjetas de productos en el Punto de Venta y carrito).
+      - `preview.webp`: 512x512 px, calidad WebP 85 (para modal de detalles e inspección visual).
+    - **Preservación de Relación de Aspecto y Limpieza**: Redimensionamiento automático manteniendo proporción original, eliminación completa de metadatos EXIF sensibles para reducir tamaño y mitigar riesgos de privacidad.
+    - **Aislamiento Fuera de `wwwroot` y Configuración**:
+      - Ruta física configurable en `appsettings.json` (`Storage:ProductImagesPath`), por defecto `C:\WPCBajioData\Products` en desarrollo/Windows y `/var/wpcbajio/data/products` en producción Linux/VPS.
+      - Prefijo URL público configurable (`Storage:ProductImagesRequestPath`), por defecto `/products`.
+      - Mapeo organizado por carpeta de producto: `{productId}/{variant}.webp`.
+      - Nombres fijos por variante que reemplazan archivos previos atómicamente evitando proliferación de archivos huérfanos.
+      - Validación estricta contra ataques de Directory Traversal (`Path.GetFullPath` validando prefijo base).
+    - **Entrega de Archivos Estáticos**:
+      - `app.UseStaticFiles()` configurado con `PhysicalFileProvider` apuntando al directorio seguro externo.
+      - Encabezados de caché HTTP configurados a 7 días (`max-age=604800, public, must-revalidate`) para optimizar el ancho de banda y carga en cliente.
+    - **Endpoints REST**:
+      - `POST /api/v1/products/{id}/image`: Recepción multipart (`IFormFile`), validación de tipo MIME (`image/jpeg`, `image/png`, `image/webp`) y límite de 10 MB. Devuelve URLs relativas de las 3 variantes y actualiza `ImagenUrl` en BD.
+      - `DELETE /api/v1/products/{id}/image`: Remoción física de archivos y reseteo de `ImagenUrl` a `null`.
+      - `POST /api/v1/products/migrate-base64-images`: Migración por lotes de imágenes legadas Base64 a archivos físicos WebP.
+    - **Optimización de Consultas SQL y Rendimiento**:
+      - Se retiró `.Include(p => p.Imagenes)` en `GetProductsAsync`, erradicando el cuello de botella masivo de memoria que provocaba la serialización de registros de imagen huérfanos o pesados.
+      - Compatibilidad hacia atrás: El frontend y backend detectan si la imagen inicia con `/` (ruta estática) o `data:image/` (Base64 heredado), funcionando de manera fluida en cualquier estado de migración.
+    - **Carga Ágil en Punto de Venta y Escaneo Resiliente**:
+      - El POS carga inicialmente `pageSize: 40` (reducción de más del 90% en la transferencia inicial respecto a los 500 productos anteriores).
+      - En el escaneo de código de barras USB (`findAndAddProduct`), si el producto no se encuentra en el caché en memoria de 40 productos, se realiza un fallback instantáneo al endpoint `GET /api/v1/products/code/{code}` para añadirlo al carrito sin interrupciones ni recargar la página.
+      - Inclusión de atributos `loading="lazy"` y `decoding="async"` en todas las imágenes de productos.
+    - **Auditoría Limpia**:
+      - Eventos `PRODUCT_IMAGE_UPLOADED`, `PRODUCT_IMAGE_REMOVED` y `PRODUCT_IMAGES_MIGRATED` registrados en `AuditLogs` con URLs y metadatos, sin almacenar cadenas Base64.
+  - **Pruebas y Verificación**:
+    - Backend: 84/84 pruebas xUnit superadas al 100% (`dotnet test src/backend/Pos.sln`), incluyendo 6 pruebas unitarias específicas para `LocalProductImageStorageService` y prueba de integración de subida de imágenes con validación de static files.
+    - Frontend: 47/47 pruebas unitarias de Vitest superadas (100%).
+    - Build: `tsc && vite build` completado exitosamente en 10.70s con 0 errores.
+
   - **Rama Git**: `mantenimiento/unificar-columna-precios-catalogo`
   - **Objetivo**: Combinar las columnas de "Precio Menudeo / 零售价" y "Precio Mayoreo / 批发价" en una sola columna visual en la tabla del catálogo para ahorrar espacio horizontal en pantalla, manteniendo la exportación a Excel y PDF intacta con ambas columnas separadas.
   - **Cambios Realizados**:

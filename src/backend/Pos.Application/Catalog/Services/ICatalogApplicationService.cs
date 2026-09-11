@@ -18,6 +18,9 @@ public interface ICatalogApplicationService
     Task<ProductDto> CreateProductAsync(CreateProductDto request, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
     Task<ProductDto> UpdateProductAsync(Guid id, UpdateProductDto request, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
     Task<ProductDto> UpdateProductPriceAsync(Guid id, decimal newUnitPrice, decimal newWholesalePrice, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
+    Task<ProductDto> UpdateProductImageAsync(Guid id, string imageUrl, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
+    Task<ProductDto> RemoveProductImageAsync(Guid id, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
+    Task<MigrateBase64ImagesResultDto> MigrateExistingBase64ImagesAsync(Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
     Task DeleteProductAsync(Guid id, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
 
     // Customers CRUD

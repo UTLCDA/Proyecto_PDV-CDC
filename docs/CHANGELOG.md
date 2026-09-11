@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.9.0] Optimización de Almacenamiento y Entrega de Imágenes de Productos (WebP + Static Files) - 2026-09-11
+
+### Añadido / Optimizado
+- **Migración de Imágenes de Base64 a Almacenamiento Físico WebP en Disco**:
+  - **Procesamiento y Compresión en Backend**: Integrado `SixLabors.ImageSharp` (v4.1.1) para procesar cualquier formato cargado (JPEG, PNG, WebP, HEIC convertido) y generar de forma atómica tres variantes WebP optimizadas con preservación de relación de aspecto y remoción de metadatos EXIF:
+    - `thumbnail.webp` (128x128 px, calidad 75) para tablas y listas compactas.
+    - `pos.webp` (256x256 px, calidad 80) para tarjetas del Punto de Venta y carrito.
+    - `preview.webp` (512x512 px, calidad 85) para modales de detalle e inspección visual.
+  - **Almacenamiento Seguro Fuera de `wwwroot`**: Los archivos se almacenan en una ruta externa configurable (`Storage:ProductImagesPath`), organizada por carpeta de producto (`{id}/`), con protección contra path-traversal y nombres de archivo estáticos que evitan duplicados huérfanos.
+  - **Entrega de Archivos Estáticos con Caché HTTP**: Configurado `app.UseStaticFiles()` en ASP.NET Core con `PhysicalFileProvider` y cabeceras `Cache-Control: public, max-age=604800, must-revalidate` (7 días) para que los navegadores almacenen en caché local las imágenes y no saturen el servidor.
+  - **Endpoints REST para Imágenes**:
+    - `POST /api/v1/products/{id}/image` (Multipart/form-data): Carga y procesamiento inmediato de imágenes con validación de tipos (`image/jpeg`, `image/png`, `image/webp`) y límite de 10 MB.
+    - `DELETE /api/v1/products/{id}/image`: Eliminación física de archivos en disco y limpieza de la referencia en BD.
+    - `POST /api/v1/products/migrate-base64-images`: Endpoint de mantenimiento para migrar por lotes imágenes legacy en Base64 a archivos físicos WebP.
+  - **Compatibilidad Hacia Atrás**: El sistema detecta y renderiza transparentemente tanto rutas relativas de servidor (`/products/{id}/pos.webp`) como imágenes heredadas en formato Base64 (`data:image/...`).
+  - **Eliminación de Fuga de Memoria en Consultas**: Removido `.Include(p => p.Imagenes)` en `GetProductsAsync`, reduciendo el payload de la lista de productos de megabytes a pocos kilobytes.
+  - **Carga Ágil en Punto de Venta y Resiliencia en Escaneo de Códigos**:
+    - El Punto de Venta ahora inicia con `pageSize: 40` en lugar de solicitar 500 productos pesados en un solo bloque.
+    - El escáner de código de barras USB consulta el catálogo en memoria y, si el producto no está presente, consulta de forma instantánea al backend mediante `GET /api/v1/products/code/{code}`.
+    - Atributos `loading="lazy"` y `decoding="async"` incorporados en todas las imágenes de productos (catálogo, POS, carrito y modal).
+  - **Auditoría Limpia**: Los eventos de auditoría (`PRODUCT_IMAGE_UPLOADED`, `PRODUCT_IMAGE_REMOVED`, `PRODUCT_IMAGES_MIGRATED`) registran metadatos y rutas sin almacenar cadenas Base64.
+- **Pruebas y Verificación**:
+  - Backend: 84/84 pruebas unitarias e integración superadas al 100% (+7 pruebas nuevas para el servicio de almacenamiento y endpoints).
+  - Frontend: 47/47 pruebas Vitest aprobadas y build de producción limpio (10.70s, 0 errores).
+
 ## [2.8.0] Estandarización Bilingüe Universal de Columnas y Alertas Reactivas - 2026-09-10
 
 ### Añadido / Mejorado

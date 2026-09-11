@@ -87,7 +87,7 @@ export const PaginaPuntoVenta: React.FC = () => {
       const endDateIso = `${year}-${month}-${day}T23:59:59.999Z`;
 
       const [catalog, customerDirectory, summary, currentShift, categoryList] = await Promise.all([
-        servicioCatalogo.getProducts(undefined, undefined, { page: 1, pageSize: 500 }),
+        servicioCatalogo.getProducts(undefined, undefined, { page: 1, pageSize: 40 }),
         servicioCatalogo.getCustomers(undefined, undefined, undefined, { page: 1, pageSize: 500 }),
         servicioVentas.getSalesSummary(undefined, undefined, undefined, startDateIso, endDateIso),
         cashShiftService.getCurrentShift().catch(() => null),
@@ -127,7 +127,7 @@ export const PaginaPuntoVenta: React.FC = () => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [productDetailModal, isNewCustomerModalOpen, isCalculatorModalOpen]);
 
-  useBarcodeScanner({ onScan: scannedCode => findAndAddProduct(scannedCode) });
+  useBarcodeScanner({ onScan: scannedCode => void findAndAddProduct(scannedCode) });
 
   const selectedCustomer = customers.find(customer => customer.id === selectedCustomerId);
   const isWholesaleCustomer = selectedCustomer?.customerType.toLocaleLowerCase() === 'mayorista';
@@ -163,10 +163,23 @@ export const PaginaPuntoVenta: React.FC = () => {
   const calcPrice = selectedCalcProduct ? effectivePrice(selectedCalcProduct, calcNeededPieces) : 0;
   const calcTotalCost = calcNeededPieces * calcPrice;
 
-  const findAndAddProduct = (code: string) => {
+  const findAndAddProduct = async (code: string) => {
     const term = code.trim().toLocaleLowerCase();
     if (!term) return;
-    const product = products.find(item => item.barcode.toLocaleLowerCase() === term || item.sku.toLocaleLowerCase() === term);
+    let product = products.find(item => item.barcode.toLocaleLowerCase() === term || item.sku.toLocaleLowerCase() === term);
+
+    if (!product) {
+      try {
+        const fetched = await servicioCatalogo.getProductByCode(term);
+        if (fetched && fetched.isActive) {
+          product = fetched;
+          setProducts(prev => prev.some(p => p.id === fetched.id) ? prev : [fetched, ...prev]);
+        }
+      } catch {
+        // No encontrado en backend
+      }
+    }
+
     if (!product) {
       setNotice({ type: 'error', text: t('productCodeNotFound', { code }) });
       return;
@@ -227,7 +240,7 @@ export const PaginaPuntoVenta: React.FC = () => {
 
   const submitManualCode = (event: React.FormEvent) => {
     event.preventDefault();
-    findAndAddProduct(manualCode);
+    void findAndAddProduct(manualCode);
     setManualCode('');
     searchInputRef.current?.focus();
   };
@@ -404,7 +417,7 @@ export const PaginaPuntoVenta: React.FC = () => {
                   title={t('viewProductDetailTooltip')}
                   style={{ cursor: 'pointer' }}
                 >
-                  {product.imageUrl ? <img src={product.imageUrl} alt={product.name} /> : <span className="pos-product__placeholder">📷</span>}
+                  {product.imageUrl ? <img src={product.imageUrl} alt={product.name} loading="lazy" decoding="async" /> : <span className="pos-product__placeholder">📷</span>}
                   <span className="pos-product__details">
                     <small>{product.sku}</small>
                     <strong>{product.name}</strong>
@@ -493,7 +506,7 @@ export const PaginaPuntoVenta: React.FC = () => {
             return (
               <div className="pos-cart-item" key={item.product.id}>
                 <div className="pos-cart-item__top">
-                  {item.product.imageUrl && <img src={item.product.imageUrl} alt="" className="pos-cart-item__img" />}
+                  {item.product.imageUrl && <img src={item.product.imageUrl} alt="" className="pos-cart-item__img" loading="lazy" decoding="async" />}
                   <div className="pos-cart-item__title">
                     <small className="pos-cart-item__sku">{item.product.sku}</small>
                     <strong>{item.product.name}</strong>
@@ -798,6 +811,8 @@ export const PaginaPuntoVenta: React.FC = () => {
               <img
                 src={productDetailModal.imageUrl}
                 alt={productDetailModal.name}
+                loading="lazy"
+                decoding="async"
                 style={{ width: '140px', height: '140px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-subtle)', background: '#fff', flexShrink: 0 }}
               />
             ) : (
