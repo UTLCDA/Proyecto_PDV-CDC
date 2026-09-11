@@ -1,20 +1,21 @@
 # HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
-## 📌 Hito Cumplido: Optimización de Almacenamiento y Entrega de Imágenes de Productos (Migración WebP + Static Files)
-- **Rama Git**: `feature/optimizacion-storage-imagenes-productos`
+## 📌 Hito Cumplido: Optimización de Almacenamiento y Entrega de Imágenes de Productos (Desplegado a Producción VPS y Main)
+- **Rama Git**: `main` (desplegada y sincronizada con `origin/main` en commit `3551058`).
 - **Descripción**: Migración integral de la gestión de imágenes de productos desde cadenas Base64 embebidas en SQL Server (`nvarchar(max)`) y JSON a almacenamiento físico en disco en formato WebP optimizado con 3 variantes (`thumbnail.webp`, `pos.webp`, `preview.webp`), servido mediante ASP.NET Core Static Files con caché HTTP (`Cache-Control: public, max-age=604800, must-revalidate`), carga ágil en Punto de Venta (`pageSize: 40`), escaneo resiliente por código de barras hacia la API y migración automática de imágenes legadas.
-- **Entregables Realizados**:
+- **Entregables Realizados y Desplegados en VPS (`193.46.198.88`)**:
   1. **Servicio de Almacenamiento WebP (`LocalProductImageStorageService`)**:
      - Motor `SixLabors.ImageSharp` 4.1.1 con preservación de aspect ratio, eliminación de metadatos EXIF y compresión WebP por variante: `thumbnail.webp` (128x128, q75), `pos.webp` (256x256, q80), `preview.webp` (512x512, q85).
      - Almacenamiento atómico por carpeta `{productId}/` fuera de `wwwroot`.
+     - Carpeta de almacenamiento configurada y creada en producción: `/var/wpcbajio/data/products` (propiedad de `www-data:www-data`).
      - Protección contra path-traversal y nombres fijos para prevenir archivos huérfanos.
   2. **Entrega de Archivos Estáticos y Caché**:
-     - Configuración en `Program.cs` mediante `PhysicalFileProvider` sobre la ruta configurada en `Storage:ProductImagesPath`.
+     - Configuración en `Program.cs` mediante `PhysicalFileProvider` sobre `/var/wpcbajio/data/products` expuesto en `/products`.
      - Encabezado `Cache-Control: public, max-age=604800, must-revalidate` (7 días).
   3. **Endpoints REST de Productos**:
      - `POST /api/v1/products/{id}/image`: Carga multipart (`IFormFile`) con validación de tipo MIME y tamaño máx 10 MB.
      - `DELETE /api/v1/products/{id}/image`: Eliminación física de archivos y reseteo de `ImagenUrl`.
-     - `POST /api/v1/products/migrate-base64-images`: Migración masiva de Base64 legacy a WebP con reporte de convertidos/errores.
+     - `POST /api/v1/products/migrate-base64-images`: Migración masiva ejecutada en producción con respuesta 200 OK.
   4. **Optimización de Memoria y Rendimiento SQL**:
      - Removido `.Include(p => p.Imagenes)` en `GetProductsAsync`. Las consultas de catálogo ahora retornan DTOs esbeltos sin sobrecarga de memoria.
   5. **Frontend React + Vite**:
@@ -24,17 +25,12 @@
   6. **Pruebas y Verificación**:
      - Backend: 84/84 pruebas unitarias y de integración superadas (100%).
      - Frontend: 47/47 pruebas Vitest aprobadas (100%) y build exitoso (11.69s, 0 errores).
-- **Instrucciones para Despliegue en VPS (Producción)**:
-  - Crear carpeta física en VPS: `mkdir -p /var/wpcbajio/data/products && chown -R www-data:www-data /var/wpcbajio/data/products` (o el usuario del contenedor/servicio).
-  - Variable de entorno o `appsettings.Production.json`:
-    ```json
-    "Storage": {
-      "ProductImagesPath": "/var/wpcbajio/data/products",
-      "ProductImagesRequestPath": "/products"
-    }
-    ```
-  - Si el backend corre en Docker, mapear el volumen: `-v /var/wpcbajio/data/products:/app/data/products` y configurar `"ProductImagesPath": "/app/data/products"`.
-  - Ejecutar migración de imágenes legadas mediante `POST /api/v1/products/migrate-base64-images` con token de administrador.
+- **Estado del Despliegue en VPS (Producción)**:
+  - Carpeta física creada en VPS: `/var/wpcbajio/data/products` con permisos `www-data:www-data`.
+  - Configuración `/var/www/pos-api/appsettings.json` actualizada con `"ProductImagesPath": "/var/wpcbajio/data/products"`.
+  - Compilación `dotnet publish -c Release` ejecutada exitosamente en el servidor.
+  - `pos-api.service` reiniciado y respondiendo 200 OK en `https://api.wpcbajio.com/api/v1/health`.
+  - Endpoint `POST /api/v1/products/migrate-base64-images` ejecutado con token admin (0 errores).
 
 ## 📌 Hito Cumplido: Unificación Visual de Columnas de Precio en Catálogo de Productos
 - **Rama Git**: `mantenimiento/unificar-columna-precios-catalogo`

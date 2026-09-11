@@ -2,33 +2,38 @@
 
 ## 📌 Estado Actual
 
-- **Rama Git Activa**: `feature/optimizacion-storage-imagenes-productos`
-- **Funcionalidad Completada**:
+- **Rama Git Activa**: `main` (desplegada y sincronizada con `origin/main` en commit `3551058`).
+- **Funcionalidad Desplegada a Producción**:
   1. **Almacenamiento Físico WebP en Disco**:
-     - Motor `LocalProductImageStorageService` con ImageSharp (4.1.1) generando variantes atómicas (`thumbnail.webp`, `pos.webp`, `preview.webp`).
-     - Almacenamiento organizado por producto fuera de `wwwroot` con protección anti path-traversal.
+     - Desplegado en VPS Ubuntu 26.04 (`193.46.198.88`) bajo `/var/wpcbajio/data/products`.
+     - Motor `LocalProductImageStorageService` con ImageSharp generando variantes atómicas (`thumbnail.webp`, `pos.webp`, `preview.webp`).
   2. **Entrega de Archivos Estáticos con Caché HTTP**:
-     - `app.UseStaticFiles()` con `PhysicalFileProvider` y `Cache-Control: public, max-age=604800, must-revalidate`.
+     - `app.UseStaticFiles()` sirviendo imágenes bajo `/products` con `Cache-Control: public, max-age=604800, must-revalidate`.
   3. **Endpoints REST y Migración Base64**:
-     - `POST /api/v1/products/{id}/image` (Multipart/form-data), `DELETE /api/v1/products/{id}/image`, y `POST /api/v1/products/migrate-base64-images`.
-     - Compatibilidad total hacia atrás con imágenes `data:image/...`.
+     - `POST /api/v1/products/{id}/image`, `DELETE /api/v1/products/{id}/image` y `POST /api/v1/products/migrate-base64-images` operativos.
+     - Migración ejecutada con éxito en VPS.
   4. **Optimización de Memoria y Carga en Punto de Venta**:
-     - Retirado `.Include(p => p.Imagenes)` de `GetProductsAsync`, aligerando drásticamente el catálogo.
-     - Carga inicial POS reducida a `pageSize: 40` con búsqueda en servidor (`GET /api/v1/products/code/{code}`) para escáneres USB.
-     - `loading="lazy"` y `decoding="async"` en todas las etiquetas `<img>`.
+     - Catálogo aligerado, consulta inicial POS `pageSize: 40` con búsqueda en servidor (`GET /api/v1/products/code/{code}`).
+     - Botón flotante `✕` para descarte y eliminación rápida de imágenes en el catálogo.
+- **Estado del Servicio en Producción**:
+  - `pos-api.service`: `active (running)` en VPS.
+  - Health check: `https://api.wpcbajio.com/api/v1/health` ➔ HTTP 200 OK.
+  - Catálogo API: `https://api.wpcbajio.com/api/v1/products` ➔ HTTP 200 OK.
+  - Frontend SPA: Desplegado en Cloudflare (`https://pos.wpcbajio.com` / `https://pos-wpcbajio.aaronarenasmartinez.workers.dev`).
 - **Estado de Pruebas**:
-  - Backend: 84/84 pruebas xUnit superadas al 100% (`dotnet test src/backend/Pos.sln`); `dotnet build` con 0 errores y 0 advertencias.
-  - Frontend: 47/47 pruebas Vitest aprobadas al 100% (`npm run test`); `npm run build` exitoso (10.70s, 0 errores).
+  - Backend: 84/84 pruebas xUnit superadas al 100%.
+  - Frontend: 47/47 pruebas Vitest aprobadas al 100%.
 
 ## 📌 Siguiente Tarea Recomendada
 
-Revisión del Pull Request de la rama `feature/optimizacion-storage-imagenes-productos`, aprobación por el desarrollador humano, fusión a `main`, y ejecución del despliegue en VPS (preparación del directorio `/var/wpcbajio/data/products` y ejecución opcional de migración de imágenes legadas).
+Verificación funcional en caliente desde la interfaz web del Punto de Venta en producción (`https://pos.wpcbajio.com`), validando la subida de una nueva imagen de producto desde el catálogo, su almacenamiento físico en `/var/wpcbajio/data/products` y su visualización inmediata en las tarjetas del PDV.
 
 ### Criterios de Aceptación
-1. Revisión y aprobación del Pull Request de `feature/optimizacion-storage-imagenes-productos` a `main`.
-2. Fusión limpia en `main` sin conflictos.
-3. Creación del directorio de almacenamiento en el VPS y configuración del volumen o ruta de `Storage:ProductImagesPath`.
-4. Ejecución del endpoint de migración `POST /api/v1/products/migrate-base64-images` para convertir cualquier imagen Base64 existente a WebP.
-5. Verificación en producción de que las imágenes se carguen con respuesta HTTP 200/304 desde `/products/{id}/pos.webp` y el escáner USB funcione de inmediato.
+1. Iniciar sesión en el Punto de Venta de producción con credenciales de usuario o administrador.
+2. Cargar una imagen en un producto del catálogo (o crear un producto de prueba).
+3. Confirmar que la imagen se almacene en `/var/wpcbajio/data/products/{id}/` y responda HTTP 200 desde `https://api.wpcbajio.com/products/{id}/pos.webp`.
+4. Validar que la cuadrícula del Punto de Venta muestre la imagen sin ralentizaciones.
+5. Eliminar la imagen mediante el botón flotante `✕` y confirmar que se borre físicamente del disco y de la base de datos.
+
 
 

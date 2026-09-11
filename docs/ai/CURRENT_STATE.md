@@ -1,9 +1,14 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
-
-- **Optimización de Almacenamiento y Entrega de Imágenes de Productos (Migración WebP + Static Files)**:
-  - **Rama Git**: `feature/optimizacion-storage-imagenes-productos`
+ 
+- **Optimización de Almacenamiento y Entrega de Imágenes de Productos (Desplegado en Producción VPS y Main)**:
+  - **Rama Git**: `main` (desplegada y sincronizada con `origin/main` en commit `3551058`).
+  - **Estado en VPS (`193.46.198.88`)**:
+    - Directorio físico `/var/wpcbajio/data/products` activo con permisos para `www-data`.
+    - Servicio `pos-api.service` reiniciado y respondiendo 200 OK (`https://api.wpcbajio.com/api/v1/health`).
+    - Compilación Release completada excluyendo build tasks de SixLabors.
+    - Endpoint de migración de Base64 ejecutado con éxito.
   - **Objetivo**: Migrar el almacenamiento de imágenes de productos desde cadenas Base64 embebidas en base de datos (`nvarchar(max)`) y payloads JSON masivos hacia archivos físicos WebP organizados por producto fuera de `wwwroot`, servidos mediante el middleware de archivos estáticos de ASP.NET Core con cabeceras de caché HTTP (`Cache-Control: public, max-age=604800, must-revalidate`), aligerar la carga del Punto de Venta desacoplando la consulta inicial (`pageSize: 40`) e implementando búsqueda directa en servidor para el escáner de códigos de barras USB.
   - **Arquitectura de Almacenamiento de Imágenes**:
     - **Servicio de Dominio e Infraestructura**: `IProductImageStorageService` implementado por `LocalProductImageStorageService` utilizando `SixLabors.ImageSharp` (4.1.1).
