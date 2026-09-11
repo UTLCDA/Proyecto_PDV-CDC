@@ -1028,64 +1028,38 @@ export const PaginaCatalogoProductos: React.FC = () => {
                         {t('optimizingImage')}
                       </div>
                     ) : (imagenPreviewUrl || imagenUrl) ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.45rem' }}>
-                        <div style={{ position: 'relative', width: '105px', height: '105px', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--accent-primary)', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
-                          <img
-                            src={imagenPreviewUrl || imagenUrl}
-                            alt="Preview"
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                          />
-                          {/* Botón flotante rápido para quitar */}
-                          <button
-                            type="button"
-                            onClick={handleQuitarImagen}
-                            title={t('removeProductImage')}
-                            style={{
-                              position: 'absolute',
-                              top: '4px',
-                              right: '4px',
-                              width: '24px',
-                              height: '24px',
-                              borderRadius: '50%',
-                              background: 'rgba(220, 38, 38, 0.9)',
-                              color: '#fff',
-                              border: 'none',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '0.85rem',
-                              fontWeight: 'bold',
-                              boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
-                              lineHeight: 1
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
+                      <div style={{ position: 'relative', width: '105px', height: '105px', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--accent-primary)', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', margin: '0 auto' }}>
+                        <img
+                          src={imagenPreviewUrl || imagenUrl}
+                          alt="Preview"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        />
+                        {/* Botón flotante rápido para quitar */}
                         <button
                           type="button"
                           onClick={handleQuitarImagen}
-                          className="action-btn"
+                          title={t('removeProductImage')}
                           style={{
-                            background: '#fee2e2',
-                            color: '#b91c1c',
-                            borderColor: '#fca5a5',
-                            fontSize: '0.74rem',
-                            padding: '0.35rem 0.65rem',
-                            width: '100%',
-                            whiteSpace: 'nowrap',
+                            position: 'absolute',
+                            top: '4px',
+                            right: '4px',
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '50%',
+                            background: 'rgba(220, 38, 38, 0.9)',
+                            color: '#fff',
+                            border: 'none',
+                            cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            gap: '0.3rem',
-                            cursor: 'pointer',
-                            borderRadius: '4px',
-                            fontWeight: 600
+                            fontSize: '0.85rem',
+                            fontWeight: 'bold',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+                            lineHeight: 1
                           }}
-                          title={t('removeProductImage')}
                         >
-                          🗑️ {t('removeProductImage')}
+                          ✕
                         </button>
                       </div>
                     ) : (
