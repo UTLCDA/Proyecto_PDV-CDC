@@ -486,27 +486,55 @@ export const PaginaPuntoVenta: React.FC = () => {
             const ppb = item.product.piecesPerBox && item.product.piecesPerBox > 0 ? item.product.piecesPerBox : 1;
             const boxes = Math.floor(item.quantity / ppb);
             const remPzas = item.quantity % ppb;
-            const breakdownStr = ppb > 1
-              ? `${item.quantity} Pzas (${boxes > 0 ? `${boxes} Cjas` : ''}${boxes > 0 && remPzas > 0 ? ' + ' : ''}${remPzas > 0 || boxes === 0 ? `${remPzas} Pzas` : ''})`
-              : `${item.quantity} Pzas`;
+            const breakdownStr = ppb > 1 && boxes > 0
+              ? `${item.quantity} Pzas (${boxes} Cja${boxes > 1 ? 's' : ''}${remPzas > 0 ? ` + ${remPzas} Pza${remPzas > 1 ? 's' : ''}` : ''})`
+              : `${item.quantity} Pza${item.quantity > 1 ? 's' : ''}`;
 
-            return <div className="pos-cart-item" key={item.product.id}>
-              {item.product.imageUrl && <img src={item.product.imageUrl} alt="" />}
-              <div>
-                <small className="pos-cart-item__sku">{item.product.sku}</small>
-                <strong>{item.product.name}</strong>
-                <small style={{ color: 'var(--primary-main)', fontWeight: 700 }}>
-                  {breakdownStr} · {money.format(price)} · {(item.quantity * getPieceCoverage(item.product)).toFixed(2)} m²
-                </small>
+            return (
+              <div className="pos-cart-item" key={item.product.id}>
+                <div className="pos-cart-item__top">
+                  {item.product.imageUrl && <img src={item.product.imageUrl} alt="" className="pos-cart-item__img" />}
+                  <div className="pos-cart-item__title">
+                    <small className="pos-cart-item__sku">{item.product.sku}</small>
+                    <strong>{item.product.name}</strong>
+                  </div>
+                  <button
+                    type="button"
+                    className="pos-cart-item__remove"
+                    aria-label={t('removeProduct', { product: item.product.name })}
+                    onClick={() => setCart(current => current.filter(entry => entry.product.id !== item.product.id))}
+                    title="Quitar del carrito"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="pos-cart-item__bottom">
+                  <div className="pos-quantity-control">
+                    <button type="button" onClick={() => changeQuantity(item.product.id, -1)} aria-label={t('decreaseQuantity')}>−</button>
+                    <input
+                      type="number"
+                      min="1"
+                      max={item.product.availableQuantity}
+                      step="1"
+                      value={item.quantity}
+                      aria-label={t('quantityForProduct', { product: item.product.name })}
+                      onFocus={event => event.currentTarget.select()}
+                      onChange={event => updateQuantity(item.product.id, event.target.value)}
+                    />
+                    <button type="button" onClick={() => changeQuantity(item.product.id, 1)} aria-label={t('increaseQuantity')}>+</button>
+                  </div>
+
+                  <div className="pos-cart-item__meta">
+                    <span className="pos-cart-item__details">
+                      {breakdownStr} · {money.format(price)} · {(item.quantity * getPieceCoverage(item.product)).toFixed(2)} m²
+                    </span>
+                  </div>
+
+                  <b className="pos-cart-item__subtotal">{money.format(item.quantity * price)}</b>
+                </div>
               </div>
-              <div className="pos-quantity-control">
-                <button type="button" onClick={() => changeQuantity(item.product.id, -1)} aria-label={t('decreaseQuantity')}>−</button>
-                <input type="number" min="1" max={item.product.availableQuantity} step="1" value={item.quantity} aria-label={t('quantityForProduct', { product: item.product.name })} onFocus={event => event.currentTarget.select()} onChange={event => updateQuantity(item.product.id, event.target.value)} />
-                <button type="button" onClick={() => changeQuantity(item.product.id, 1)} aria-label={t('increaseQuantity')}>+</button>
-              </div>
-              <b>{money.format(item.quantity * price)}</b>
-              <button aria-label={t('removeProduct', { product: item.product.name })} onClick={() => setCart(current => current.filter(entry => entry.product.id !== item.product.id))}>×</button>
-            </div>;
+            );
           })}
         </div>
 

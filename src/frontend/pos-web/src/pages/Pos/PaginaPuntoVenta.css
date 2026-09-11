@@ -101,7 +101,7 @@
 
 .pos-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(295px, 24vw, 340px);
+  grid-template-columns: minmax(0, 1fr) clamp(310px, 24vw, 355px);
   gap: 0.85rem;
   min-width: 0;
   align-items: start;
@@ -367,8 +367,9 @@
 }
 
 .pos-cart-list {
-  display: grid;
-  max-height: 210px;
+  display: flex;
+  flex-direction: column;
+  max-height: 230px;
   overflow-y: auto;
   border: 1px solid var(--border-input);
   border-radius: var(--radius-md);
@@ -376,19 +377,19 @@
 }
 
 .pos-checkout .pos-empty {
-  padding: 1rem 0.75rem;
+  padding: 1.25rem 0.75rem;
   font-size: 0.78rem;
   color: var(--text-secondary);
 }
 
 .pos-cart-item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.42rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.65rem;
   border-bottom: 1px solid var(--border-subtle);
   background: var(--background-surface);
+  transition: background-color 0.15s ease;
 }
 
 .pos-cart-item:last-child {
@@ -399,17 +400,38 @@
   background: var(--background-cream-soft);
 }
 
-.pos-cart-item img {
-  width: 32px;
-  height: 32px;
+/* Fila Superior del Item: Imagen + SKU / Nombre + Botón Quitar */
+.pos-cart-item__top {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.pos-cart-item img,
+.pos-cart-item__img {
+  width: 28px;
+  height: 28px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xs);
   object-fit: cover;
+  flex-shrink: 0;
 }
 
-.pos-cart-item strong,
-.pos-cart-item small {
-  display: block;
+.pos-cart-item__title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.pos-cart-item__sku {
+  color: var(--primary-main) !important;
+  font-weight: 800;
+  font-size: 0.76rem;
+  flex-shrink: 0;
 }
 
 .pos-cart-item strong {
@@ -418,24 +440,43 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.78rem;
-  line-height: 1.2;
+  font-weight: 600;
 }
 
-.pos-cart-item small {
-  color: var(--text-secondary);
-  font-size: 0.68rem;
-  line-height: 1.2;
+.pos-cart-item__remove,
+.pos-cart-item > button {
+  border: 0;
+  background: transparent;
+  color: var(--danger);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.15rem;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
-.pos-cart-item__sku {
-  color: var(--primary-main) !important;
-  font-weight: 750;
+.pos-cart-item__remove:hover,
+.pos-cart-item > button:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+/* Fila Inferior del Item: Control Cantidad + Desglose / Cobertura + Subtotal */
+.pos-cart-item__bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  width: 100%;
 }
 
 .pos-quantity-control {
   display: flex;
   align-items: center;
   gap: 0.15rem;
+  flex-shrink: 0;
 }
 
 .pos-quantity-control button {
@@ -445,12 +486,13 @@
   border-radius: var(--radius-xs);
   background: var(--background-container);
   color: var(--text-main);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 750;
   cursor: pointer;
   display: grid;
   place-items: center;
   padding: 0;
+  line-height: 1;
 }
 
 .pos-quantity-control button:hover {
@@ -460,23 +502,43 @@
 }
 
 .pos-quantity-control input {
-  width: 42px;
-  padding: 0.18rem 0.2rem;
+  width: 38px;
+  padding: 0.18rem 0.15rem;
   border: 1px solid var(--border-input);
   border-radius: var(--radius-xs);
   font-size: 0.78rem;
+  font-weight: 700;
   text-align: center;
   background: var(--background-surface);
   color: var(--text-main);
 }
 
-.pos-cart-item > b {
-  color: var(--text-main);
-  font-size: 0.82rem;
+.pos-cart-item__meta {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  padding: 0 0.2rem;
+}
+
+.pos-cart-item__details {
+  display: block;
+  color: var(--primary-main);
+  font-size: 0.7rem;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.pos-cart-item > button,
+.pos-cart-item__subtotal,
+.pos-cart-item > b {
+  color: var(--text-main);
+  font-size: 0.84rem;
+  font-weight: 800;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .pos-link-btn {
   border: 0;
   background: transparent;
@@ -495,13 +557,6 @@
 
 .pos-checkout .pos-link-btn:hover {
   background: var(--background-cream-soft);
-}
-
-.pos-cart-item > button {
-  color: var(--danger);
-  font-size: 1.1rem;
-  padding: 0 0.15rem;
-  line-height: 1;
 }
 
 .pos-totals {
