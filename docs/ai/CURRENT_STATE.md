@@ -33,8 +33,8 @@
       - En el escaneo de código de barras USB (`findAndAddProduct`), si el producto no se encuentra en el caché en memoria de 40 productos, se realiza un fallback instantáneo al endpoint `GET /api/v1/products/code/{code}` para añadirlo al carrito sin interrupciones ni recargar la página.
       - Inclusión de atributos `loading="lazy"` y `decoding="async"` en todas las imágenes de productos.
     - **Modal de Edición/Creación de Producto con Eliminación de Imagen Segura**:
-      - Incorporado botón flotante `✕` y botón de acción `🗑️ Eliminar Imagen / 删除图片` en el modal de catálogo de `PaginaCatalogoProductos.tsx`.
-      - Permite revertir una selección de archivo o eliminar la imagen existente sin modificar ni reiniciar ninguno de los demás campos del formulario (precios, códigos, dimensiones, categoría, etc.).
+      - Incorporado botón flotante rápido `✕` en la esquina superior derecha de la miniatura de imagen en el modal de catálogo (`PaginaCatalogoProductos.tsx`).
+      - Permite revertir una selección de archivo o eliminar la imagen existente de forma limpia y minimalista sin modificar ni reiniciar ninguno de los demás campos del formulario (precios, códigos, dimensiones, categoría, etc.).
     - **Auditoría Limpia**:
       - Eventos `PRODUCT_IMAGE_UPLOADED`, `PRODUCT_IMAGE_REMOVED` y `PRODUCT_IMAGES_MIGRATED` registrados en `AuditLogs` con URLs y metadatos, sin almacenar cadenas Base64.
   - **Pruebas y Verificación**:
