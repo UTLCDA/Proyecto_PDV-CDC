@@ -1100,41 +1100,15 @@ export const PaginaCatalogoProductos: React.FC = () => {
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.35rem' }}>
                       {esEdicion && (imagenUrl || imagenPreviewUrl) ? t('changeProductImage') : t('uploadProductImage')}
                     </label>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*,.heic,.heif,.HEIC,.HEIF"
-                        className="input-field"
-                        disabled={procesandoImagen}
-                        onChange={handleImageFileChange}
-                        style={{ cursor: procesandoImagen ? 'wait' : 'pointer', flex: 1 }}
-                      />
-                      {(imagenPreviewUrl || imagenUrl || imagenArchivo) && (
-                        <button
-                          type="button"
-                          onClick={handleQuitarImagen}
-                          className="action-btn"
-                          style={{
-                            background: '#fee2e2',
-                            color: '#b91c1c',
-                            borderColor: '#fca5a5',
-                            padding: '0.5rem 0.75rem',
-                            fontSize: '0.8rem',
-                            whiteSpace: 'nowrap',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.35rem',
-                            cursor: 'pointer',
-                            borderRadius: '6px',
-                            fontWeight: 600
-                          }}
-                          title={t('removeProductImage')}
-                        >
-                          🗑️ {t('removeProductImage')}
-                        </button>
-                      )}
-                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,.heic,.heif,.HEIC,.HEIF"
+                      className="input-field"
+                      disabled={procesandoImagen}
+                      onChange={handleImageFileChange}
+                      style={{ cursor: procesandoImagen ? 'wait' : 'pointer' }}
+                    />
                     <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '0.35rem', lineHeight: '1.3' }}>
                       {procesandoImagen
                         ? t('convertingHeic')
