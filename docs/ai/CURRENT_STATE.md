@@ -2,6 +2,20 @@
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
 
+- **Optimización de Espacios en Punto de Venta (Ampliación de Catálogo y Compactación de Checkout)**:
+  - **Rama Git**: `mantenimiento-ajuste-pdv`
+  - **Objetivo**: Reducir el ancho y los espaciados internos del panel lateral de carrito/checkout (`.pos-checkout`) para permitir que el área de tarjetas de productos (`.pos-card`) se expanda significativamente en pantalla y muestre más productos por fila sin espacios desperdiciados.
+  - **Cambios Realizados**:
+    - `.pos-layout`: Reconfigurado a `grid-template-columns: minmax(0, 1fr) clamp(295px, 24vw, 340px);` con `align-items: start`. El catálogo de productos ahora ocupa más del 75% del ancho de pantalla.
+    - `.pos-products`: Rejilla ajustada a `minmax(235px, 1fr)` con `gap: 0.75rem`, permitiendo una distribución fluida de 4 a 6 columnas en pantallas panorámicas.
+    - `.pos-checkout`: Reducción de gap a `0.45rem`, padding de contenedor a `0.75rem 0.85rem`, cabecera compacta con título `0.98rem`, botones secundarios a `0.35rem 0.55rem`, campos de cliente, pago y notas estilizados con inputs de `0.8rem` y textarea de `38px`.
+    - Lista de carrito y totales compactados: items con imágenes miniatura de `32x32px`, controles de cantidad `22x22px`, fila de facturación y desglose de totales optimizados.
+  - **Pruebas y Verificación**:
+    - Frontend: 47/47 pruebas unitarias de Vitest superadas (100%).
+    - Build: `tsc && vite build` completado exitosamente en 11.14s con 0 errores y 0 advertencias.
+    - Backend: 77/77 pruebas superadas al 100%.
+
+
 - **Sincronización de Base de Datos Producción (VPS) a Entorno DEV Local y Respaldo Semanal**:
   - **Fecha**: 10 de Septiembre, 2026
   - **Objetivo**: Descargar el respaldo completo de la base de datos de producción (`193.46.198.88`) y restaurarlo en el motor SQL Server local del desarrollador (`PosLambrinDb` y `PosLambrinDb_Dev`), e implementar un cron job de respaldo automatizado semanal en el VPS.

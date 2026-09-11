@@ -445,11 +445,10 @@ export const PaginaPuntoVenta: React.FC = () => {
       <aside className="pos-card pos-checkout">
         <div className="pos-card__heading">
           <div><h2>🧾 {t('shoppingCart')}</h2><p>{t('cartItemsCount', { count: cart.length })}</p></div>
-          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
             <button
               type="button"
               className="action-btn"
-              style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
               onClick={() => setIsCalculatorModalOpen(true)}
               title={t('calculatorM2')}
             >
@@ -459,7 +458,7 @@ export const PaginaPuntoVenta: React.FC = () => {
           </div>
         </div>
         <label className="pos-field">{t('selectCustomer')}
-          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
             <select style={{ flex: 1 }} value={selectedCustomerId} onChange={event => setSelectedCustomerId(event.target.value)}>
               <option value="">{t('generalPublic')}</option>
               {customers.map(customer => (
@@ -472,7 +471,6 @@ export const PaginaPuntoVenta: React.FC = () => {
               <button
                 type="button"
                 className="action-btn"
-                style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
                 onClick={() => setIsNewCustomerModalOpen(true)}
                 title="Dar de alta nuevo cliente"
               >
