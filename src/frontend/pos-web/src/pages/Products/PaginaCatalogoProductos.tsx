@@ -16,9 +16,10 @@ import TablePagination from '../../components/common/TablePagination';
 import { loadAllPagesForExport } from '../../utils/pagedExport';
 import './ProductListPage.css';
 
+const DEFAULT_CATEGORY_ID = '7938934b-d6cb-44fd-98de-b0645c66017d';
 const DEFAULT_CATEGORIES: Categoria[] = [
   {
-    id: '7938934b-d6cb-44fd-98de-b0645c66017d',
+    id: DEFAULT_CATEGORY_ID,
     name: 'Lambrin Interior 格栅板',
     slug: 'lambrin-interior',
     description: 'Lambrin Interior 格栅板',
@@ -36,8 +37,8 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>(DEFAULT_CATEGORIES);
   const [busqueda, setBusqueda] = useState('');
-  const [categoriaFiltro, setCategoriaFiltro] = useState('');
-  const [filtrosAplicados, setFiltrosAplicados] = useState({ busqueda: '', categoriaId: '', estado: 'active' });
+  const [categoriaFiltro, setCategoriaFiltro] = useState(DEFAULT_CATEGORY_ID);
+  const [filtrosAplicados, setFiltrosAplicados] = useState({ busqueda: '', categoriaId: DEFAULT_CATEGORY_ID, estado: 'active' });
   const [estadoFiltro, setEstadoFiltro] = useState<'active' | 'inactive' | 'all'>('active');
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState('');
@@ -160,6 +161,15 @@ export const PaginaCatalogoProductos: React.FC = () => {
     void cargarDatos();
   }, [cargarDatos]);
 
+  useEffect(() => {
+    void servicioCatalogo.getCategories(undefined, { page: 1, pageSize: 500 }).then(res => {
+      const items = Array.isArray(res) ? res : res?.items ?? [];
+      if (items.length > 0) {
+        setCategorias(items.filter(c => c.isActive !== false));
+      }
+    }).catch(() => null);
+  }, []);
+
   const handleBuscarSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     pagination.resetPage();
@@ -168,10 +178,10 @@ export const PaginaCatalogoProductos: React.FC = () => {
 
   const handleLimpiarFiltros = () => {
     setBusqueda('');
-    setCategoriaFiltro('');
+    setCategoriaFiltro(DEFAULT_CATEGORY_ID);
     setEstadoFiltro('active');
     pagination.resetPage();
-    setFiltrosAplicados({ busqueda: '', categoriaId: '', estado: 'active' });
+    setFiltrosAplicados({ busqueda: '', categoriaId: DEFAULT_CATEGORY_ID, estado: 'active' });
   };
 
   const handleConfirmarBaja = async () => {
@@ -546,7 +556,12 @@ export const PaginaCatalogoProductos: React.FC = () => {
           <select
             className="input-field"
             value={categoriaFiltro}
-            onChange={(e) => setCategoriaFiltro(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setCategoriaFiltro(val);
+              pagination.resetPage();
+              setFiltrosAplicados(prev => ({ ...prev, categoriaId: val }));
+            }}
             style={{ width: '220px' }}
           >
             <option value="">-- {t('allCategories')} --</option>

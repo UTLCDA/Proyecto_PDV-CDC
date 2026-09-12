@@ -1,9 +1,9 @@
 # HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
-## 📌 Hito Cumplido: Optimización de Categorías en PDV y Catálogo (Sin saturar el API)
+## 📌 Hito Cumplido: Categorías en PDV y Catálogo (Lambrín Interior por Defecto y Libre Manejo)
 - **Archivos Modificados**: `PaginaPuntoVenta.tsx`, `PaginaCatalogoProductos.tsx`.
-- **Descripción**: Se eliminaron las consultas masivas a `GET /categories` que se realizaban en cada carga inicial del Punto de Venta y en cada recarga/paginación del Catálogo de Productos. Se preconfigura la categoría comercial única del negocio (`7938934b-d6cb-44fd-98de-b0645c66017d` - `Lambrin Interior 格栅板`), evitando saturar el backend con peticiones redundantes.
-- **Pruebas**: 47/47 pruebas de Vitest aprobadas al 100%, compilación exitosa con Vite.
+- **Descripción**: Tanto el Punto de Venta como el Catálogo cargan inicialmente filtrados por la categoría principal `Lambrin Interior 格栅板` (`7938934b-d6cb-44fd-98de-b0645c66017d`), mostrando únicamente sus productos en el render inicial. El combo `<select>` carga todas las categorías activas de la base de datos más la opción de "Todas las Categorías", permitiendo al usuario cambiar libremente a cualquier categoría con actualización inmediata de productos.
+- **Pruebas**: 47/47 pruebas de Vitest aprobadas al 100%, compilación `tsc && vite build` exitosa.
 
 ## 📌 Hito Cumplido: Optimización de Almacenamiento y Entrega de Imágenes de Productos (Desplegado a Producción VPS y Main)
 - **Rama Git**: `main` (desplegada y sincronizada con `origin/main` en commit `3551058`).

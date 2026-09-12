@@ -12,10 +12,10 @@
   3. **Endpoints REST y Migración Base64**:
      - `POST /api/v1/products/{id}/image`, `DELETE /api/v1/products/{id}/image` y `POST /api/v1/products/migrate-base64-images` operativos.
      - Migración ejecutada con éxito en VPS.
-  4. **Optimización de Memoria, Carga y Categorías en Punto de Venta y Catálogo**:
+  4. **Categorías en Punto de Venta y Catálogo**:
      - Catálogo aligerado, consulta inicial POS `pageSize: 40` con búsqueda en servidor (`GET /api/v1/products/code/{code}`).
      - Botón flotante `✕` para descarte y eliminación rápida de imágenes en el catálogo.
-     - Categoría preconfigurada en PDV y Catálogo (`7938934b-d6cb-44fd-98de-b0645c66017d` - `Lambrin Interior 格栅板`), eliminando llamadas a `GET /categories` para evitar saturación de la API.
+     - Carga inicial filtrada en `Lambrin Interior 格栅板` (`7938934b-d6cb-44fd-98de-b0645c66017d`), con combo de categorías completo para libre navegación por el usuario.
 - **Estado del Servicio en Producción**:
   - `pos-api.service`: `active (running)` en VPS.
   - Health check: `https://api.wpcbajio.com/api/v1/health` ➔ HTTP 200 OK.
