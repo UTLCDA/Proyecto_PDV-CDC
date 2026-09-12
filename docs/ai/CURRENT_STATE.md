@@ -9,12 +9,13 @@
     - Script automatizado reusable: [`scripts/development/Sync-PrToLocal.ps1`](file:///d:/Proyecto_PDV-CDC/scripts/development/Sync-PrToLocal.ps1).
   - **Integración con Sistema de Etiquetas Térmicas (`D:\Visozr Etiquetas`)**:
     - Se extrajeron todos los 104 productos activos directamente desde `PosLambrinDb` para alimentar el archivo de presets [`D:\Visozr Etiquetas\src\data\presets.ts`](file:///D:/Visozr%20Etiquetas/src/data/presets.ts) con sus SKUs, códigos de barras, nombres bilingües, colores, dimensiones exactas (`Largo × Ancho × Alto`) y precios p/pza con IVA.
-    - **Recuadro con Imagen de Producto en Etiqueta Térmica (100mm × 60mm)**:
+    - **Recuadro con Imagen de Producto y Tono de Fondo Blanco Marfil (100mm × 60mm)**:
       - Para los productos que ya tienen imagen cargada en la base de datos (31 productos: series `LAM-01` a `LAM-23` y `MOS-01` a `MOS-15`), se exportaron las fotos a `D:\Visozr Etiquetas\public\product-images/`.
       - Se añadió un recuadro de miniatura de 18mm × 18mm con bordes redondeados y sombra sutil en el cuerpo central de la etiqueta térmica (`ThermalLabel.tsx`), a la derecha de la información técnica (Color, Dimensiones, SKU).
+      - **Tono de Fondo Más Blanco**: Siguiendo el requerimiento del cliente ("más entre blanco y amarillo, más blanco"), se actualizó el color base de la etiqueta de `#FEE2B8` (amarillo oscuro) a `#FFFDF0` (un marfil / blanco cálido de alta luminosidad) con un marco perimetral fino en `#E8DEC8`. Esto mejora drásticamente el contraste, la legibilidad tipográfica y el realismo de impresión.
+      - **Filtro Rápido y Subida Manual**: En `LabelForm.tsx` se incorporó el botón de filtro `📷 Con foto en BD (31)` y el botón `📁 Subir / Cambiar Foto...` para que cualquier modelo sin foto pueda tener su imagen cargada al instante desde la computadora.
       - Para los productos que aún no cuentan con foto cargada (o si se elimina la imagen en el formulario con `✕ Quitar foto`), el contenedor de la foto se oculta limpiamente y el bloque de texto toma el 100% del ancho sin dejar huecos ni deformar el diseño.
-      - Se actualizó el formulario de edición manual (`LabelForm.tsx`) con previsualización de miniatura, campo de URL y botón de remoción rápida.
-      - Se actualizaron las interfaces de TypeScript (`PresetProduct` y `LabelData`) y la sincronización en cola/lotes en `App.tsx`.
+      - Se actualizaron las interfaces de TypeScript (`PresetProduct` y `LabelData`), el módulo de exportación PDF (`pdfExport.ts`) y la sincronización en cola/lotes en `App.tsx`.
     - **Corrección de Codificación (Mojibake) y Formato de Dimensiones**: Se erradicó el caracter `Ã—` reemplazándolo por el separador estándar comercial limpio `x` (`290 cm x 20 cm x 2.25 cm`). Se reescribieron los componentes con UTF-8 puro sin BOM, corrigiendo acentos y caracteres chinos.
     - **Visualización Completa del Color Bilingüe**: Se eliminó la clase `truncate` y `uppercase`, incorporando escalado tipográfico inteligente (8pt - 11pt) y soporte multilínea (`break-words line-clamp-2`), permitiendo mostrar nombres bilingües largos (ej. `Madera rojiza‑marrón —— 红棕木色`) de forma completa sin recortes.
     - **Formato Planilla Tamaño Carta (8 etiquetas por hoja - 215.9mm × 279.4mm)**:
