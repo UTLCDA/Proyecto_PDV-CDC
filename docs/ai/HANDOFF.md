@@ -1,18 +1,19 @@
 # HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
-## 📌 Hito Cumplido: Sincronización de Catálogo PR a Local y Generación Automática de Etiquetas Térmicas (100mm × 60mm)
+## 📌 Hito Cumplido: Sincronización de Catálogo PR a Local, Corrección UTF-8 y Planillas Tamaño Carta (8 por hoja)
 - **Archivos/Scripts Involucrados**:
   - `scripts/development/Sync-PrToLocal.ps1`: Sincronización directa y segura desde SQL Server VPS (`193.46.198.88:1433`) a local `localhost` (`PosLambrinDb`).
-  - `scripts/development/Generate-EtiquetasPresets.ps1` & `scripts/development/fix_etiquetas.js`: Extracción y normalización de presets con UTF-8 puro, separador `x` en dimensiones y tipografía adaptativa para colores bilingües.
+  - `scripts/development/Generate-EtiquetasPresets.ps1`, `fix_etiquetas.js` y `apply_letter_sheet_mode.js`: Extracción y normalización de presets con UTF-8 puro, separador `x` en dimensiones y módulo de impresión/PDF en hoja Carta.
   - `D:\Visozr Etiquetas\src\data\presets.ts`: Catálogo completo de 104 productos activos preconfigurados para etiquetas térmicas.
   - `D:\Visozr Etiquetas\src\components\ThermalLabel.tsx`: Eliminada la clase `truncate` y `uppercase`, ajuste dinámico de tamaño de fuente (8pt - 11pt) y renderizado multilínea completo para evitar recortes en nombres de colores bilingües largos (ej. `Madera rojiza‑marrón —— 红棕木色`). Limpieza de mojibake `Ã—` a `x`.
-  - `D:\Visozr Etiquetas\src\components\BatchQueue.tsx`: Botón directo "⚡ Cargar Catálogo Completo (104 Etiquetas)" para generación instantánea en lote.
-  - `D:\Visozr Etiquetas\src\components\LabelForm.tsx`: Buscador interactivo en vivo por SKU, Código de barras o Color.
-  - `D:\Visozr Etiquetas\src\App.tsx`: Soporte de carga por lotes completa en la cola de impresión y exportación PDF multipágina.
+  - `D:\Visozr Etiquetas\src\components\BatchQueue.tsx`: Botones destacados **`📄 Descargar PDF Carta (13 Hojas)`** e **`🖨️ Imprimir en Carta`** (8 etiquetas por hoja de 100mm × 60mm), junto con soporte para rollo térmico continuo.
+  - `D:\Visozr Etiquetas\src\components\LabelPreviewCard.tsx`: Selector de vista previa dual `100×60mm` vs `Hoja Carta (8x)`.
+  - `D:\Visozr Etiquetas\src\components\PrintContainer.tsx` & `src/index.css`: Reglas `@media print` de alta precisión para hoja Carta (215.9mm × 279.4mm) con retícula de 2 columnas × 4 filas y guías de corte punteadas.
+  - `D:\Visozr Etiquetas\src\utils\pdfExport.ts`: Nueva función `exportBatchQueueToLetterPdf` para exportar el catálogo completo en un PDF de 13 páginas tamaño Carta listo para imprimir en cualquier impresora de oficina.
 - **Resultados**:
   - Base de datos local actualizada con los 105 productos reales capturados en producción (13 categorías y 105 stocks).
-  - Sistema de etiquetas listo para imprimir o generar en PDF las 104 etiquetas de los productos capturados con 1 solo clic.
-  - Build de `D:\Visozr Etiquetas` verificado con 0 errores TypeScript/Vite y validado visualmente mediante subagente de navegador en `http://localhost:5173`.
+  - Sistema de etiquetas listo para imprimir o generar en PDF las 104 etiquetas de los productos en 13 hojas tamaño Carta con 1 solo clic.
+  - Build de `D:\Visozr Etiquetas` verificado con 0 errores y probado visualmente con navegador.
 
 ## 📌 Hito Cumplido: Categorías en PDV y Catálogo (Lambrín Interior por Defecto y Libre Manejo)
 - **Archivos Modificados**: `PaginaPuntoVenta.tsx`, `PaginaCatalogoProductos.tsx`.

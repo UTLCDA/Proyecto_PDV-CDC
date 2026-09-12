@@ -11,7 +11,13 @@
     - Se extrajeron todos los 104 productos activos directamente desde `PosLambrinDb` para alimentar el archivo de presets [`D:\Visozr Etiquetas\src\data\presets.ts`](file:///D:/Visozr%20Etiquetas/src/data/presets.ts) con sus SKUs, códigos de barras, nombres bilingües, colores, dimensiones exactas (`Largo × Ancho × Alto`) y precios p/pza con IVA.
     - **Corrección de Codificación (Mojibake) y Formato de Dimensiones**: Se erradicó el caracter `Ã—` reemplazándolo por el separador estándar comercial limpio `x` (`290 cm x 20 cm x 2.25 cm`). Se reescribieron los componentes con UTF-8 puro sin BOM, corrigiendo acentos y caracteres chinos.
     - **Visualización Completa del Color Bilingüe**: Se eliminó la clase `truncate` y `uppercase`, incorporando escalado tipográfico inteligente (8pt - 11pt) y soporte multilínea (`break-words line-clamp-2`), permitiendo mostrar nombres bilingües largos (ej. `Madera rojiza‑marrón —— 红棕木色`) de forma completa sin recortes.
-    - **Lote Automatizado**: Botón de 1-clic **"⚡ Cargar Catálogo Completo (104 Etiquetas)"** en la cola por lotes (`BatchQueue.tsx`), con exportación en PDF multipágina e impresión directa. Compilación limpia verificada con `npm run build` y prueba visual en navegador.
+    - **Formato Planilla Tamaño Carta (8 etiquetas por hoja - 215.9mm × 279.4mm)**:
+      - Geometría adaptada para papel oficina/láser: 2 columnas × 4 filas (exactamente 8 etiquetas de 100mm × 60mm por hoja).
+      - Para los 104 productos activos del catálogo, se generan automáticamente **13 hojas tamaño Carta**.
+      - Incorpora guías sutiles de corte punteadas (`1.5mm / 1.5mm`) para facilitar el recorte con guillotina o tijeras.
+      - Soporte dual: botón **`📄 Descargar PDF Carta (13 Hojas)`** (PDF multipágina Letter en jsPDF) y **`🖨️ Imprimir en Carta`** (vía `@media print` con retícula CSS grid exacta).
+      - Vista previa interactiva de la hoja Carta completa directamente en la UI.
+    - **Lote Automatizado**: Botón de 1-clic **"⚡ Cargar Catálogo Completo (104 Etiquetas)"** en la cola por lotes (`BatchQueue.tsx`), con exportación tanto en Planilla Carta como en Rollo Térmico continuo. Compilación limpia verificada con `npm run build` y prueba visual en navegador.
 
 - **Categorías en PDV y Catálogo (Selección Predeterminada Lambrín Interior con Libre Manejo)**:
   - **Objetivo**: El Punto de Venta (`PaginaPuntoVenta.tsx`) y el Catálogo (`PaginaCatalogoProductos.tsx`) cargan inicialmente filtrados por la categoría principal `Lambrin Interior 格栅板` (`7938934b-d6cb-44fd-98de-b0645c66017d`), mostrando únicamente sus productos en el primer render para no sobrecargar la vista ni el API.
