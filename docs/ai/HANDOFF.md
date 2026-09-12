@@ -1,5 +1,19 @@
 # HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
+## 📌 Hito Cumplido: Sincronización de Catálogo PR a Local y Generación Automática de Etiquetas Térmicas (100mm × 60mm)
+- **Archivos/Scripts Involucrados**:
+  - `scripts/development/Sync-PrToLocal.ps1`: Sincronización directa y segura desde SQL Server VPS (`193.46.198.88:1433`) a local `localhost` (`PosLambrinDb`).
+  - `scripts/development/Generate-EtiquetasPresets.ps1` & `scripts/development/fix_etiquetas.js`: Extracción y normalización de presets con UTF-8 puro, separador `x` en dimensiones y tipografía adaptativa para colores bilingües.
+  - `D:\Visozr Etiquetas\src\data\presets.ts`: Catálogo completo de 104 productos activos preconfigurados para etiquetas térmicas.
+  - `D:\Visozr Etiquetas\src\components\ThermalLabel.tsx`: Eliminada la clase `truncate` y `uppercase`, ajuste dinámico de tamaño de fuente (8pt - 11pt) y renderizado multilínea completo para evitar recortes en nombres de colores bilingües largos (ej. `Madera rojiza‑marrón —— 红棕木色`). Limpieza de mojibake `Ã—` a `x`.
+  - `D:\Visozr Etiquetas\src\components\BatchQueue.tsx`: Botón directo "⚡ Cargar Catálogo Completo (104 Etiquetas)" para generación instantánea en lote.
+  - `D:\Visozr Etiquetas\src\components\LabelForm.tsx`: Buscador interactivo en vivo por SKU, Código de barras o Color.
+  - `D:\Visozr Etiquetas\src\App.tsx`: Soporte de carga por lotes completa en la cola de impresión y exportación PDF multipágina.
+- **Resultados**:
+  - Base de datos local actualizada con los 105 productos reales capturados en producción (13 categorías y 105 stocks).
+  - Sistema de etiquetas listo para imprimir o generar en PDF las 104 etiquetas de los productos capturados con 1 solo clic.
+  - Build de `D:\Visozr Etiquetas` verificado con 0 errores TypeScript/Vite y validado visualmente mediante subagente de navegador en `http://localhost:5173`.
+
 ## 📌 Hito Cumplido: Categorías en PDV y Catálogo (Lambrín Interior por Defecto y Libre Manejo)
 - **Archivos Modificados**: `PaginaPuntoVenta.tsx`, `PaginaCatalogoProductos.tsx`.
 - **Descripción**: Tanto el Punto de Venta como el Catálogo cargan inicialmente filtrados por la categoría principal `Lambrin Interior 格栅板` (`7938934b-d6cb-44fd-98de-b0645c66017d`), mostrando únicamente sus productos en el render inicial. El combo `<select>` carga todas las categorías activas de la base de datos más la opción de "Todas las Categorías", permitiendo al usuario cambiar libremente a cualquier categoría con actualización inmediata de productos.

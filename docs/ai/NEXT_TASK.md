@@ -2,39 +2,20 @@
 
 ## 📌 Estado Actual
 
-- **Rama Git Activa**: `main` (desplegada y sincronizada con `origin/main` en commit `3551058`).
-- **Funcionalidad Desplegada a Producción**:
-  1. **Almacenamiento Físico WebP en Disco**:
-     - Desplegado en VPS Ubuntu 26.04 (`193.46.198.88`) bajo `/var/wpcbajio/data/products`.
-     - Motor `LocalProductImageStorageService` con ImageSharp generando variantes atómicas (`thumbnail.webp`, `pos.webp`, `preview.webp`).
-  2. **Entrega de Archivos Estáticos con Caché HTTP**:
-     - `app.UseStaticFiles()` sirviendo imágenes bajo `/products` con `Cache-Control: public, max-age=604800, must-revalidate`.
-  3. **Endpoints REST y Migración Base64**:
-     - `POST /api/v1/products/{id}/image`, `DELETE /api/v1/products/{id}/image` y `POST /api/v1/products/migrate-base64-images` operativos.
-     - Migración ejecutada con éxito en VPS.
-  4. **Categorías en Punto de Venta y Catálogo**:
-     - Catálogo aligerado, consulta inicial POS `pageSize: 40` con búsqueda en servidor (`GET /api/v1/products/code/{code}`).
-     - Botón flotante `✕` para descarte y eliminación rápida de imágenes en el catálogo.
-     - Carga inicial filtrada en `Lambrin Interior 格栅板` (`7938934b-d6cb-44fd-98de-b0645c66017d`), con combo de categorías completo para libre navegación por el usuario.
-- **Estado del Servicio en Producción**:
-  - `pos-api.service`: `active (running)` en VPS.
-  - Health check: `https://api.wpcbajio.com/api/v1/health` ➔ HTTP 200 OK.
-  - Catálogo API: `https://api.wpcbajio.com/api/v1/products` ➔ HTTP 200 OK.
-  - Frontend SPA: Desplegado en Cloudflare (`https://pos.wpcbajio.com` / `https://pos-wpcbajio.aaronarenasmartinez.workers.dev`).
-- **Estado de Pruebas**:
-  - Backend: 84/84 pruebas xUnit superadas al 100%.
-  - Frontend: 47/47 pruebas Vitest aprobadas al 100%.
+- **Rama Git Activa**: `main` (desplegada y sincronizada con `origin/main`).
+- **Sincronización Local**: Base de datos local `PosLambrinDb` 100% sincronizada con Producción (105 productos, 13 categorías, 105 stocks).
+- **Sistema de Etiquetas**: `D:\Visozr Etiquetas` actualizado con presets de los 104 productos activos y botón de carga masiva de catálogo en lote.
 
 ## 📌 Siguiente Tarea Recomendada
 
-Verificación funcional en caliente desde la interfaz web del Punto de Venta en producción (`https://pos.wpcbajio.com`), validando la subida de una nueva imagen de producto desde el catálogo, su almacenamiento físico en `/var/wpcbajio/data/products` y su visualización inmediata en las tarjetas del PDV.
+Ejecutar el sistema de etiquetas térmicas (`npm run dev` en `D:\Visozr Etiquetas`), cargar los 104 productos con el botón de lote y generar/imprimir las etiquetas térmicas (100mm × 60mm) o descargarlas en PDF multipágina.
 
 ### Criterios de Aceptación
-1. Iniciar sesión en el Punto de Venta de producción con credenciales de usuario o administrador.
-2. Cargar una imagen en un producto del catálogo (o crear un producto de prueba).
-3. Confirmar que la imagen se almacene en `/var/wpcbajio/data/products/{id}/` y responda HTTP 200 desde `https://api.wpcbajio.com/products/{id}/pos.webp`.
-4. Validar que la cuadrícula del Punto de Venta muestre la imagen sin ralentizaciones.
-5. Eliminar la imagen mediante el botón flotante `✕` y confirmar que se borre físicamente del disco y de la base de datos.
+1. Iniciar el servidor local de Visozr Etiquetas: `npm --prefix "D:\Visozr Etiquetas" run dev`.
+2. Abrir `http://localhost:5173` (o el puerto asignado).
+3. Hacer clic en "⚡ Cargar Catálogo Completo (104 Etiquetas)" en la sección de Cola de Impresión por Lote.
+4. Validar que se muestren las 104 etiquetas térmicas con datos reales (SKU, código de barras, color, medidas y precio con IVA).
+5. Probar la descarga del PDF multipágina o impresión directa en impresora térmica.
 
 
 

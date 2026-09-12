@@ -1,7 +1,18 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
- 
+
+- **Sincronización de Base de Datos de Producción (PR) a Local y Generación Automática de Etiquetas Térmicas**:
+  - **Sincronización Local vs PR**:
+    - Conexión remota exitosa a SQL Server en VPS (`193.46.198.88:1433`).
+    - Base de datos local `PosLambrinDb` sincronizada al 100% con los datos capturados en Producción: **105 productos**, **13 categorías** y sus correspondientes registros de inventario en `Stocks`.
+    - Script automatizado reusable: [`scripts/development/Sync-PrToLocal.ps1`](file:///d:/Proyecto_PDV-CDC/scripts/development/Sync-PrToLocal.ps1).
+  - **Integración con Sistema de Etiquetas Térmicas (`D:\Visozr Etiquetas`)**:
+    - Se extrajeron todos los 104 productos activos directamente desde `PosLambrinDb` para alimentar el archivo de presets [`D:\Visozr Etiquetas\src\data\presets.ts`](file:///D:/Visozr%20Etiquetas/src/data/presets.ts) con sus SKUs, códigos de barras, nombres bilingües, colores, dimensiones exactas (`Largo × Ancho × Alto`) y precios p/pza con IVA.
+    - **Corrección de Codificación (Mojibake) y Formato de Dimensiones**: Se erradicó el caracter `Ã—` reemplazándolo por el separador estándar comercial limpio `x` (`290 cm x 20 cm x 2.25 cm`). Se reescribieron los componentes con UTF-8 puro sin BOM, corrigiendo acentos y caracteres chinos.
+    - **Visualización Completa del Color Bilingüe**: Se eliminó la clase `truncate` y `uppercase`, incorporando escalado tipográfico inteligente (8pt - 11pt) y soporte multilínea (`break-words line-clamp-2`), permitiendo mostrar nombres bilingües largos (ej. `Madera rojiza‑marrón —— 红棕木色`) de forma completa sin recortes.
+    - **Lote Automatizado**: Botón de 1-clic **"⚡ Cargar Catálogo Completo (104 Etiquetas)"** en la cola por lotes (`BatchQueue.tsx`), con exportación en PDF multipágina e impresión directa. Compilación limpia verificada con `npm run build` y prueba visual en navegador.
+
 - **Categorías en PDV y Catálogo (Selección Predeterminada Lambrín Interior con Libre Manejo)**:
   - **Objetivo**: El Punto de Venta (`PaginaPuntoVenta.tsx`) y el Catálogo (`PaginaCatalogoProductos.tsx`) cargan inicialmente filtrados por la categoría principal `Lambrin Interior 格栅板` (`7938934b-d6cb-44fd-98de-b0645c66017d`), mostrando únicamente sus productos en el primer render para no sobrecargar la vista ni el API.
   - **Manejo Libre de Categorías**: El combo `<select>` carga e incluye todas las categorías de la base de datos más la opción "Todas las Categorías", permitiendo al usuario cambiar y consultar cualquier otra categoría de forma fluida e interactiva.
