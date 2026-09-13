@@ -1,14 +1,17 @@
 # HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
 
-## 📌 Hito Cumplido: Recuadro con Imagen de Producto y Fondo Blanco Marfil en Etiquetas Térmicas (100mm × 60mm)
+## 📌 Hito Cumplido: Recuadro con Imagen de Producto y Fondo con Textura de Mármol Blanco en Etiquetas Térmicas (100mm × 60mm)
 - **Archivos/Scripts Involucrados**:
+  - `D:\Visozr Etiquetas\src\assets\label-marble-bg.jpg` y `public/label-marble-bg.jpg`: Textura real de mármol blanco con vetas suaves proporcionada por el usuario.
+  - `scripts/development/apply_marble_texture_background.js`: Integra la textura en `ThermalLabel.tsx` y el exportador PDF `pdfExport.ts`.
   - `scripts/development/export_product_images.ps1`: Exporta las 31 imágenes existentes en la base de datos `PosLambrinDb` a la carpeta `D:\Visozr Etiquetas\public\product-images/`.
   - `scripts/development/add_product_images_to_labels.js`: Actualiza los tipos de etiqueta (`label.ts`), presets (`presets.ts`), componente térmico (`ThermalLabel.tsx`), formulario (`LabelForm.tsx`) y flujo de lote (`App.tsx`).
-  - `scripts/development/update_label_background_color.js`: Ajusta el fondo de `#FEE2B8` a `#FFFDF0` (marfil / blanco cálido de alta luminosidad) y borde a `#E8DEC8`.
-  - `D:\Visozr Etiquetas\src\components\ThermalLabel.tsx`: Nuevo recuadro cuadrado de 18mm × 18mm con bordes redondeados y sombra sutil en el cuerpo central de la etiqueta (derecha), mostrando la foto del lambrín de forma compacta y legible. Fondo blanco cálido marfil de alta legibilidad. Ocultamiento limpio si el producto no dispone de imagen.
+  - `D:\Visozr Etiquetas\src\components\ThermalLabel.tsx`: Nuevo recuadro cuadrado de 18mm × 18mm para la foto del producto. Fondo con textura de mármol blanco veteado que replica el material físico del lambrín.
   - `D:\Visozr Etiquetas\src\components\LabelForm.tsx`: Campo de URL, miniatura de previsualización interactiva con botón `✕ Quitar foto`, botón `📁 Subir / Cambiar Foto...` para archivos locales y filtro `📷 Con foto en BD (31)`.
 - **Resultados**:
-  - Fondo de la etiqueta ajustado a tono blanco cálido marfil (`#FFFDF0`), con alto contraste para textos y códigos de barra.
+  - Fondo de la etiqueta con la textura exacta de mármol blanco de la muestra física.
+  - Textos, código de barras y precio con máxima legibilidad y contraste.
+  - Compilación de producción en Vite (`npm run build`) completada con éxito (0 errores).
   - Productos con imagen (series `LAM-01` a `LAM-23`, `MOS-01` a `MOS-15`) muestran su foto en el recuadro tanto en vista individual de rollo térmico como en planilla tamaño Carta.
   - Productos sin imagen se muestran fluidamente sin marcos vacíos ni errores de carga.
   - Verificación en navegador y build de producción en Vite (`npm run build`) completados con éxito (0 errores).
