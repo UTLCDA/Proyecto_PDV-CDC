@@ -2,13 +2,14 @@
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
 
-- **Corrección de Intervención Chromium en Catálogo y Punto de Venta (`[Intervention] Images loaded lazily and replaced with placeholders`)**:
-  - **Problema Detectado en Producción (PR)**: Al ingresar al Catálogo de Productos (`PaginaCatalogoProductos.tsx`) o al Punto de Venta (`PaginaPuntoVenta.tsx`), el motor Chromium (Chrome / Edge) emitía una advertencia de intervención: `[Intervention] Images loaded lazily and replaced with placeholders. Load events are deferred. See https://go.microsoft.com/fwlink/?linkid=2048113`. La heurística del navegador reemplazaba temporalmente las imágenes de la tabla/cuadrícula por marcadores de posición vacíos y difería sus eventos de carga al detectar `loading="lazy"` en elementos inmediatamente visibles dentro del viewport inicial sin dimensiones HTML intrínsecas explícitas.
+- **Corrección de Bucle Infinito de Renderizado en Catálogo y Carga Continua (`Cargando datos...`)**:
+  - **Problema Detectado en PR**: Al ingresar al Catálogo de Productos (`PaginaCatalogoProductos.tsx`), la vista se quedaba permanentemente en `Cargando datos...` sin mostrar productos. Inspeccionando el servidor VPS, el proceso API recibía peticiones recurrentes ininterrumpidas cada ~400ms acumulando más de 12 minutos de CPU en 20 minutos.
+  - **Causa Raíz**: En `PaginaCatalogoProductos.tsx`, la función `cargarDatos` tenía como dependencia en `useCallback` al objeto completo `pagination` (`[filtrosAplicados, pagination, sortDirection, sortKey, t]`). Cuando la API retornaba datos, se invocaba `pagination.setPaginationFromResult(prodsData)`, lo que actualizaba el estado en `usePagination`. Como el hook `usePagination` no memoizaba su objeto retornado, devolvía una nueva referencia en cada render. Esto recreaba `cargarDatos`, lo que a su vez disparaba el `useEffect([cargarDatos])`, volviendo a ejecutar la consulta, llamando a `setCargando(true)` y repitiendo el ciclo indefinidamente.
   - **Solución Implementada**:
-    - Se removió el atributo `loading="lazy"` de las miniaturas de la tabla del catálogo (`PaginaCatalogoProductos.tsx`), de las tarjetas de productos del POS, de los ítems del carrito y de los modales de detalle (`PaginaPuntoVenta.tsx`), ya que son elementos visibles *above-the-fold* que deben renderizarse de forma inmediata.
-    - Se añadieron dimensiones HTML intrínsecas explícitas (`width={50} height={50}` en catálogo, `width={120} height={120}` en POS, `width={44} height={44}` en carrito) junto con `decoding="async"`, garantizando que el motor de renderizado calcule el espacio exacto sin provocar *Cumulative Layout Shift* (CLS).
-    - Se incorporó un manejador `onError` en cada elemento `<img>` para que, en caso de fallo de red o imagen no encontrada, se oculte limpiamente la etiqueta rota y se muestre un contenedor de fallback con el icono `📷` sin interrumpir la interfaz.
-  - **Pruebas y Verificación**: 47/47 pruebas de Vitest superadas (100%), compilación `tsc && vite build` completada sin advertencias ni errores en 12.65s. Cambios desplegados a `main`.
+    - En `PaginaCatalogoProductos.tsx`, se desacopló `pagination` de las dependencias de `useCallback` usando `useRef(pagination)` para `paginationRef.current.setPaginationFromResult(prodsData)`. La función ahora depende únicamente de valores primitivos: `[filtrosAplicados, pagination.pageNumber, pagination.pageSize, sortDirection, sortKey, t]`.
+    - En `usePagination.ts`, se envolvió el objeto de retorno en `useMemo` y se optimizó `setPaginationFromResult` para verificar igualdad con el estado previo (`prev !== newValue ? newValue : prev`), evitando re-renders redundantes.
+    - Se reinició el servicio `pos-api` en el VPS para liberar los hilos saturados por el bucle.
+  - **Pruebas y Verificación**: 47/47 pruebas unitarias de Vitest superadas (100%), compilación `tsc && vite build` completada con éxito en 11.99s. Cambios enviados a `main`, `version-final-de-PR` y `feature/ecommerce-fase-2`.
 
   - **Sincronización Local vs PR**:
     - Conexión remota exitosa a SQL Server en VPS (`193.46.198.88:1433`).

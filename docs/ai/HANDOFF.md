@@ -1,10 +1,11 @@
-## 📌 Hito Cumplido: Corrección de Intervención Chromium en Catálogo y POS (`[Intervention] Images loaded lazily`)
+## 📌 Hito Cumplido: Corrección de Bucle Infinito en Catálogo de Productos (`Cargando datos...`)
 - **Archivos Modificados**:
   - `src/frontend/pos-web/src/pages/Products/PaginaCatalogoProductos.tsx`
-  - `src/frontend/pos-web/src/pages/Pos/PaginaPuntoVenta.tsx`
-- **Descripción**: Se eliminó la directiva `loading="lazy"` en las imágenes de la tabla del catálogo, las tarjetas del Punto de Venta, los elementos del carrito y los modales de detalle. Estas imágenes se encuentran directamente en la vista inicial (*in-viewport / above-the-fold*), por lo que Chromium activaba su heurística de intervención reemplazándolas por marcadores vacíos y postergando los eventos de carga. Se agregaron dimensiones intrínsecas HTML (`width` y `height`), `decoding="async"` y manejadores de error `onError` con fallback a `📷`.
-- **Resultados**: Las imágenes cargan de forma inmediata sin parpadeos, sin marcadores de posición forzados por el navegador y sin advertencias en la consola.
-- **Pruebas**: 47/47 pruebas unitarias de Vitest superadas (100%), compilación `tsc && vite build` completada con éxito. Commits `cb292e3` (en `main`) y `5bca6e4` (en `feature/ecommerce-fase-2`) enviados a GitHub.
+  - `src/frontend/pos-web/src/hooks/usePagination.ts`
+- **Descripción**: Se erradicó el bucle infinito de re-renders que mantenía la vista del Catálogo en `Cargando datos...` y saturaba el API del VPS. Se desacopló la referencia mutable del objeto `pagination` de las dependencias de `cargarDatos` (ahora solo depende de las primitivas `pageNumber` y `pageSize`), utilizando `useRef` para actualizar los metadatos de paginación sin invalidar la función. Además, se memoizó el objeto de retorno en `usePagination.ts` y se aplicó verificación de cambios (`prev !== next`) en `setPaginationFromResult`.
+- **Resultados**: La vista de Catálogo carga de inmediato en una única petición sin bucles, sin bloqueos y con consumo mínimo en servidor.
+- **Pruebas**: 47/47 pruebas de Vitest superadas (100%), build exitoso (11.99s). Commits sincronizados en `main`, `version-final-de-PR` y `feature/ecommerce-fase-2`. Servicio `pos-api` reiniciado en VPS.
+
 
 - **Archivos/Scripts Involucrados**:
   - `D:\Visozr Etiquetas\src\assets\label-marble-bg.jpg` y `public/label-marble-bg.jpg`: Textura real de mármol blanco con vetas suaves proporcionada por el usuario.
