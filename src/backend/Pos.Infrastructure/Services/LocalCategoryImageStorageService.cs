@@ -158,10 +158,11 @@ public class LocalCategoryImageStorageService : ICategoryImageStorageService
                 _logger.LogInformation("Variantes de imagen generadas exitosamente para categoría {CategoryId}.", categoryId);
 
                 var idStr = categoryId.ToString("D");
+                var v = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 return new ProductImageResultDto(
-                    ThumbnailUrl: $"{_requestPath}/{idStr}/{ThumbnailFileName}",
-                    PosUrl: $"{_requestPath}/{idStr}/{PosFileName}",
-                    PreviewUrl: $"{_requestPath}/{idStr}/{PreviewFileName}"
+                    ThumbnailUrl: $"{_requestPath}/{idStr}/{ThumbnailFileName}?v={v}",
+                    PosUrl: $"{_requestPath}/{idStr}/{PosFileName}?v={v}",
+                    PreviewUrl: $"{_requestPath}/{idStr}/{PreviewFileName}?v={v}"
                 );
             }
             catch
