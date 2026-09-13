@@ -26,6 +26,16 @@ export default defineConfig({
             return '/index.html';
           }
         }
+      },
+      '/categories': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+        bypass(req) {
+          if (req.headers.accept && req.headers.accept.includes('text/html')) {
+            return '/index.html';
+          }
+        }
       }
     }
   },
