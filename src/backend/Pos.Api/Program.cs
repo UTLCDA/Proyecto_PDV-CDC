@@ -177,6 +177,8 @@ using (var scope = app.Services.CreateScope())
                     END
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Customers') AND name = 'LimiteCajasDiarias')
                         ALTER TABLE Customers ADD LimiteCajasDiarias decimal(18,2) NOT NULL DEFAULT 0;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Customers') AND name = 'PasswordHash')
+                        ALTER TABLE Customers ADD PasswordHash nvarchar(255) NULL DEFAULT 'WPC123';
                 ");
             }
             catch (Exception exSql)
