@@ -441,7 +441,20 @@ export const PaginaPuntoVenta: React.FC = () => {
                   title={t('viewProductDetailTooltip')}
                   style={{ cursor: 'pointer' }}
                 >
-                  {product.imageUrl ? <img src={resolveProductImageUrl(product.imageUrl)} alt={product.name} loading="lazy" decoding="async" /> : <span className="pos-product__placeholder">📷</span>}
+                  {product.imageUrl ? (
+                    <img
+                      src={resolveProductImageUrl(product.imageUrl)}
+                      alt={product.name}
+                      width={120}
+                      height={120}
+                      decoding="async"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <span className="pos-product__placeholder">📷</span>
+                  )}
                   <span className="pos-product__details">
                     <small>{product.sku}</small>
                     <strong>{product.name}</strong>
@@ -530,7 +543,19 @@ export const PaginaPuntoVenta: React.FC = () => {
             return (
               <div className="pos-cart-item" key={item.product.id}>
                 <div className="pos-cart-item__top">
-                  {item.product.imageUrl && <img src={resolveProductImageUrl(item.product.imageUrl)} alt="" className="pos-cart-item__img" loading="lazy" decoding="async" />}
+                  {item.product.imageUrl && (
+                    <img
+                      src={resolveProductImageUrl(item.product.imageUrl)}
+                      alt=""
+                      className="pos-cart-item__img"
+                      width={44}
+                      height={44}
+                      decoding="async"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  )}
                   <div className="pos-cart-item__title">
                     <small className="pos-cart-item__sku">{item.product.sku}</small>
                     <strong>{item.product.name}</strong>
@@ -835,8 +860,12 @@ export const PaginaPuntoVenta: React.FC = () => {
               <img
                 src={resolveProductImageUrl(productDetailModal.imageUrl)}
                 alt={productDetailModal.name}
-                loading="lazy"
+                width={140}
+                height={140}
                 decoding="async"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                }}
                 style={{ width: '140px', height: '140px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-subtle)', background: '#fff', flexShrink: 0 }}
               />
             ) : (
