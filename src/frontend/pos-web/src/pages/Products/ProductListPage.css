@@ -103,3 +103,36 @@
     grid-column: auto !important;
   }
 }
+
+/* Boton de margen de comision tienda online */
+.btn-comision-online {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.45rem !important;
+  min-height: 38px !important;
+  padding: 0.45rem 1rem !important;
+  border: 1px solid #1e40af !important;
+  border-radius: var(--radius-button, 8px) !important;
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  font-size: 0.84rem !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25) !important;
+  transition: all 0.16s ease !important;
+}
+
+.btn-comision-online:hover {
+  background-color: #1d4ed8 !important;
+  border-color: #1e3a8a !important;
+  box-shadow: 0 4px 8px rgba(29, 78, 216, 0.35) !important;
+  transform: translateY(-1px) !important;
+}
+
+.btn-comision-online:active {
+  background-color: #1e3a8a !important;
+  transform: translateY(1px) !important;
+}

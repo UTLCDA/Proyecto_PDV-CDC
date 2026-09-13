@@ -540,8 +540,8 @@ export const PaginaCatalogoProductos: React.FC = () => {
             </button>}
             {canEditProduct && (
               <button
-                className="lang-btn"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #93c5fd', color: '#1d4ed8', background: '#eff6ff', fontWeight: 600 }}
+                type="button"
+                className="btn-comision-online"
                 onClick={() => setModalComisionAbierto(true)}
                 title="Configurar margen de comisión para compensar Stripe en la tienda online"
               >
@@ -1406,8 +1406,8 @@ export const PaginaCatalogoProductos: React.FC = () => {
 
       {/* Modal Configuración Comisión Tienda Online */}
       {modalComisionAbierto && (
-        <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
-          <div className="card" style={{ width: '460px', background: 'var(--surface)', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-strong, rgba(0, 0, 0, 0.65))', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
+          <div className="card catalog-product-modal" style={{ width: '460px', maxWidth: '95vw', background: 'var(--background-surface, #ffffff)', color: 'var(--text-main, #0f172a)', padding: '1.75rem', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', border: '1px solid var(--border-subtle, #e2e8f0)' }}>
             <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)' }}>
               ⚙️ Margen de Comisión Tienda Online
             </h3>
