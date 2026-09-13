@@ -6,21 +6,15 @@
 - **Resultados**: La vista de Catálogo carga de inmediato en una única petición sin bucles, sin bloqueos y con consumo mínimo en servidor.
 - **Pruebas**: 47/47 pruebas de Vitest superadas (100%), build exitoso (11.99s). Commits sincronizados en `main`, `version-final-de-PR` y `feature/ecommerce-fase-2`. Servicio `pos-api` reiniciado en VPS.
 
-
+## 📌 Hito Cumplido: Propuesta Final de Fondo de Arte Dorado / Montañas en Etiquetas Térmicas (100mm × 60mm)
 - **Archivos/Scripts Involucrados**:
-  - `D:\Visozr Etiquetas\src\assets\label-marble-bg.jpg` y `public/label-marble-bg.jpg`: Textura real de mármol blanco con vetas suaves proporcionada por el usuario.
-  - `scripts/development/apply_marble_texture_background.js`: Integra la textura en `ThermalLabel.tsx` y el exportador PDF `pdfExport.ts`.
-  - `scripts/development/export_product_images.ps1`: Exporta las 31 imágenes existentes en la base de datos `PosLambrinDb` a la carpeta `D:\Visozr Etiquetas\public\product-images/`.
-  - `scripts/development/add_product_images_to_labels.js`: Actualiza los tipos de etiqueta (`label.ts`), presets (`presets.ts`), componente térmico (`ThermalLabel.tsx`), formulario (`LabelForm.tsx`) y flujo de lote (`App.tsx`).
-  - `D:\Visozr Etiquetas\src\components\ThermalLabel.tsx`: Nuevo recuadro cuadrado de 18mm × 18mm para la foto del producto. Fondo con textura de mármol blanco veteado que replica el material físico del lambrín.
-  - `D:\Visozr Etiquetas\src\components\LabelForm.tsx`: Campo de URL, miniatura de previsualización interactiva con botón `✕ Quitar foto`, botón `📁 Subir / Cambiar Foto...` para archivos locales y filtro `📷 Con foto en BD (31)`.
+  - `D:\Visozr Etiquetas\src\assets\label-bg-art.png` y `public/label-bg-art.png`: Obra artística de ondas y cordilleras doradas fluidas con destellos provista por el usuario.
+  - `scripts/development/apply_golden_mountains_background.js`: Ajusta el fondo en `ThermalLabel.tsx` con encuadre horizontal centrado (42% vertical), marco perimetral dorado fino (`rgba(205, 165, 75, 0.55)`) y sombra interior cálida.
+  - `D:\Visozr Etiquetas\src\components\ThermalLabel.tsx`: Contraste tipográfico perfeccionado en café tostado (`#241408`), marco de miniatura de producto con ribete dorado e integración fluida con la descarga de PDF e impresión física.
 - **Resultados**:
-  - Fondo de la etiqueta con la textura exacta de mármol blanco de la muestra física.
-  - Textos, código de barras y precio con máxima legibilidad y contraste.
-  - Compilación de producción en Vite (`npm run build`) completada con éxito (0 errores).
-  - Productos con imagen (series `LAM-01` a `LAM-23`, `MOS-01` a `MOS-15`) muestran su foto en el recuadro tanto en vista individual de rollo térmico como en planilla tamaño Carta.
-  - Productos sin imagen se muestran fluidamente sin marcos vacíos ni errores de carga.
-  - Verificación en navegador y build de producción en Vite (`npm run build`) completados con éxito (0 errores).
+  - Propuesta estética de lujo premium acorde a la identidad oriental / WPC de la marca.
+  - Textos, códigos de barras y precios 100% legibles y listos para mostrar al cliente.
+  - Build de Vite completado exitosamente (15.31s, 0 errores).
 
 ## 📌 Hito Cumplido: Sincronización de Catálogo PR a Local, Corrección UTF-8 y Planillas Tamaño Carta (8 por hoja)
 - **Archivos/Scripts Involucrados**:
