@@ -114,6 +114,22 @@ export const servicioCatalogo = {
     await api.delete(`/products/${productId}/image`);
   },
 
+  uploadCategoryImage: async (categoryId: string, file: File | Blob, fileName = 'image.jpg'): Promise<ProductImageResult> => {
+    const formData = new FormData();
+    formData.append('image', file, fileName);
+    const response = await api.post<ProductImageResult>(`/categories/${categoryId}/image`, formData);
+    const res = response.data;
+    return {
+      thumbnailUrl: resolveProductImageUrl(res.thumbnailUrl),
+      posUrl: resolveProductImageUrl(res.posUrl),
+      previewUrl: resolveProductImageUrl(res.previewUrl)
+    };
+  },
+
+  deleteCategoryImage: async (categoryId: string): Promise<void> => {
+    await api.delete(`/categories/${categoryId}/image`);
+  },
+
   migrateBase64Images: async (): Promise<MigrateBase64ImagesResult> => {
     const response = await api.post<MigrateBase64ImagesResult>('/products/migrate-base64-images');
     return response.data;

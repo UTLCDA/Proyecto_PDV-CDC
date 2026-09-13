@@ -7,20 +7,23 @@ public record CategoryDto(
     string Description,
     Guid? ParentCategoryId,
     List<CategoryDto> SubCategories,
-    bool IsActive = true
+    bool IsActive = true,
+    string? ImageUrl = null
 );
 
 public record CreateCategoryDto(
     string Name,
     string Description,
-    Guid? ParentCategoryId
+    Guid? ParentCategoryId,
+    string? ImageUrl = null
 );
 
 public record UpdateCategoryDto(
     string Name,
     string Description,
     Guid? ParentCategoryId,
-    bool IsActive
+    bool IsActive,
+    string? ImageUrl = null
 );
 
 public record ProductDto(

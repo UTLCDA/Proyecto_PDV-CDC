@@ -10,6 +10,8 @@ public interface ICatalogApplicationService
     Task<CategoryDto> CreateCategoryAsync(CreateCategoryDto request, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
     Task<CategoryDto> UpdateCategoryAsync(Guid id, UpdateCategoryDto request, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
     Task DeleteCategoryAsync(Guid id, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
+    Task<CategoryDto> UpdateCategoryImageAsync(Guid id, string imageUrl, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
+    Task<CategoryDto> RemoveCategoryImageAsync(Guid id, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default);
 
     // Products & Full CRUD
     Task<PagedResult<ProductDto>> GetProductsAsync(string? search, Guid? categoryId, bool? isTopSellerOnly, CancellationToken cancellationToken = default, int page = 1, int pageSize = 25, string? sortBy = null, string? sortDirection = null, bool includeInactive = false);

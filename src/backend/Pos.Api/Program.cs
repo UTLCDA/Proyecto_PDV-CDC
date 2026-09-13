@@ -181,6 +181,8 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE Customers ADD PasswordHash nvarchar(255) NULL DEFAULT 'WPC123';
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Products') AND name = 'PrecioOnlineManual')
                         ALTER TABLE Products ADD PrecioOnlineManual decimal(18,2) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Categories') AND name = 'ImagenUrl')
+                        ALTER TABLE Categories ADD ImagenUrl nvarchar(500) NOT NULL DEFAULT '';
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('SaleItems') AND name = 'PrecioBase')
                         ALTER TABLE SaleItems ADD PrecioBase decimal(18,2) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SystemSettings')
@@ -268,6 +270,35 @@ app.UseStaticFiles(new StaticFileOptions
     OnPrepareResponse = ctx =>
     {
         // 7 días de caché público en navegador y Cloudflare CDN
+        ctx.Context.Response.Headers.Append("Cache-Control", "public, max-age=604800, must-revalidate");
+    }
+});
+
+// Servir archivos estáticos de imágenes de categorías
+var categoryImagesConfigPath = builder.Configuration["Storage:CategoryImagesPath"];
+if (string.IsNullOrWhiteSpace(categoryImagesConfigPath))
+{
+    categoryImagesConfigPath = Path.Combine(Directory.GetCurrentDirectory(), "data", "categories");
+}
+var fullCategoryImagesPath = Path.GetFullPath(categoryImagesConfigPath);
+if (!Directory.Exists(fullCategoryImagesPath))
+{
+    Directory.CreateDirectory(fullCategoryImagesPath);
+}
+
+var categoryImagesRequestPath = builder.Configuration["Storage:CategoryImagesRequestPath"] ?? "/categories";
+if (!categoryImagesRequestPath.StartsWith('/'))
+{
+    categoryImagesRequestPath = "/" + categoryImagesRequestPath;
+}
+categoryImagesRequestPath = categoryImagesRequestPath.TrimEnd('/');
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(fullCategoryImagesPath),
+    RequestPath = categoryImagesRequestPath,
+    OnPrepareResponse = ctx =>
+    {
         ctx.Context.Response.Headers.Append("Cache-Control", "public, max-age=604800, must-revalidate");
     }
 });

@@ -6,12 +6,14 @@ export interface Categoria {
   parentCategoryId?: string;
   subCategories: Categoria[];
   isActive?: boolean;
+  imageUrl?: string;
 }
 
 export interface PeticionCrearCategoria {
   name: string;
   description: string;
   parentCategoryId?: string | null;
+  imageUrl?: string;
 }
 
 export interface PeticionActualizarCategoria {
@@ -19,6 +21,7 @@ export interface PeticionActualizarCategoria {
   description: string;
   parentCategoryId?: string | null;
   isActive: boolean;
+  imageUrl?: string;
 }
 
 export interface Producto {

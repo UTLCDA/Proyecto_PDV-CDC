@@ -7,6 +7,7 @@ public class Categoria : EntidadBase
     public string Nombre { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
     public string Descripcion { get; set; } = string.Empty;
+    public string ImagenUrl { get; set; } = string.Empty;
 
     public Guid? CategoriaPadreId { get; set; }
     public Categoria? CategoriaPadre { get; set; }

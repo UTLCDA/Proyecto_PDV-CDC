@@ -52,6 +52,7 @@ public static class DependencyInjection
         services.AddScoped<IRoleApplicationService, RoleApplicationService>();
         services.AddScoped<IHealthCheckService, HealthCheckService>();
         services.AddScoped<IProductImageStorageService, LocalProductImageStorageService>();
+        services.AddScoped<ICategoryImageStorageService, LocalCategoryImageStorageService>();
         services.AddScoped<IPricingService, PricingService>();
 
         return services;

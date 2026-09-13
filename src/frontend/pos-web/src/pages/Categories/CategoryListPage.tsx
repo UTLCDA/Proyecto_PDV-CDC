@@ -1,4 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { resolveProductImageUrl } from '../../services/apiClient';
+import { isImageFile, isHeicFile } from '../../utils/imageProcessor';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { servicioCatalogo } from '../../services/servicioCatalogo';
@@ -17,13 +19,15 @@ interface CategoryForm {
   description: string;
   parentCategoryId: string;
   isActive: boolean;
+  imageUrl?: string;
 }
 
 const emptyForm = (): CategoryForm => ({
   name: '',
   description: '',
   parentCategoryId: '',
-  isActive: true
+  isActive: true,
+  imageUrl: ''
 });
 
 export const CategoryListPage: React.FC = () => {
@@ -40,6 +44,13 @@ export const CategoryListPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Categoria | null>(null);
   const [form, setForm] = useState<CategoryForm>(emptyForm);
+
+  // Estados para imagen de categoría
+  const [imagenArchivo, setImagenArchivo] = useState<File | null>(null);
+  const [imagenPreviewUrl, setImagenPreviewUrl] = useState<string>('');
+  const [imagenFueEliminada, setImagenFueEliminada] = useState<boolean>(false);
+  const [procesandoImagen, setProcesandoImagen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canCreate = hasPermission('catalogo', 'categorias_crear') || hasPermission('usuarios', 'administrar') || hasPermission('catalogo', 'productos_crear');
   const canEdit = hasPermission('catalogo', 'categorias_crear') || hasPermission('usuarios', 'administrar') || hasPermission('catalogo', 'productos_editar');
@@ -139,6 +150,13 @@ export const CategoryListPage: React.FC = () => {
   const openCreate = () => {
     setEditingCategory(null);
     setForm(emptyForm());
+    if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(imagenPreviewUrl);
+    }
+    setImagenArchivo(null);
+    setImagenPreviewUrl('');
+    setImagenFueEliminada(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setNotice(null);
     setIsModalOpen(true);
   };
@@ -149,10 +167,69 @@ export const CategoryListPage: React.FC = () => {
       name: category.name,
       description: category.description || '',
       parentCategoryId: category.parentCategoryId || '',
-      isActive: category.isActive !== false
+      isActive: category.isActive !== false,
+      imageUrl: category.imageUrl || ''
     });
+    if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(imagenPreviewUrl);
+    }
+    setImagenArchivo(null);
+    setImagenPreviewUrl(category.imageUrl || '');
+    setImagenFueEliminada(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setNotice(null);
     setIsModalOpen(true);
+  };
+
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!isImageFile(file)) {
+      alert('El archivo seleccionado no es una imagen válida.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    try {
+      setProcesandoImagen(true);
+      let fileToUse: File = file;
+      if (isHeicFile(file)) {
+        try {
+          const heic2anyModule = await import('heic2any');
+          const heic2any = heic2anyModule.default || heic2anyModule;
+          const resultBlob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.88 });
+          const finalBlob = Array.isArray(resultBlob) ? resultBlob[0] : resultBlob;
+          fileToUse = new File([finalBlob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
+        } catch (heicErr) {
+          console.warn('Fallo conversión HEIC:', heicErr);
+        }
+      }
+
+      if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(imagenPreviewUrl);
+      }
+      const preview = URL.createObjectURL(fileToUse);
+      setImagenArchivo(fileToUse);
+      setImagenPreviewUrl(preview);
+      setImagenFueEliminada(false);
+    } catch (err: any) {
+      console.error('Error al procesar imagen:', err);
+      alert(err.message || 'Error al procesar la imagen seleccionada.');
+    } finally {
+      setProcesandoImagen(false);
+    }
+  };
+
+  const handleQuitarImagen = () => {
+    if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(imagenPreviewUrl);
+    }
+    setImagenArchivo(null);
+    setImagenPreviewUrl('');
+    setForm(prev => ({ ...prev, imageUrl: '' }));
+    setImagenFueEliminada(true);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleToggleStatus = async (category: Categoria) => {
@@ -183,14 +260,17 @@ export const CategoryListPage: React.FC = () => {
       setSaving(true);
       setNotice(null);
 
+      let savedCatId: string | null = null;
       if (editingCategory) {
         const updatePayload: PeticionActualizarCategoria = {
           name: form.name.trim(),
           description: form.description.trim(),
           parentCategoryId: form.parentCategoryId ? form.parentCategoryId : null,
-          isActive: form.isActive
+          isActive: form.isActive,
+          imageUrl: imagenFueEliminada ? '' : form.imageUrl
         };
-        await servicioCatalogo.updateCategory(editingCategory.id, updatePayload);
+        const updated = await servicioCatalogo.updateCategory(editingCategory.id, updatePayload);
+        savedCatId = updated?.id || editingCategory.id;
         setNotice({ type: 'success', text: `Categoría "${form.name.trim()}" actualizada exitosamente.` });
       } else {
         const createPayload: PeticionCrearCategoria = {
@@ -198,9 +278,23 @@ export const CategoryListPage: React.FC = () => {
           description: form.description.trim(),
           parentCategoryId: form.parentCategoryId ? form.parentCategoryId : null
         };
-        await servicioCatalogo.createCategory(createPayload);
+        const created = await servicioCatalogo.createCategory(createPayload);
+        savedCatId = created.id;
         setNotice({ type: 'success', text: `Categoría "${form.name.trim()}" creada exitosamente.` });
       }
+
+      if (imagenArchivo && savedCatId) {
+        await servicioCatalogo.uploadCategoryImage(savedCatId, imagenArchivo, imagenArchivo.name);
+      } else if (imagenFueEliminada && editingCategory) {
+        await servicioCatalogo.deleteCategoryImage(editingCategory.id);
+      }
+
+      if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(imagenPreviewUrl);
+      }
+      setImagenArchivo(null);
+      setImagenPreviewUrl('');
+      setImagenFueEliminada(false);
 
       setIsModalOpen(false);
       await loadCategories();
@@ -277,6 +371,7 @@ export const CategoryListPage: React.FC = () => {
             <table className="categories-table">
               <thead>
                 <tr>
+                  <th style={{ width: '56px', textAlign: 'center' }}>Foto</th>
                   <SortableTh columnKey="name" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
                     {t('category')}
                   </SortableTh>
@@ -300,6 +395,19 @@ export const CategoryListPage: React.FC = () => {
                   const isActive = cat.isActive !== false;
                   return (
                     <tr key={cat.id}>
+                      <td style={{ width: '56px', textAlign: 'center', padding: '0.4rem 0.5rem' }}>
+                        {cat.imageUrl ? (
+                          <img
+                            src={resolveProductImageUrl(cat.imageUrl)}
+                            alt={cat.name}
+                            style={{ width: '38px', height: '38px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                          />
+                        ) : (
+                          <div style={{ width: '38px', height: '38px', background: 'var(--bg-tertiary, #f3f4f6)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', border: '1px dashed var(--border-color, #cbd5e1)', margin: '0 auto' }}>
+                            📁
+                          </div>
+                        )}
+                      </td>
                       <td>
                         <strong>{cat.name}</strong>
                       </td>
@@ -392,6 +500,67 @@ export const CategoryListPage: React.FC = () => {
                     disabled={saving}
                   />
                 </label>
+
+                {/* Sección de Imagen Representativa */}
+                <div className="categories-field">
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+                    Imagen de la Categoría (Se mostrará en la tienda CDC y PDV)
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    {(imagenPreviewUrl || form.imageUrl) && !imagenFueEliminada ? (
+                      <div style={{ position: 'relative', width: '80px', height: '80px', flexShrink: 0 }}>
+                        <img
+                          src={imagenPreviewUrl.startsWith('blob:') ? imagenPreviewUrl : resolveProductImageUrl(form.imageUrl || '')}
+                          alt="Vista previa"
+                          style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-color)' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleQuitarImagen}
+                          title="Eliminar imagen"
+                          style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            right: '-6px',
+                            background: '#dc2626',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '22px',
+                            height: '22px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ width: '80px', height: '80px', flexShrink: 0, borderRadius: '8px', border: '1px dashed var(--border-color, #cbd5e1)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-tertiary, #f8fafc)', fontSize: '28px' }}>
+                        🖼️
+                      </div>
+                    )}
+
+                    <div style={{ flex: 1 }}>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,.heic,.heif,.HEIC,.HEIF"
+                        disabled={saving || procesandoImagen}
+                        onChange={handleImageFileChange}
+                        style={{ display: 'block', fontSize: '0.85rem' }}
+                      />
+                      <small style={{ color: 'var(--text-muted, #64748b)', display: 'block', marginTop: '0.35rem', fontSize: '0.78rem' }}>
+                        {procesandoImagen ? '⏳ Optimizando imagen...' : 'Formatos: JPG, PNG, WEBP, HEIC. Se optimiza y comprime automáticamente.'}
+                      </small>
+                    </div>
+                  </div>
+                </div>
 
                 <label className="categories-field">
                   Descripción

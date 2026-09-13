@@ -120,6 +120,7 @@ public class CatalogApplicationService : ICatalogApplicationService
             Nombre = name,
             Slug = slug,
             Descripcion = description,
+            ImagenUrl = request.ImageUrl ?? string.Empty,
             CategoriaPadreId = request.ParentCategoryId,
             EstaActivo = true,
             FechaCreacionUtc = DateTime.UtcNow
@@ -166,6 +167,10 @@ public class CatalogApplicationService : ICatalogApplicationService
         category.Descripcion = NormalizeText(request.Description, "La descripción de la categoría", 500, required: false);
         category.CategoriaPadreId = request.ParentCategoryId;
         category.EstaActivo = request.IsActive;
+        if (request.ImageUrl != null)
+        {
+            category.ImagenUrl = request.ImageUrl;
+        }
         category.FechaActualizacionUtc = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -183,6 +188,65 @@ public class CatalogApplicationService : ICatalogApplicationService
             module: "Productos",
             eventType: "CATEGORY_UPDATED",
             resultStatus: "SUCCESS",
+            cancellationToken: cancellationToken);
+
+        return MapCategoryToDto(category);
+    }
+
+    
+    public async Task<CategoryDto> UpdateCategoryImageAsync(Guid id, string imageUrl, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default)
+    {
+        await EnsureActiveUserAsync(currentUserId, cancellationToken);
+        var category = await _dbContext.Categories.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+        if (category == null)
+        {
+            throw new KeyNotFoundException($"Categoría con ID '{id}' no encontrada.");
+        }
+
+        var oldImageUrl = category.ImagenUrl;
+        category.ImagenUrl = imageUrl;
+        category.FechaActualizacionUtc = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogService.LogAsync(
+            correlationId,
+            currentUserId,
+            "CATEGORY_IMAGE_UPDATED",
+            "Categoria",
+            category.Id.ToString(),
+            $"OldImageUrl={oldImageUrl}",
+            $"NewImageUrl={imageUrl}",
+            ipAddress,
+            cancellationToken: cancellationToken);
+
+        return MapCategoryToDto(category);
+    }
+
+    public async Task<CategoryDto> RemoveCategoryImageAsync(Guid id, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default)
+    {
+        await EnsureActiveUserAsync(currentUserId, cancellationToken);
+        var category = await _dbContext.Categories.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+        if (category == null)
+        {
+            throw new KeyNotFoundException($"Categoría con ID '{id}' no encontrada.");
+        }
+
+        var oldImageUrl = category.ImagenUrl;
+        category.ImagenUrl = string.Empty;
+        category.FechaActualizacionUtc = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogService.LogAsync(
+            correlationId,
+            currentUserId,
+            "CATEGORY_IMAGE_REMOVED",
+            "Categoria",
+            category.Id.ToString(),
+            $"OldImageUrl={oldImageUrl}",
+            "ImageRemoved=true",
+            ipAddress,
             cancellationToken: cancellationToken);
 
         return MapCategoryToDto(category);
@@ -883,7 +947,8 @@ public class CatalogApplicationService : ICatalogApplicationService
             c.Descripcion,
             c.CategoriaPadreId,
             c.SubCategorias?.Select(MapCategoryToDto).ToList() ?? new List<CategoryDto>(),
-            c.EstaActivo
+            c.EstaActivo,
+            c.ImagenUrl
         );
     }
 

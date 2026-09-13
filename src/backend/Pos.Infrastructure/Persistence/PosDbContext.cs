@@ -152,6 +152,9 @@ public class PosDbContext : DbContext
             .Property(category => category.Slug)
             .HasMaxLength(140);
         modelBuilder.Entity<Categoria>()
+            .Property(category => category.ImagenUrl)
+            .HasMaxLength(500);
+        modelBuilder.Entity<Categoria>()
             .HasIndex(category => category.Slug)
             .IsUnique();
 
