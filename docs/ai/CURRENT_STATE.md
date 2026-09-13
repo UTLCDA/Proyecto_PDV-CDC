@@ -2,6 +2,21 @@
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
 
+- **Script Maestro de Inicio Simultáneo de Servicios (`iniciar_servicios.py` y `iniciar_servicios.bat`)**:
+  - **Objetivo**: Levantar y supervisar en una sola consola todos los subsistemas del ecosistema WPC Bajío sin requerir 5 terminales manuales ni lidiar con puertos bloqueados.
+  - **Subsistemas Integrados**:
+    1. `Pos.Api` (.NET 9 Web API): Puerto 5000 (`http://localhost:5000/swagger`)
+    2. `Visor de Etiquetas` (React Vite): Puerto 5173 (`http://localhost:5173/`)
+    3. `pos-web` (PDV React Vite): Puerto 5174 (`http://localhost:5174/`)
+    4. `media-studio` (Catálogos React Vite): Puerto 5175 (`http://localhost:5175/`)
+    5. `WPC-BajioEcommerce` (Next.js): Puerto 3000 (`http://localhost:3000/`)
+  - **Características y Resiliencia**:
+    - Detección de puertos ocupados mediante `socket.create_connection` (soporta IPv4 e IPv6 `::1` de Node/Vite) para no generar colisiones de procesos.
+    - Soporte UTF-8 nativo en consola de Windows para evitar errores con caracteres especiales.
+    - Modo chequeo rápido de estado con bandera `--status` o `-s`.
+    - Apagado limpio y coordinado (`Ctrl+C`) que termina el árbol de subprocesos completo vía `taskkill /F /T`.
+    - Lanzador `.bat` de acceso directo para doble clic desde el Explorador de Windows.
+
 - **Corrección de Bucle Infinito de Renderizado en Catálogo y Carga Continua (`Cargando datos...`)**:
   - **Problema Detectado en PR**: Al ingresar al Catálogo de Productos (`PaginaCatalogoProductos.tsx`), la vista se quedaba permanentemente en `Cargando datos...` sin mostrar productos. Inspeccionando el servidor VPS, el proceso API recibía peticiones recurrentes ininterrumpidas cada ~400ms acumulando más de 12 minutos de CPU en 20 minutos.
   - **Causa Raíz**: En `PaginaCatalogoProductos.tsx`, la función `cargarDatos` tenía como dependencia en `useCallback` al objeto completo `pagination` (`[filtrosAplicados, pagination, sortDirection, sortKey, t]`). Cuando la API retornaba datos, se invocaba `pagination.setPaginationFromResult(prodsData)`, lo que actualizaba el estado en `usePagination`. Como el hook `usePagination` no memoizaba su objeto retornado, devolvía una nueva referencia en cada render. Esto recreaba `cargarDatos`, lo que a su vez disparaba el `useEffect([cargarDatos])`, volviendo a ejecutar la consulta, llamando a `setCargando(true)` y repitiendo el ciclo indefinidamente.

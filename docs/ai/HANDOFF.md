@@ -1,3 +1,9 @@
+## 📌 Hito Cumplido: Script Maestro en Python para Inicio Simultáneo de Servicios (`iniciar_servicios.py`)
+- **Archivos Creados**:
+  - `D:\Proyecto_PDV-CDC\iniciar_servicios.py`: Script maestro en Python 3 que inicia y monitorea concurrentemente los 5 servicios (Backend .NET, Visor de Etiquetas, PDV, Media Studio y E-commerce). Soporta resolución dual IPv4/IPv6 (`socket.create_connection`), chequeo de puertos ocupados, health checks HTTP en vivo y terminación en árbol (`taskkill /F /T`) al presionar `Ctrl+C`.
+  - `D:\Proyecto_PDV-CDC\iniciar_servicios.bat`: Acceso directo para ejecutar el iniciador con un solo doble clic desde el Explorador de Windows.
+- **Uso**: `python iniciar_servicios.py` (o doble clic al `.bat`) para encender todo; `python iniciar_servicios.py --status` para ver el estado de los puertos al instante.
+
 ## 📌 Hito Cumplido: Corrección de Bucle Infinito en Catálogo de Productos (`Cargando datos...`)
 - **Archivos Modificados**:
   - `src/frontend/pos-web/src/pages/Products/PaginaCatalogoProductos.tsx`
