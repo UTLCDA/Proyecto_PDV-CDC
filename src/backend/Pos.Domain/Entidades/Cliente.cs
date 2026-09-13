@@ -19,6 +19,7 @@ public class Cliente : EntidadBase
     public decimal PorcentajeDescuentoEspecial { get; set; }
     public decimal LimiteCajasDiarias { get; set; } = 0m;
     public string Notas { get; set; } = string.Empty;
+    public string? PasswordHash { get; set; } = "WPC123";
 
     public string NombreMostrar => string.IsNullOrWhiteSpace(NombreEmpresa)
         ? $"{Nombre} {Apellido}"

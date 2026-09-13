@@ -1,6 +1,7 @@
 export type AppTab =
   | 'pos'
   | 'sales'
+  | 'web-orders'
   | 'shift'
   | 'reports'
   | 'quotes'
@@ -47,6 +48,7 @@ export const permissionCodes = {
 const tabPermissions: Record<Exclude<AppTab, 'profile'>, readonly string[]> = {
   pos: [permissionCodes.salesProcess],
   sales: [permissionCodes.reportsSalesView],
+  'web-orders': [permissionCodes.reportsSalesView, permissionCodes.salesProcess],
   shift: [
     permissionCodes.cashOpen,
     permissionCodes.cashClose,

@@ -1,0 +1,6 @@
+.web-orders-page { display: grid; gap: 1rem; }
+.web-orders-header { display: grid; gap: 0.75rem; }
+.web-orders-header__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+@media (max-width: 640px) {
+  .web-orders-header__top { flex-direction: column; }
+}
