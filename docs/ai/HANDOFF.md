@@ -1,6 +1,11 @@
-# HANDOFF — Resumen de Transferencia y Estado de Entrega (Producción Cloudflare & VPS)
+## 📌 Hito Cumplido: Corrección de Intervención Chromium en Catálogo y POS (`[Intervention] Images loaded lazily`)
+- **Archivos Modificados**:
+  - `src/frontend/pos-web/src/pages/Products/PaginaCatalogoProductos.tsx`
+  - `src/frontend/pos-web/src/pages/Pos/PaginaPuntoVenta.tsx`
+- **Descripción**: Se eliminó la directiva `loading="lazy"` en las imágenes de la tabla del catálogo, las tarjetas del Punto de Venta, los elementos del carrito y los modales de detalle. Estas imágenes se encuentran directamente en la vista inicial (*in-viewport / above-the-fold*), por lo que Chromium activaba su heurística de intervención reemplazándolas por marcadores vacíos y postergando los eventos de carga. Se agregaron dimensiones intrínsecas HTML (`width` y `height`), `decoding="async"` y manejadores de error `onError` con fallback a `📷`.
+- **Resultados**: Las imágenes cargan de forma inmediata sin parpadeos, sin marcadores de posición forzados por el navegador y sin advertencias en la consola.
+- **Pruebas**: 47/47 pruebas unitarias de Vitest superadas (100%), compilación `tsc && vite build` completada con éxito. Commits `cb292e3` (en `main`) y `5bca6e4` (en `feature/ecommerce-fase-2`) enviados a GitHub.
 
-## 📌 Hito Cumplido: Recuadro con Imagen de Producto y Fondo con Textura de Mármol Blanco en Etiquetas Térmicas (100mm × 60mm)
 - **Archivos/Scripts Involucrados**:
   - `D:\Visozr Etiquetas\src\assets\label-marble-bg.jpg` y `public/label-marble-bg.jpg`: Textura real de mármol blanco con vetas suaves proporcionada por el usuario.
   - `scripts/development/apply_marble_texture_background.js`: Integra la textura en `ThermalLabel.tsx` y el exportador PDF `pdfExport.ts`.
