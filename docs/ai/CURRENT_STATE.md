@@ -2,13 +2,29 @@
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
 
-- **Corrección de Intervención Chromium en Catálogo y Punto de Venta (`[Intervention] Images loaded lazily and replaced with placeholders`)**:
-  - **Problema Detectado en Producción (PR)**: Al ingresar al Catálogo de Productos (`PaginaCatalogoProductos.tsx`) o al Punto de Venta (`PaginaPuntoVenta.tsx`), el motor Chromium (Chrome / Edge) emitía una advertencia de intervención: `[Intervention] Images loaded lazily and replaced with placeholders. Load events are deferred. See https://go.microsoft.com/fwlink/?linkid=2048113`. La heurística del navegador reemplazaba temporalmente las imágenes de la tabla/cuadrícula por marcadores de posición vacíos y difería sus eventos de carga al detectar `loading="lazy"` en elementos inmediatamente visibles dentro del viewport inicial sin dimensiones HTML intrínsecas explícitas.
+- **Script Maestro de Inicio Simultáneo de Servicios (`iniciar_servicios.py` y `iniciar_servicios.bat`)**:
+  - **Objetivo**: Levantar y supervisar en una sola consola todos los subsistemas del ecosistema WPC Bajío sin requerir 5 terminales manuales ni lidiar con puertos bloqueados.
+  - **Subsistemas Integrados**:
+    1. `Pos.Api` (.NET 9 Web API): Puerto 5000 (`http://localhost:5000/swagger`)
+    2. `Visor de Etiquetas` (React Vite): Puerto 5173 (`http://localhost:5173/`)
+    3. `pos-web` (PDV React Vite): Puerto 5174 (`http://localhost:5174/`)
+    4. `media-studio` (Catálogos React Vite): Puerto 5175 (`http://localhost:5175/`)
+    5. `WPC-BajioEcommerce` (Next.js): Puerto 3000 (`http://localhost:3000/`)
+  - **Características y Resiliencia**:
+    - Detección de puertos ocupados mediante `socket.create_connection` (soporta IPv4 e IPv6 `::1` de Node/Vite) para no generar colisiones de procesos.
+    - Soporte UTF-8 nativo en consola de Windows para evitar errores con caracteres especiales.
+    - Modo chequeo rápido de estado con bandera `--status` o `-s`.
+    - Apagado limpio y coordinado (`Ctrl+C`) que termina el árbol de subprocesos completo vía `taskkill /F /T`.
+    - Lanzador `.bat` de acceso directo para doble clic desde el Explorador de Windows.
+
+- **Corrección de Bucle Infinito de Renderizado en Catálogo y Carga Continua (`Cargando datos...`)**:
+  - **Problema Detectado en PR**: Al ingresar al Catálogo de Productos (`PaginaCatalogoProductos.tsx`), la vista se quedaba permanentemente en `Cargando datos...` sin mostrar productos. Inspeccionando el servidor VPS, el proceso API recibía peticiones recurrentes ininterrumpidas cada ~400ms acumulando más de 12 minutos de CPU en 20 minutos.
+  - **Causa Raíz**: En `PaginaCatalogoProductos.tsx`, la función `cargarDatos` tenía como dependencia en `useCallback` al objeto completo `pagination` (`[filtrosAplicados, pagination, sortDirection, sortKey, t]`). Cuando la API retornaba datos, se invocaba `pagination.setPaginationFromResult(prodsData)`, lo que actualizaba el estado en `usePagination`. Como el hook `usePagination` no memoizaba su objeto retornado, devolvía una nueva referencia en cada render. Esto recreaba `cargarDatos`, lo que a su vez disparaba el `useEffect([cargarDatos])`, volviendo a ejecutar la consulta, llamando a `setCargando(true)` y repitiendo el ciclo indefinidamente.
   - **Solución Implementada**:
-    - Se removió el atributo `loading="lazy"` de las miniaturas de la tabla del catálogo (`PaginaCatalogoProductos.tsx`), de las tarjetas de productos del POS, de los ítems del carrito y de los modales de detalle (`PaginaPuntoVenta.tsx`), ya que son elementos visibles *above-the-fold* que deben renderizarse de forma inmediata.
-    - Se añadieron dimensiones HTML intrínsecas explícitas (`width={50} height={50}` en catálogo, `width={120} height={120}` en POS, `width={44} height={44}` en carrito) junto con `decoding="async"`, garantizando que el motor de renderizado calcule el espacio exacto sin provocar *Cumulative Layout Shift* (CLS).
-    - Se incorporó un manejador `onError` en cada elemento `<img>` para que, en caso de fallo de red o imagen no encontrada, se oculte limpiamente la etiqueta rota y se muestre un contenedor de fallback con el icono `📷` sin interrumpir la interfaz.
-  - **Pruebas y Verificación**: 47/47 pruebas de Vitest superadas (100%), compilación `tsc && vite build` completada sin advertencias ni errores en 12.65s. Cambios desplegados a `main`.
+    - En `PaginaCatalogoProductos.tsx`, se desacopló `pagination` de las dependencias de `useCallback` usando `useRef(pagination)` para `paginationRef.current.setPaginationFromResult(prodsData)`. La función ahora depende únicamente de valores primitivos: `[filtrosAplicados, pagination.pageNumber, pagination.pageSize, sortDirection, sortKey, t]`.
+    - En `usePagination.ts`, se envolvió el objeto de retorno en `useMemo` y se optimizó `setPaginationFromResult` para verificar igualdad con el estado previo (`prev !== newValue ? newValue : prev`), evitando re-renders redundantes.
+    - Se reinició el servicio `pos-api` en el VPS para liberar los hilos saturados por el bucle.
+  - **Pruebas y Verificación**: 47/47 pruebas unitarias de Vitest superadas (100%), compilación `tsc && vite build` completada con éxito en 11.99s. Cambios enviados a `main`, `version-final-de-PR` y `feature/ecommerce-fase-2`.
 
   - **Sincronización Local vs PR**:
     - Conexión remota exitosa a SQL Server en VPS (`193.46.198.88:1433`).
@@ -16,10 +32,10 @@
     - Script automatizado reusable: [`scripts/development/Sync-PrToLocal.ps1`](file:///d:/Proyecto_PDV-CDC/scripts/development/Sync-PrToLocal.ps1).
   - **Integración con Sistema de Etiquetas Térmicas (`D:\Visozr Etiquetas`)**:
     - Se extrajeron todos los 104 productos activos directamente desde `PosLambrinDb` para alimentar el archivo de presets [`D:\Visozr Etiquetas\src\data\presets.ts`](file:///D:/Visozr%20Etiquetas/src/data/presets.ts) con sus SKUs, códigos de barras, nombres bilingües, colores, dimensiones exactas (`Largo × Ancho × Alto`) y precios p/pza con IVA.
-    - **Recuadro con Imagen de Producto y Fondo con Textura de Mármol Blanco (100mm × 60mm)**:
+    - **Recuadro con Imagen de Producto y Propuesta de Fondo de Arte Dorado / Montañas Orientales (100mm × 60mm)**:
       - Para los productos que ya tienen imagen cargada en la base de datos (31 productos: series `LAM-01` a `LAM-23` y `MOS-01` a `MOS-15`), se exportaron las fotos a `D:\Visozr Etiquetas\public\product-images/`.
-      - Se añadió un recuadro de miniatura de 18mm × 18mm con bordes redondeados y sombra sutil en el cuerpo central de la etiqueta térmica (`ThermalLabel.tsx`), a la derecha de la información técnica (Color, Dimensiones, SKU).
-      - **Fondo con Textura Real de Mármol Blanco Veteado**: Se incorporó como imagen de fondo la textura física de mármol blanco estatuario/calacatta con vetas suaves provista por el cliente (`label-marble-bg.jpg`), con ajuste adaptativo `cover`, preservando el contraste nítido de los textos técnicos, código de barras y precio unitario.
+      - Se añadió un recuadro de miniatura de 18mm × 18mm con bordes redondeados y marco dorado suave en el cuerpo central de la etiqueta térmica (`ThermalLabel.tsx`), a la derecha de la información técnica (Color, Dimensiones, SKU).
+      - **Propuesta Final de Fondo (Montañas y Olas en Oro Fluido con Niebla Marfil)**: Se implementó la nueva obra gráfica solicitada por el cliente (`label-bg-art.png`), centrada horizontalmente para destacar los riscos dorados y ondas satinadas, con un velo translúcido y marco perimetral dorado (`rgba(205, 165, 75, 0.55)`), garantizando un diseño de máxima elegancia visual y contraste nítido con el texto café oscuro (`#241408`), código de barras y precio con IVA.
       - **Filtro Rápido y Subida Manual**: En `LabelForm.tsx` se incorporó el botón de filtro `📷 Con foto en BD (31)` y el botón `📁 Subir / Cambiar Foto...` para que cualquier modelo sin foto pueda tener su imagen cargada al instante desde la computadora.
       - Para los productos que aún no cuentan con foto cargada (o si se elimina la imagen en el formulario con `✕ Quitar foto`), el contenedor de la foto se oculta limpiamente y el bloque de texto toma el 100% del ancho sin dejar huecos ni deformar el diseño.
       - Se actualizaron las interfaces de TypeScript (`PresetProduct` y `LabelData`), el módulo de exportación PDF (`pdfExport.ts`) y la sincronización en cola/lotes en `App.tsx`.
