@@ -20,15 +20,18 @@ public class CatalogApplicationService : ICatalogApplicationService
     private readonly PosDbContext _dbContext;
     private readonly IAuditLogService _auditLogService;
     private readonly IProductImageStorageService _imageStorageService;
+    private readonly IPricingService _pricingService;
 
     public CatalogApplicationService(
         PosDbContext dbContext,
         IAuditLogService auditLogService,
-        IProductImageStorageService? imageStorageService = null)
+        IProductImageStorageService? imageStorageService = null,
+        IPricingService? pricingService = null)
     {
         _dbContext = dbContext;
         _auditLogService = auditLogService;
         _imageStorageService = imageStorageService ?? new NoOpProductImageStorageService();
+        _pricingService = pricingService ?? new PricingService(dbContext);
     }
 
     // Categories
@@ -307,9 +310,11 @@ public class CatalogApplicationService : ICatalogApplicationService
             .Where(stock => pagedProductIds.Contains(stock.ProductoId))
             .ToDictionaryAsync(stock => stock.ProductoId, stock => stock.CantidadDisponible, cancellationToken);
 
+        var markupPercentage = await _pricingService.GetOnlineMarkupPercentageAsync(cancellationToken);
         var dtos = orderedProducts.Select(product => MapProductToDto(
             product,
-            stockByProduct.GetValueOrDefault(product.Id))).ToList();
+            stockByProduct.GetValueOrDefault(product.Id),
+            markupPercentage)).ToList();
 
         return new PagedResult<ProductDto>(dtos, totalItems, page, take);
     }
@@ -326,7 +331,8 @@ public class CatalogApplicationService : ICatalogApplicationService
             .Where(stock => stock.ProductoId == product.Id)
             .Select(stock => (decimal?)stock.CantidadDisponible)
             .FirstOrDefaultAsync(cancellationToken) ?? 0m;
-        return MapProductToDto(product, availableQuantity);
+        var markupPercentage = await _pricingService.GetOnlineMarkupPercentageAsync(cancellationToken);
+        return MapProductToDto(product, availableQuantity, markupPercentage);
     }
 
     public async Task<ProductDto?> GetProductByCodeAsync(string code, CancellationToken cancellationToken = default)
@@ -342,7 +348,8 @@ public class CatalogApplicationService : ICatalogApplicationService
             .Where(stock => stock.ProductoId == product.Id)
             .Select(stock => (decimal?)stock.CantidadDisponible)
             .FirstOrDefaultAsync(cancellationToken) ?? 0m;
-        return MapProductToDto(product, availableQuantity);
+        var markupPercentage = await _pricingService.GetOnlineMarkupPercentageAsync(cancellationToken);
+        return MapProductToDto(product, availableQuantity, markupPercentage);
     }
 
     public async Task<ProductDto> CreateProductAsync(CreateProductDto request, Guid? currentUserId, string correlationId, string ipAddress, CancellationToken cancellationToken = default)
@@ -385,6 +392,7 @@ public class CatalogApplicationService : ICatalogApplicationService
             EspesorMm = request.ThicknessMm,
             Material = request.Material.Trim(),
             Color = request.Color?.Trim() ?? string.Empty,
+            PrecioOnlineManual = request.ManualOnlinePrice.HasValue && request.ManualOnlinePrice.Value > 0 ? Math.Round(request.ManualOnlinePrice.Value, 2, MidpointRounding.AwayFromZero) : null,
             SoloCotizacion = request.IsQuoteOnly,
             VisibleMasVendido = request.IsTopSellerVisible,
             EstaActivo = true,
@@ -472,6 +480,7 @@ public class CatalogApplicationService : ICatalogApplicationService
         product.EspesorMm = request.ThicknessMm;
         product.Material = request.Material.Trim();
         product.Color = request.Color?.Trim() ?? string.Empty;
+        product.PrecioOnlineManual = request.ManualOnlinePrice.HasValue && request.ManualOnlinePrice.Value > 0 ? Math.Round(request.ManualOnlinePrice.Value, 2, MidpointRounding.AwayFromZero) : null;
         product.SoloCotizacion = request.IsQuoteOnly;
         product.VisibleMasVendido = request.IsTopSellerVisible;
         product.EstaActivo = request.IsActive;
@@ -878,8 +887,10 @@ public class CatalogApplicationService : ICatalogApplicationService
         );
     }
 
-    private static ProductDto MapProductToDto(Producto p, decimal availableQuantity = 0m)
+    private ProductDto MapProductToDto(Producto p, decimal availableQuantity = 0m, decimal markupPercentage = 4.88m)
     {
+        var onlinePrice = _pricingService.CalculateOnlinePrice(p.PrecioUnitario, markupPercentage, p.PrecioOnlineManual);
+
         return new ProductDto(
             p.Id,
             p.IdProducto,
@@ -911,7 +922,9 @@ public class CatalogApplicationService : ICatalogApplicationService
             p.VisibleMasVendido,
             p.EstaActivo,
             p.Imagenes != null ? p.Imagenes.Select(img => img.UrlImagen).ToList() : new List<string>(),
-            availableQuantity
+            availableQuantity,
+            p.PrecioOnlineManual,
+            onlinePrice
         );
     }
 

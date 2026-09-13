@@ -91,6 +91,11 @@ export const PaginaCatalogoProductos: React.FC = () => {
   const [imagenFueEliminada, setImagenFueEliminada] = useState<boolean>(false);
   const [soloCotizacion, setSoloCotizacion] = useState(false);
   const [visibleMasVendido, setVisibleMasVendido] = useState(true);
+  const [precioOnlineManual, setPrecioOnlineManual] = useState<string>('');
+  const [comisionOnline, setComisionOnline] = useState<number>(4.88);
+  const [modalComisionAbierto, setModalComisionAbierto] = useState<boolean>(false);
+  const [nuevaComision, setNuevaComision] = useState<string>('4.88');
+  const [guardandoComision, setGuardandoComision] = useState<boolean>(false);
 
   // Modal Estado Categoría
   const [modalCategoriaAbierto, setModalCategoriaAbierto] = useState(false);
@@ -167,6 +172,17 @@ export const PaginaCatalogoProductos: React.FC = () => {
   }, [cargarDatos]);
 
   useEffect(() => {
+    void servicioCatalogo.getEcommercePricing()
+      .then(res => {
+        if (res && typeof res.percentage === 'number') {
+          setComisionOnline(res.percentage);
+          setNuevaComision(res.percentage.toString());
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     void servicioCatalogo.getCategories(undefined, { page: 1, pageSize: 500 }).then(res => {
       const items = Array.isArray(res) ? res : res?.items ?? [];
       if (items.length > 0) {
@@ -219,6 +235,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
     setDescripcion('');
     setCategoriaId(categorias.length > 0 ? categorias[0].id : '7938934b-d6cb-44fd-98de-b0645c66017d');
     setPrecioUnitario('');
+    setPrecioOnlineManual('');
     setCostoUnitario('');
     setPrecioMayoreo('');
     setCantidadMinimaMayoreo('');
@@ -273,6 +290,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
       }]);
     }
     setPrecioUnitario(p.unitPrice?.toString() || '0');
+    setPrecioOnlineManual(p.manualOnlinePrice ? p.manualOnlinePrice.toString() : '');
     setCostoUnitario(p.unitCost?.toString() || '0');
     setPrecioMayoreo(p.wholesalePrice?.toString() || '0');
     setCantidadMinimaMayoreo(p.wholesaleMinQuantity?.toString() || '10');
@@ -417,6 +435,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
           description: descripcion,
           categoryId: categoriaId,
           unitPrice: parseFloat(precioUnitario) || 0,
+          manualOnlinePrice: precioOnlineManual ? parseFloat(precioOnlineManual) : null,
           unitCost: parseFloat(costoUnitario) || 0,
           wholesalePrice: parseFloat(precioMayoreo) || 0,
           wholesaleMinQuantity: parseFloat(cantidadMinimaMayoreo) || 1,
@@ -444,6 +463,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
           description: descripcion,
           categoryId: categoriaId,
           unitPrice: parseFloat(precioUnitario) || 0,
+          manualOnlinePrice: precioOnlineManual ? parseFloat(precioOnlineManual) : null,
           unitCost: parseFloat(costoUnitario) || 0,
           wholesalePrice: parseFloat(precioMayoreo) || 0,
           wholesaleMinQuantity: parseFloat(cantidadMinimaMayoreo) || 1,
@@ -518,6 +538,16 @@ export const PaginaCatalogoProductos: React.FC = () => {
             {canCreateProduct && <button className="action-btn" onClick={abrirModalCrear}>
               ➕ {t('newLambrinProduct')}
             </button>}
+            {canEditProduct && (
+              <button
+                className="lang-btn"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #93c5fd', color: '#1d4ed8', background: '#eff6ff', fontWeight: 600 }}
+                onClick={() => setModalComisionAbierto(true)}
+                title="Configurar margen de comisión para compensar Stripe en la tienda online"
+              >
+                ⚙️ {t('commissionSetting', 'Comisión Tienda')} ({comisionOnline}%)
+              </button>
+            )}
             {canCreateCategory && <button className="lang-btn" onClick={() => setModalCategoriaAbierto(true)}>
               📁 {t('createCategory')}
             </button>}
@@ -729,6 +759,30 @@ export const PaginaCatalogoProductos: React.FC = () => {
                             ${p.unitPrice?.toFixed(2)}
                           </strong>
                           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>MXN</span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.84rem', whiteSpace: 'nowrap' }}>
+                          <span style={{
+                            fontSize: '0.66rem',
+                            fontWeight: 750,
+                            textTransform: 'uppercase',
+                            color: '#2563eb',
+                            background: 'rgba(37, 99, 235, 0.08)',
+                            padding: '0.08rem 0.32rem',
+                            borderRadius: '3px',
+                            border: '1px solid rgba(37, 99, 235, 0.2)',
+                            letterSpacing: '0.3px'
+                          }}>
+                            Web
+                          </span>
+                          <strong style={{ color: '#1d4ed8', fontWeight: 750 }}>
+                            ${(p.manualOnlinePrice ?? p.onlinePrice ?? (comisionOnline < 100 ? (p.unitPrice / (1 - (comisionOnline / 100))) : p.unitPrice))?.toFixed(2)}
+                          </strong>
+                          {p.manualOnlinePrice ? (
+                            <span style={{ fontSize: '0.65rem', color: '#1e40af', background: '#dbeafe', padding: '0 3px', borderRadius: '3px' }} title="Precio manual fijado">Manual</span>
+                          ) : (
+                            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }} title={`Calculado con +${comisionOnline}% de comisión`}>+{comisionOnline}%</span>
+                          )}
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.84rem', whiteSpace: 'nowrap' }}>
@@ -1227,7 +1281,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem' }}>
                   {/* Formateo de Cajas Monetarias sin ceros molestos (1.8) */}
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>{t('unitPriceLabel')}</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>{t('unitPriceLabel')} (PDV)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -1236,6 +1290,28 @@ export const PaginaCatalogoProductos: React.FC = () => {
                       value={precioUnitario}
                       onChange={(e) => handleFormattedNumericChange(setPrecioUnitario, e.target.value)}
                     />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                      Precio Tienda Online Manual ($ MXN)
+                      <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: '4px' }}>
+                        (Opcional)
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="input-field"
+                      value={precioOnlineManual}
+                      onChange={(e) => handleFormattedNumericChange(setPrecioOnlineManual, e.target.value)}
+                      placeholder={precioOnlineManual ? '' : `Auto: $${((parseFloat(precioUnitario) || 0) > 0 && comisionOnline < 100 ? Math.round(((parseFloat(precioUnitario) || 0) / (1 - (comisionOnline / 100))) * 100) / 100 : 0).toFixed(2)}`}
+                    />
+                    <small style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                      {precioOnlineManual
+                        ? 'Precio fijo para tienda en línea (anula el incremento por comisión).'
+                        : `Estimado automático con +${comisionOnline}%: $${((parseFloat(precioUnitario) || 0) > 0 && comisionOnline < 100 ? Math.round(((parseFloat(precioUnitario) || 0) / (1 - (comisionOnline / 100))) * 100) / 100 : 0).toFixed(2)} MXN.`}
+                    </small>
                   </div>
 
                   <div>
@@ -1324,6 +1400,79 @@ export const PaginaCatalogoProductos: React.FC = () => {
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Configuración Comisión Tienda Online */}
+      {modalComisionAbierto && (
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
+          <div className="card" style={{ width: '460px', background: 'var(--surface)', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)' }}>
+            <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)' }}>
+              ⚙️ Margen de Comisión Tienda Online
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+              Define el porcentaje de incremento aplicado automáticamente a los precios en la tienda web para compensar la comisión descontada por Stripe al momento del cobro.
+            </p>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+                Porcentaje de Compensación (%)
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="99.99"
+                  className="input-field"
+                  style={{ width: '130px', fontSize: '1.15rem', fontWeight: 700 }}
+                  value={nuevaComision}
+                  onChange={(e) => setNuevaComision(e.target.value)}
+                />
+                <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-muted)' }}>%</span>
+              </div>
+              <small style={{ display: 'block', marginTop: '0.4rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                Fórmula: PrecioBase / (1 - %Comisión). Ejemplo: $158.00 base al 4.88% = $166.11 en tienda online.
+              </small>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="lang-btn"
+                onClick={() => setModalComisionAbierto(false)}
+                disabled={guardandoComision}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="action-btn"
+                disabled={guardandoComision}
+                onClick={async () => {
+                  const val = parseFloat(nuevaComision);
+                  if (isNaN(val) || val < 0 || val >= 100) {
+                    alert('El porcentaje debe estar entre 0% y 99.99%.');
+                    return;
+                  }
+                  setGuardandoComision(true);
+                  try {
+                    await servicioCatalogo.updateEcommercePricing(val);
+                    setComisionOnline(val);
+                    setModalComisionAbierto(false);
+                    setMensajeExito(`Porcentaje de comisión para tienda online actualizado a ${val}%`);
+                    void cargarDatos();
+                  } catch (err: any) {
+                    alert('Error al guardar la configuración: ' + (err.message || 'Error de conexión'));
+                  } finally {
+                    setGuardandoComision(false);
+                  }
+                }}
+              >
+                {guardandoComision ? 'Guardando...' : 'Guardar Cambios'}
+              </button>
+            </div>
           </div>
         </div>
       )}

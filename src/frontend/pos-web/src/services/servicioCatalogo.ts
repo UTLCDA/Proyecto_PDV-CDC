@@ -149,4 +149,14 @@ export const servicioCatalogo = {
     const response = await api.put<Cliente>(`/customers/${id}`, data);
     return response.data;
   }
+,
+  getEcommercePricing: async (): Promise<{ percentage: number; description: string }> => {
+    const response = await api.get<{ percentage: number; description: string }>('/system-settings/ecommerce-pricing');
+    return response.data;
+  },
+
+  updateEcommercePricing: async (percentage: number): Promise<{ percentage: number; success: boolean; message: string }> => {
+    const response = await api.put<{ percentage: number; success: boolean; message: string }>('/system-settings/ecommerce-pricing', { percentage });
+    return response.data;
+  }
 };

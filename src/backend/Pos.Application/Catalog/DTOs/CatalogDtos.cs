@@ -54,7 +54,9 @@ public record ProductDto(
     bool IsTopSellerVisible,
     bool IsActive,
     List<string> ImageUrls,
-    decimal AvailableQuantity
+    decimal AvailableQuantity,
+    decimal? ManualOnlinePrice = null,
+    decimal? OnlinePrice = null
 );
 
 public record CreateProductDto(
@@ -82,7 +84,8 @@ public record CreateProductDto(
     string? Color,
     bool IsQuoteOnly,
     bool IsTopSellerVisible,
-    List<string>? ImageUrls = null
+    List<string>? ImageUrls = null,
+    decimal? ManualOnlinePrice = null
 );
 
 public record UpdateProductDto(
@@ -110,7 +113,8 @@ public record UpdateProductDto(
     bool IsQuoteOnly,
     bool IsTopSellerVisible,
     bool IsActive,
-    List<string>? ImageUrls = null
+    List<string>? ImageUrls = null,
+    decimal? ManualOnlinePrice = null
 );
 
 public record CustomerDto(

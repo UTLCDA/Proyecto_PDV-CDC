@@ -1,9 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pos.Domain.Common;
 using Pos.Domain.Entidades;
 using Pos.Infrastructure.Persistence;
+using Pos.Application.Catalog.Services;
 using Stripe;
 using Stripe.Checkout;
 
@@ -20,15 +21,18 @@ public class StripePaymentsController : ControllerBase
 {
     private readonly PosDbContext _dbContext;
     private readonly IConfiguration _configuration;
+    private readonly IPricingService _pricingService;
     private readonly ILogger<StripePaymentsController> _logger;
 
     public StripePaymentsController(
         PosDbContext dbContext,
         IConfiguration configuration,
+        IPricingService pricingService,
         ILogger<StripePaymentsController> logger)
     {
         _dbContext = dbContext;
         _configuration = configuration;
+        _pricingService = pricingService;
         _logger = logger;
     }
 
@@ -80,6 +84,7 @@ public class StripePaymentsController : ControllerBase
             .Where(s => foundIds.Contains(s.ProductoId))
             .ToDictionaryAsync(s => s.ProductoId, cancellationToken);
 
+        var markupPercentage = await _pricingService.GetOnlineMarkupPercentageAsync(cancellationToken);
         decimal verifiedSubtotal = 0m;
         var validatedLines = new List<ValidatedOrderLine>();
 
@@ -114,10 +119,13 @@ public class StripePaymentsController : ControllerBase
                 });
             }
 
-            var piecePrice = product.PrecioUnitario;
+            var pieceOnlinePrice = _pricingService.CalculateOnlinePrice(product.PrecioUnitario, markupPercentage, product.PrecioOnlineManual);
             var verifiedUnitPrice = isBox
-                ? Math.Round(piecePrice * piecesPerBox, 2)
-                : piecePrice;
+                ? Math.Round(pieceOnlinePrice * piecesPerBox, 2)
+                : pieceOnlinePrice;
+            var baseUnitPrice = isBox
+                ? Math.Round(product.PrecioUnitario * piecesPerBox, 2)
+                : product.PrecioUnitario;
 
             var lineTotal = verifiedUnitPrice * item.Quantity;
             verifiedSubtotal += lineTotal;
@@ -130,6 +138,7 @@ public class StripePaymentsController : ControllerBase
                 isBox ? $"Caja ({piecesPerBox} pzs)" : "Pieza individual",
                 item.Quantity,
                 requiredPieces,
+                baseUnitPrice,
                 verifiedUnitPrice,
                 lineTotal
             ));
@@ -226,6 +235,7 @@ public class StripePaymentsController : ControllerBase
                 VentaId = sale.Id,
                 ProductoId = line.ProductId,
                 Cantidad = line.Quantity,
+                PrecioBase = line.BasePrice,
                 PrecioUnitario = line.UnitPrice,
                 PrecioTotal = line.LineTotal,
                 MontoDescuento = 0m,
@@ -1066,6 +1076,7 @@ public record ValidatedOrderLine(
     string UnitLabel,
     int Quantity,
     int RequiredPieces,
+    decimal BasePrice,
     decimal UnitPrice,
     decimal LineTotal
 );

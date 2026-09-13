@@ -188,6 +188,18 @@ public static class DbInitializer
 
         context.Customers.Add(clientePublico);
 
+        // 8. Configuraciones Iniciales del Sistema
+        if (!context.SystemSettings.Any(s => s.Clave == "PORCENTAJE_AJUSTE_PRECIO_ONLINE"))
+        {
+            context.SystemSettings.Add(new ConfiguracionSistema
+            {
+                Clave = "PORCENTAJE_AJUSTE_PRECIO_ONLINE",
+                Valor = "4.88",
+                Descripcion = "Porcentaje de incremento aplicado a precios en tienda online para compensar comision de pasarela de pago Stripe.",
+                FechaModificacionUtc = DateTime.UtcNow
+            });
+        }
+
         await context.SaveChangesAsync();
     }
 }

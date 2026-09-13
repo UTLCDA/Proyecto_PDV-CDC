@@ -53,6 +53,8 @@ export interface Producto {
   isActive: boolean;
   imageUrls: string[];
   availableQuantity: number;
+  manualOnlinePrice?: number | null;
+  onlinePrice?: number | null;
 }
 
 export interface PeticionCrearProducto {
@@ -80,6 +82,7 @@ export interface PeticionCrearProducto {
   color?: string;
   isQuoteOnly: boolean;
   isTopSellerVisible: boolean;
+  manualOnlinePrice?: number | null;
 }
 
 export interface PeticionActualizarProducto {
@@ -107,6 +110,7 @@ export interface PeticionActualizarProducto {
   isQuoteOnly: boolean;
   isTopSellerVisible: boolean;
   isActive: boolean;
+  manualOnlinePrice?: number | null;
 }
 
 export interface Cliente {

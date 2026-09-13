@@ -32,6 +32,7 @@ public class PosDbContext : DbContext
     public DbSet<TurnoCaja> CashShifts { get; set; } = null!;
     public DbSet<TransaccionCaja> CashTransactions { get; set; } = null!;
     public DbSet<SaludSistema> HealthStatuses { get; set; } = null!;
+    public DbSet<ConfiguracionSistema> SystemSettings { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -191,6 +192,13 @@ public class PosDbContext : DbContext
             .HasIndex(mi => mi.IdVenta);
         modelBuilder.Entity<TransaccionCaja>()
             .HasIndex(tc => tc.IdVenta);
+
+        modelBuilder.Entity<ConfiguracionSistema>()
+            .Property(cs => cs.Clave)
+            .HasMaxLength(100);
+        modelBuilder.Entity<ConfiguracionSistema>()
+            .HasIndex(cs => cs.Clave)
+            .IsUnique();
 
         // Precision mapping for money fields (decimal(18,2))
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

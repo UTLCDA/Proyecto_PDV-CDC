@@ -34,15 +34,18 @@ public class StoreController : ControllerBase
 
     private readonly ICatalogApplicationService _catalogService;
     private readonly PosDbContext _dbContext;
+    private readonly IPricingService _pricingService;
     private readonly ILogger<StoreController> _logger;
 
     public StoreController(
         ICatalogApplicationService catalogService,
         PosDbContext dbContext,
+        IPricingService pricingService,
         ILogger<StoreController> logger)
     {
         _catalogService = catalogService;
         _dbContext = dbContext;
+        _pricingService = pricingService;
         _logger = logger;
     }
 
@@ -283,6 +286,7 @@ public class StoreController : ControllerBase
             .Where(s => foundIds.Contains(s.ProductoId))
             .ToDictionaryAsync(s => s.ProductoId, cancellationToken);
 
+        var markupPercentage = await _pricingService.GetOnlineMarkupPercentageAsync(cancellationToken);
         var validatedItems = new List<object>();
         var globalWarnings = new List<string>();
         decimal verifiedSubtotal = 0m;
@@ -334,7 +338,7 @@ public class StoreController : ControllerBase
                 isCartValid = false;
             }
 
-            var piecePrice = product.PrecioUnitario;
+            var piecePrice = _pricingService.CalculateOnlinePrice(product.PrecioUnitario, markupPercentage, product.PrecioOnlineManual);
             var verifiedPrice = isBox
                 ? Math.Round(piecePrice * piecesPerBox, 2)
                 : piecePrice;
@@ -806,7 +810,10 @@ public class StoreController : ControllerBase
 
     private static ProductDto SanitizeForStore(ProductDto p)
     {
-        return p with { UnitCost = 0m };
+        return p with {
+            UnitCost = 0m,
+            UnitPrice = p.OnlinePrice ?? p.UnitPrice
+        };
     }
 }
 

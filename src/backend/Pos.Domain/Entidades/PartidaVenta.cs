@@ -7,6 +7,7 @@ public class PartidaVenta : EntidadBase
     public Guid VentaId { get; set; }
     public int? IdVenta { get; set; }
     public Guid ProductoId { get; set; }
+    public decimal? PrecioBase { get; set; }
     public decimal Cantidad { get; set; }
     public decimal PrecioUnitario { get; set; }
     public decimal MontoDescuento { get; set; }

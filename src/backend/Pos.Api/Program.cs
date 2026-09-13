@@ -179,6 +179,21 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE Customers ADD LimiteCajasDiarias decimal(18,2) NOT NULL DEFAULT 0;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Customers') AND name = 'PasswordHash')
                         ALTER TABLE Customers ADD PasswordHash nvarchar(255) NULL DEFAULT 'WPC123';
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Products') AND name = 'PrecioOnlineManual')
+                        ALTER TABLE Products ADD PrecioOnlineManual decimal(18,2) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('SaleItems') AND name = 'PrecioBase')
+                        ALTER TABLE SaleItems ADD PrecioBase decimal(18,2) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SystemSettings')
+                    BEGIN
+                        CREATE TABLE SystemSettings (
+                            Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                            Clave nvarchar(100) NOT NULL,
+                            Valor nvarchar(max) NOT NULL,
+                            Descripcion nvarchar(max) NULL,
+                            FechaModificacionUtc datetime2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                        CREATE UNIQUE INDEX IX_SystemSettings_Clave ON SystemSettings (Clave);
+                    END
                 ");
             }
             catch (Exception exSql)
