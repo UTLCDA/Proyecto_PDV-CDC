@@ -776,7 +776,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
                             Web
                           </span>
                           <strong style={{ color: '#1d4ed8', fontWeight: 750 }}>
-                            ${(p.manualOnlinePrice ?? p.onlinePrice ?? (comisionOnline < 100 ? Math.round(p.unitPrice / (1 - (comisionOnline / 100))) : p.unitPrice))?.toFixed(0)}
+                            ${(p.manualOnlinePrice ?? p.onlinePrice ?? (comisionOnline < 100 ? Math.ceil((p.unitPrice / (1 - (comisionOnline / 100))) * 2) / 2 : p.unitPrice))?.toFixed(2)}
                           </strong>
                           {p.manualOnlinePrice ? (
                             <span style={{ fontSize: '0.65rem', color: '#1e40af', background: '#dbeafe', padding: '0 3px', borderRadius: '3px' }} title="Precio manual fijado">Manual</span>
@@ -1305,12 +1305,12 @@ export const PaginaCatalogoProductos: React.FC = () => {
                       className="input-field"
                       value={precioOnlineManual}
                       onChange={(e) => handleFormattedNumericChange(setPrecioOnlineManual, e.target.value)}
-                      placeholder={precioOnlineManual ? '' : `Auto: $${((parseFloat(precioUnitario) || 0) > 0 && comisionOnline < 100 ? Math.round((parseFloat(precioUnitario) || 0) / (1 - (comisionOnline / 100))) : 0).toFixed(0)}`}
+                      placeholder={precioOnlineManual ? '' : `Auto: $${((parseFloat(precioUnitario) || 0) > 0 && comisionOnline < 100 ? Math.ceil(((parseFloat(precioUnitario) || 0) / (1 - (comisionOnline / 100))) * 2) / 2 : 0).toFixed(2)}`}
                     />
                     <small style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                       {precioOnlineManual
                         ? 'Precio fijo para tienda en línea (anula el incremento por comisión).'
-                        : `Estimado automático con +${comisionOnline}%: $${((parseFloat(precioUnitario) || 0) > 0 && comisionOnline < 100 ? Math.round((parseFloat(precioUnitario) || 0) / (1 - (comisionOnline / 100))) : 0).toFixed(0)} MXN.`}
+                        : `Estimado automático con +${comisionOnline}%: $${((parseFloat(precioUnitario) || 0) > 0 && comisionOnline < 100 ? Math.ceil(((parseFloat(precioUnitario) || 0) / (1 - (comisionOnline / 100))) * 2) / 2 : 0).toFixed(2)} MXN.`}
                     </small>
                   </div>
 

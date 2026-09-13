@@ -121,7 +121,7 @@ public class StripePaymentsController : ControllerBase
 
             var pieceOnlinePrice = _pricingService.CalculateOnlinePrice(product.PrecioUnitario, markupPercentage, product.PrecioOnlineManual);
             var verifiedUnitPrice = isBox
-                ? Math.Round(pieceOnlinePrice * piecesPerBox, 0)
+                ? Math.Ceiling(pieceOnlinePrice * piecesPerBox * 2m) / 2m
                 : pieceOnlinePrice;
             var baseUnitPrice = isBox
                 ? Math.Round(product.PrecioUnitario * piecesPerBox, 2)
@@ -152,7 +152,7 @@ public class StripePaymentsController : ControllerBase
         decimal discount = request.DiscountAmount ?? 0m;
         if (discount <= 0m && !string.IsNullOrWhiteSpace(request.CouponCode) && string.Equals(request.CouponCode.Trim(), "WPC15", StringComparison.OrdinalIgnoreCase))
         {
-            discount = Math.Round(verifiedSubtotal * 0.15m, 0);
+            discount = Math.Ceiling(verifiedSubtotal * 0.15m * 2m) / 2m;
         }
         decimal total = Math.Max(0m, verifiedSubtotal - discount + shippingCost);
 

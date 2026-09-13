@@ -65,7 +65,7 @@ public class PricingService : IPricingService
     {
         if (manualOnlinePrice.HasValue && manualOnlinePrice.Value > 0)
         {
-            return Math.Round(manualOnlinePrice.Value, 0, MidpointRounding.AwayFromZero);
+            return Math.Ceiling(manualOnlinePrice.Value * 2m) / 2m;
         }
 
         if (basePrice <= 0)
@@ -80,14 +80,15 @@ public class PricingService : IPricingService
 
         if (markupPercentage == 0m)
         {
-            return Math.Round(basePrice, 0, MidpointRounding.AwayFromZero);
+            return Math.Ceiling(basePrice * 2m) / 2m;
         }
 
         decimal rate = markupPercentage / 100m;
         decimal divisor = 1m - rate;
-        if (divisor <= 0) return Math.Round(basePrice, 0, MidpointRounding.AwayFromZero);
+        if (divisor <= 0) return Math.Ceiling(basePrice * 2m) / 2m;
 
         decimal calculatedPrice = basePrice / divisor;
-        return Math.Round(calculatedPrice, 0, MidpointRounding.AwayFromZero);
+        // Redondeo hacia arriba en m?ltiplos de 0.50 (ej. 2.11 -> 2.50, 2.60 -> 3.00)
+        return Math.Ceiling(calculatedPrice * 2m) / 2m;
     }
 }
