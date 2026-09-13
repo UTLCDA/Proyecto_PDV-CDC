@@ -16,49 +16,49 @@ public class PricingServiceTests
     }
 
     [Fact]
-    public void CalculateOnlinePrice_Base158_Markup488_Returns16611()
+    public void CalculateOnlinePrice_Base158_Markup488_Returns166WithoutCents()
     {
         using var context = CreateContext();
         var service = new PricingService(context);
 
-        // 158 / (1 - 0.0488) = 158 / 0.9512 = 166.10597... -> 166.11
+        // 158 / (1 - 0.0488) = 158 / 0.9512 = 166.10597... -> redondeado a enteros: 166
         var result = service.CalculateOnlinePrice(158.00m, 4.88m);
 
-        Assert.Equal(166.11m, result);
+        Assert.Equal(166m, result);
     }
 
     [Fact]
-    public void CalculateOnlinePrice_Base100_Markup5_Returns10526()
+    public void CalculateOnlinePrice_Base100_Markup5_Returns105WithoutCents()
     {
         using var context = CreateContext();
         var service = new PricingService(context);
 
-        // 100 / (1 - 0.05) = 100 / 0.95 = 105.26315... -> 105.26
+        // 100 / (1 - 0.05) = 100 / 0.95 = 105.26315... -> redondeado a enteros: 105
         var result = service.CalculateOnlinePrice(100.00m, 5.00m);
 
-        Assert.Equal(105.26m, result);
+        Assert.Equal(105m, result);
     }
 
     [Fact]
-    public void CalculateOnlinePrice_WithManualPrice_OverridesCalculated()
+    public void CalculateOnlinePrice_WithManualPrice_OverridesCalculatedWithoutCents()
     {
         using var context = CreateContext();
         var service = new PricingService(context);
 
         var result = service.CalculateOnlinePrice(158.00m, 4.88m, 170.00m);
 
-        Assert.Equal(170.00m, result);
+        Assert.Equal(170m, result);
     }
 
     [Fact]
-    public void CalculateOnlinePrice_ZeroMarkup_ReturnsBasePrice()
+    public void CalculateOnlinePrice_ZeroMarkup_ReturnsBasePriceWithoutCents()
     {
         using var context = CreateContext();
         var service = new PricingService(context);
 
         var result = service.CalculateOnlinePrice(158.00m, 0.00m);
 
-        Assert.Equal(158.00m, result);
+        Assert.Equal(158m, result);
     }
 
     [Fact]

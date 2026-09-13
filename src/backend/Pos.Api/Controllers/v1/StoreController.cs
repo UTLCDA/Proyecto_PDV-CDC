@@ -340,7 +340,7 @@ public class StoreController : ControllerBase
 
             var piecePrice = _pricingService.CalculateOnlinePrice(product.PrecioUnitario, markupPercentage, product.PrecioOnlineManual);
             var verifiedPrice = isBox
-                ? Math.Round(piecePrice * piecesPerBox, 2)
+                ? Math.Round(piecePrice * piecesPerBox, 0)
                 : piecePrice;
 
             var hasPriceChanged = item.PricePerUnit.HasValue &&

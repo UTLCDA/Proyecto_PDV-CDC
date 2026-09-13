@@ -776,7 +776,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
                             Web
                           </span>
                           <strong style={{ color: '#1d4ed8', fontWeight: 750 }}>
-                            ${(p.manualOnlinePrice ?? p.onlinePrice ?? (comisionOnline < 100 ? (p.unitPrice / (1 - (comisionOnline / 100))) : p.unitPrice))?.toFixed(2)}
+                            ${(p.manualOnlinePrice ?? p.onlinePrice ?? (comisionOnline < 100 ? Math.round(p.unitPrice / (1 - (comisionOnline / 100))) : p.unitPrice))?.toFixed(0)}
                           </strong>
                           {p.manualOnlinePrice ? (
                             <span style={{ fontSize: '0.65rem', color: '#1e40af', background: '#dbeafe', padding: '0 3px', borderRadius: '3px' }} title="Precio manual fijado">Manual</span>
@@ -1305,12 +1305,12 @@ export const PaginaCatalogoProductos: React.FC = () => {
                       className="input-field"
                       value={precioOnlineManual}
                       onChange={(e) => handleFormattedNumericChange(setPrecioOnlineManual, e.target.value)}
-                      placeholder={precioOnlineManual ? '' : `Auto: $${((parseFloat(precioUnitario) || 0) > 0 && comisionOnline < 100 ? Math.round(((parseFloat(precioUnitario) || 0) / (1 - (comisionOnline / 100))) * 100) / 100 : 0).toFixed(2)}`}
+                      placeholder={precioOnlineManual ? '' : `Auto: $${((parseFloat(precioUnitario) || 0) > 0 && comisionOnline < 100 ? Math.round((parseFloat(precioUnitario) || 0) / (1 - (comisionOnline / 100))) : 0).toFixed(0)}`}
                     />
                     <small style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                       {precioOnlineManual
                         ? 'Precio fijo para tienda en línea (anula el incremento por comisión).'
-                        : `Estimado automático con +${comisionOnline}%: $${((parseFloat(precioUnitario) || 0) > 0 && comisionOnline < 100 ? Math.round(((parseFloat(precioUnitario) || 0) / (1 - (comisionOnline / 100))) * 100) / 100 : 0).toFixed(2)} MXN.`}
+                        : `Estimado automático con +${comisionOnline}%: $${((parseFloat(precioUnitario) || 0) > 0 && comisionOnline < 100 ? Math.round((parseFloat(precioUnitario) || 0) / (1 - (comisionOnline / 100))) : 0).toFixed(0)} MXN.`}
                     </small>
                   </div>
 
@@ -1433,7 +1433,7 @@ export const PaginaCatalogoProductos: React.FC = () => {
                 <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-muted)' }}>%</span>
               </div>
               <small style={{ display: 'block', marginTop: '0.4rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                Fórmula: PrecioBase / (1 - %Comisión). Ejemplo: $158.00 base al 4.88% = $166.11 en tienda online.
+                Fórmula: PrecioBase / (1 - %Comisión). Ejemplo: $158.00 base al 4.88% = $166 en tienda online.
               </small>
             </div>
 
