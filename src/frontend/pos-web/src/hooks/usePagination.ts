@@ -75,22 +75,27 @@ export function usePagination(options: UsePaginationOptions = {}): UsePagination
     if (!result) return;
     const total = result.totalItems ?? result.TotalItems ?? result.totalCount ?? result.TotalCount;
     if (total !== undefined && total !== null) {
-      setTotalItems(Number(total));
+      const totalNum = Number(total);
+      setTotalItems((prev) => (prev !== totalNum ? totalNum : prev));
     }
     const pages = result.totalPages ?? result.TotalPages ?? result.pageCount ?? result.PageCount;
     if (pages !== undefined && pages !== null) {
-      setTotalPages(Math.max(1, Number(pages)));
+      const pagesNum = Math.max(1, Number(pages));
+      setTotalPages((prev) => (prev !== pagesNum ? pagesNum : prev));
     } else if (total !== undefined && total !== null) {
       const size = result.pageSize ?? result.PageSize ?? pageSize;
-      setTotalPages(calculateTotalPages(Number(total), Number(size)));
+      const pagesNum = calculateTotalPages(Number(total), Number(size));
+      setTotalPages((prev) => (prev !== pagesNum ? pagesNum : prev));
     }
     const pageNum = result.pageNumber ?? result.PageNumber ?? result.page ?? result.Page;
     if (pageNum !== undefined && pageNum !== null) {
-      setPageNumberState(Math.max(1, Number(pageNum)));
+      const pNum = Math.max(1, Number(pageNum));
+      setPageNumberState((prev) => (prev !== pNum ? pNum : prev));
     }
     const sizeVal = result.pageSize ?? result.PageSize;
     if (sizeVal !== undefined && sizeVal !== null) {
-      setPageSizeState(Number(sizeVal));
+      const sVal = Number(sizeVal);
+      setPageSizeState((prev) => (prev !== sVal ? sVal : prev));
     }
   }, [pageSize]);
 
@@ -103,7 +108,7 @@ export function usePagination(options: UsePaginationOptions = {}): UsePagination
     pageSize,
   }), [pageNumber, pageSize]);
 
-  return {
+  return useMemo(() => ({
     pageNumber,
     pageSize,
     totalItems,
@@ -117,7 +122,21 @@ export function usePagination(options: UsePaginationOptions = {}): UsePagination
     nextPage,
     previousPage,
     queryParams,
-  };
+  }), [
+    pageNumber,
+    pageSize,
+    totalItems,
+    totalPages,
+    hasPreviousPage,
+    hasNextPage,
+    setPageNumber,
+    setPageSize,
+    setPaginationFromResult,
+    resetPage,
+    nextPage,
+    previousPage,
+    queryParams,
+  ]);
 }
 
 export default usePagination;

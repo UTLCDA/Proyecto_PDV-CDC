@@ -130,6 +130,9 @@ export const PaginaCatalogoProductos: React.FC = () => {
     ]
   }), [categorias, filtrosAplicados]);
 
+  const paginationRef = useRef(pagination);
+  paginationRef.current = pagination;
+
   const cargarDatos = useCallback(async () => {
     setCargando(true);
     setErrorCarga('');
@@ -148,14 +151,16 @@ export const PaginaCatalogoProductos: React.FC = () => {
         items = items.filter(p => !p.isActive);
       }
       setProductos(items);
-      if (!Array.isArray(prodsData)) pagination.setPaginationFromResult(prodsData);
+      if (!Array.isArray(prodsData)) {
+        paginationRef.current.setPaginationFromResult(prodsData);
+      }
     } catch (error) {
       setProductos([]);
       setErrorCarga(error instanceof Error ? error.message : t('catalogLoadError'));
     } finally {
       setCargando(false);
     }
-  }, [filtrosAplicados, pagination, sortDirection, sortKey, t]);
+  }, [filtrosAplicados, pagination.pageNumber, pagination.pageSize, sortDirection, sortKey, t]);
 
   useEffect(() => {
     void cargarDatos();
