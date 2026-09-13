@@ -2,7 +2,14 @@
 
 ## 🟢 ESTADO ACTUAL (Septiembre, 2026)
 
-- **Sincronización de Base de Datos de Producción (PR) a Local y Generación Automática de Etiquetas Térmicas**:
+- **Corrección de Intervención Chromium en Catálogo y Punto de Venta (`[Intervention] Images loaded lazily and replaced with placeholders`)**:
+  - **Problema Detectado en Producción (PR)**: Al ingresar al Catálogo de Productos (`PaginaCatalogoProductos.tsx`) o al Punto de Venta (`PaginaPuntoVenta.tsx`), el motor Chromium (Chrome / Edge) emitía una advertencia de intervención: `[Intervention] Images loaded lazily and replaced with placeholders. Load events are deferred. See https://go.microsoft.com/fwlink/?linkid=2048113`. La heurística del navegador reemplazaba temporalmente las imágenes de la tabla/cuadrícula por marcadores de posición vacíos y difería sus eventos de carga al detectar `loading="lazy"` en elementos inmediatamente visibles dentro del viewport inicial sin dimensiones HTML intrínsecas explícitas.
+  - **Solución Implementada**:
+    - Se removió el atributo `loading="lazy"` de las miniaturas de la tabla del catálogo (`PaginaCatalogoProductos.tsx`), de las tarjetas de productos del POS, de los ítems del carrito y de los modales de detalle (`PaginaPuntoVenta.tsx`), ya que son elementos visibles *above-the-fold* que deben renderizarse de forma inmediata.
+    - Se añadieron dimensiones HTML intrínsecas explícitas (`width={50} height={50}` en catálogo, `width={120} height={120}` en POS, `width={44} height={44}` en carrito) junto con `decoding="async"`, garantizando que el motor de renderizado calcule el espacio exacto sin provocar *Cumulative Layout Shift* (CLS).
+    - Se incorporó un manejador `onError` en cada elemento `<img>` para que, en caso de fallo de red o imagen no encontrada, se oculte limpiamente la etiqueta rota y se muestre un contenedor de fallback con el icono `📷` sin interrumpir la interfaz.
+  - **Pruebas y Verificación**: 47/47 pruebas de Vitest superadas (100%), compilación `tsc && vite build` completada sin advertencias ni errores en 12.65s. Cambios desplegados a `main`.
+
   - **Sincronización Local vs PR**:
     - Conexión remota exitosa a SQL Server en VPS (`193.46.198.88:1433`).
     - Base de datos local `PosLambrinDb` sincronizada al 100% con los datos capturados en Producción: **105 productos**, **13 categorías** y sus correspondientes registros de inventario en `Stocks`.
