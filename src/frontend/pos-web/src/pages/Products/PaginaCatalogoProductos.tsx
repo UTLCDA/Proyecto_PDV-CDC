@@ -646,9 +646,22 @@ export const PaginaCatalogoProductos: React.FC = () => {
                         <img
                           src={resolveProductImageUrl(p.imageUrl)}
                           alt={p.sku}
-                          loading="lazy"
+                          width={50}
+                          height={50}
                           decoding="async"
-                          style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent && !parent.querySelector('.img-fallback-placeholder')) {
+                              const placeholder = document.createElement('div');
+                              placeholder.className = 'img-fallback-placeholder';
+                              placeholder.style.cssText = 'width:50px;height:50px;border-radius:6px;background:var(--background-container);border:1px dashed var(--border-input);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:1.2rem;';
+                              placeholder.innerText = '📷';
+                              parent.appendChild(placeholder);
+                            }
+                          }}
+                          style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-subtle)', display: 'block' }}
                         />
                       ) : (
                         <div style={{
