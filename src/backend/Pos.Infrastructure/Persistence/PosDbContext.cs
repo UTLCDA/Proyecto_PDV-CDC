@@ -33,6 +33,7 @@ public class PosDbContext : DbContext
     public DbSet<TransaccionCaja> CashTransactions { get; set; } = null!;
     public DbSet<SaludSistema> HealthStatuses { get; set; } = null!;
     public DbSet<ConfiguracionSistema> SystemSettings { get; set; } = null!;
+    public DbSet<ReciboCompra> PurchaseReceipts { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -202,6 +203,35 @@ public class PosDbContext : DbContext
         modelBuilder.Entity<ConfiguracionSistema>()
             .HasIndex(cs => cs.Clave)
             .IsUnique();
+
+        modelBuilder.Entity<ReciboCompra>()
+            .Property(r => r.Folio)
+            .HasMaxLength(50);
+        modelBuilder.Entity<ReciboCompra>()
+            .HasIndex(r => r.Folio)
+            .IsUnique();
+        modelBuilder.Entity<ReciboCompra>()
+            .Property(r => r.NombreProducto)
+            .HasMaxLength(250);
+        modelBuilder.Entity<ReciboCompra>()
+            .Property(r => r.Sku)
+            .HasMaxLength(100);
+        modelBuilder.Entity<ReciboCompra>()
+            .Property(r => r.CodigoBarras)
+            .HasMaxLength(100);
+        modelBuilder.Entity<ReciboCompra>()
+            .Property(r => r.Notas)
+            .HasMaxLength(500);
+        modelBuilder.Entity<ReciboCompra>()
+            .HasOne(r => r.Producto)
+            .WithMany()
+            .HasForeignKey(r => r.ProductoId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ReciboCompra>()
+            .HasOne(r => r.Usuario)
+            .WithMany()
+            .HasForeignKey(r => r.UsuarioId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         // Precision mapping for money fields (decimal(18,2))
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

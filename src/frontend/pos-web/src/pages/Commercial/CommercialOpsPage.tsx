@@ -447,8 +447,41 @@ Por medio del presente documento, WPC Bajío acuerda la comercialización y sumi
         ? await commercialService.updateDocumentTemplate(selectedTemplateId, request)
         : await commercialService.createDocumentTemplate(request);
       setSelectedTemplateId(saved.id);
+
+      // Si es una nueva plantilla en español, generar simultáneamente la contraparte en chino simplificado
+      const isAlreadyChinese = templateTitle.includes('中文') || templateTitle.includes('(ZH)') || templateTitle.includes('Chino');
+      if (!isAlreadyChinese && !selectedTemplateId) {
+        const zhTitle = `${templateTitle} (中文 / Chino)`;
+        const zhContent = `WPC BAJÍO 买卖与质量保修合同 (CONTRATO WPC BAJÍO)
+
+业务单号 / FOLIO: {{FOLIO}}
+出具日期 / FECHA: {{FECHA}}
+客户 / 公司名称 (CLIENTE): {{CLIENTE}}
+经办人 / 业务员 (ATENDIDO POR): {{VENDEDOR}}
+
+1. 合同标的 (OBJETO DEL CONTRATO):
+根据本文件，WPC Bajío 同意按照订单 {{FOLIO}} 的规格销售并供应装饰用竹木纤维板 / 墙板材料 (Lambrín / Paneles decorativos)。
+
+2. 财务与付款摘要 (RESUMEN FINANCIERO):
+- 约定总金额 (TOTAL): {{TOTAL}}
+- 待结清余款 (SALDO): {{SALDO}}
+
+3. 提货与保修条款 (TÉRMINOS Y GARANTÍA):
+所有装饰材料均享有原厂质量保证。客户在签署本文件即代表对货物数量与完好状态认可。`;
+
+        try {
+          await commercialService.createDocumentTemplate({
+            title: zhTitle,
+            category: templateCategory,
+            templateContent: zhContent
+          });
+        } catch (zhErr) {
+          console.warn('Plantilla en chino complementaria ya existía o error:', zhErr);
+        }
+      }
+
       await loadStatic();
-      setNotice({ type: 'success', text: t('templateSaved') });
+      setNotice({ type: 'success', text: t('templateSaved') + (!isAlreadyChinese && !selectedTemplateId ? ' (Generada versión en Español y versión en Chino)' : '') });
     } catch (error) {
       setNotice({ type: 'error', text: errorMessage(error, t('templateSaveError')) });
     } finally {

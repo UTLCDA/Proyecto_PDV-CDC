@@ -40,5 +40,13 @@ export const inventoryService = {
     apiClient.request<InventoryMovement>('/inventory/movements', {
       method: 'POST',
       body: JSON.stringify(data)
-    })
+    }),
+  getStockByProductId: async (productId: string) => {
+    const params = new URLSearchParams();
+    params.append('search', productId);
+    params.append('page', '1');
+    params.append('pageSize', '10');
+    const res = await apiClient.request<PagedResult<Stock>>(`/inventory?${params.toString()}`);
+    return res.items.find(s => s.productId === productId) || null;
+  }
 };

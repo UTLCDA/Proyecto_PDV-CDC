@@ -14,6 +14,7 @@ import CategoryListPage from './pages/Categories/CategoryListPage';
 import CustomerListPage from './pages/Customers/CustomerListPage';
 import InventoryListPage from './pages/Inventory/InventoryListPage';
 import InventoryMovementsPage from './pages/Inventory/InventoryMovementsPage';
+import PurchaseReceiptsPage from './pages/Receipts/PurchaseReceiptsPage';
 import { PaginaUsuarios } from './pages/Users/PaginaUsuarios';
 import AuditLogPage from './pages/Audit/AuditLogPage';
 import { AppTab, canAccessTab, getDefaultTab } from './security/accessControl';
@@ -190,6 +191,14 @@ const MainLayout: React.FC = () => {
                 📋 {t('navInventoryMovements')}
               </button>
               )}
+              {canOpenTab('purchase-receipts') && (
+              <button
+                className={`lang-btn ${currentTab === 'purchase-receipts' ? 'is-active' : ''}`}
+                onClick={() => setActiveTab('purchase-receipts')}
+              >
+                📦 {t('navPurchaseReceipts')}
+              </button>
+              )}
               {canOpenTab('customers') && (
               <button
                 className={`lang-btn ${currentTab === 'customers' ? 'is-active' : ''}`}
@@ -219,13 +228,6 @@ const MainLayout: React.FC = () => {
         </div>
 
         <div className="nav-actions">
-          {/* Dashboard UI de Logs Serilog */}
-
-
-          <span className="nav-mode-indicator" title={t('lightMode')}>
-            ☀️ {t('lightMode')}
-          </span>
-
           <button className="lang-btn" onClick={toggleLanguage}>
             🌐 {i18n.language === 'es' ? '中文' : 'Español'}
           </button>
@@ -270,6 +272,7 @@ const MainLayout: React.FC = () => {
             {currentTab === 'categories' && <CategoryListPage />}
             {currentTab === 'inventory' && <InventoryListPage />}
             {currentTab === 'inventory-movements' && <InventoryMovementsPage />}
+            {currentTab === 'purchase-receipts' && <PurchaseReceiptsPage />}
             {currentTab === 'customers' && <CustomerListPage />}
             {currentTab === 'users' && <PaginaUsuarios />}
             {currentTab === 'audit' && <AuditLogPage />}
@@ -304,7 +307,7 @@ const MainLayout: React.FC = () => {
       </main>
 
       <footer className="footer">
-        &copy; {new Date().getFullYear()} WPC Bajío — Punto de Venta e Inventario Lambrín Decorativo (.NET 9 & React TypeScript)
+        &copy; {new Date().getFullYear()} WPC Bajío — Punto de Venta e Inventario Lambrín Decorativo / 销售点与装饰墙板库存管理系统
       </footer>
 
       <AccessDeniedModal

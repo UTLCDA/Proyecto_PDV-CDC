@@ -13,6 +13,7 @@ export type AppTab =
   | 'categories'
   | 'inventory'
   | 'inventory-movements'
+  | 'purchase-receipts'
   | 'customers'
   | 'users'
   | 'audit'
@@ -74,6 +75,7 @@ const tabPermissions: Record<Exclude<AppTab, 'profile'>, readonly string[]> = {
   ],
   inventory: [permissionCodes.inventoryView],
   'inventory-movements': [permissionCodes.inventoryMovements],
+  'purchase-receipts': [permissionCodes.inventoryView, permissionCodes.inventoryMovements],
   customers: [permissionCodes.customersCreate, permissionCodes.customersEdit],
   users: [permissionCodes.usersAdminister],
   audit: [permissionCodes.usersAdminister]

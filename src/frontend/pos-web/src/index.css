@@ -341,9 +341,10 @@ button.lang-btn {
   --text-muted: var(--text-secondary);
   flex: 1;
   width: 100%;
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: clamp(1rem, 2.1vw, 2rem);
+  max-width: 100%;
+  margin: 0;
+  padding: clamp(0.75rem, 1.8vw, 1.8rem);
+  box-sizing: border-box;
 }
 
 .card {

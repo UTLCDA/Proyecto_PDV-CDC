@@ -14,6 +14,14 @@ import './PaginaPuntoVenta.css';
 type PaymentType = 'FullPayment' | 'CardPayment' | 'AdvanceDeposit' | 'MixedPayment';
 type Notice = { type: 'success' | 'error'; text?: string; key?: string; params?: Record<string, unknown> } | null;
 
+const normalizeMacDash = (str: string) =>
+  str.replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFF0D\uFE63]/g, '-');
+
+const normalizeCode = (val?: string | null): string => {
+  if (!val) return '';
+  return normalizeMacDash(val.trim().toLowerCase());
+};
+
 export const PaginaPuntoVenta: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { hasPermission } = useAuth();
@@ -27,6 +35,8 @@ export const PaginaPuntoVenta: React.FC = () => {
   const [cashAmount, setCashAmount] = useState('');
   const [cardAmount, setCardAmount] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
+  const [bankReference, setBankReference] = useState('');
+  const [isBankRefAlertOpen, setIsBankRefAlertOpen] = useState(false);
   const [manualDiscount, setManualDiscount] = useState('');
   const [notes, setNotes] = useState('');
   const [manualCode, setManualCode] = useState('');
@@ -43,6 +53,7 @@ export const PaginaPuntoVenta: React.FC = () => {
     }
   ]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(DEFAULT_CATEGORY_ID);
+  const [categoryLoading, setCategoryLoading] = useState(false);
   const [productDetailModal, setProductDetailModal] = useState<Producto | null>(null);
   const [receipt, setReceipt] = useState<Venta | null>(null);
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
@@ -63,8 +74,14 @@ export const PaginaPuntoVenta: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [calcProductId, setCalcProductId] = useState('');
+  const [calcMode, setCalcMode] = useState<'wall' | 'direct'>('wall');
+  const [calcHeight, setCalcHeight] = useState('');
+  const [calcWidth, setCalcWidth] = useState('');
   const [calcTargetM2, setCalcTargetM2] = useState('');
+  const [calcProductSearch, setCalcProductSearch] = useState('');
+  const [calcDropdownOpen, setCalcDropdownOpen] = useState(false);
   const [isCalculatorModalOpen, setIsCalculatorModalOpen] = useState(false);
+  const [calcRemoteProducts, setCalcRemoteProducts] = useState<Producto[]>([]);
 
   const canDiscount = hasPermission('ventas', 'descuento');
   const canCreateCustomer = hasPermission('clientes', 'crear');
@@ -77,23 +94,37 @@ export const PaginaPuntoVenta: React.FC = () => {
       list = list.filter(p => p.categoryId === selectedCategoryId);
     }
     if (!cardSearch.trim()) return list;
-    const term = cardSearch.trim().toLowerCase();
-    return list.filter(p =>
-      p.name.toLowerCase().includes(term) ||
-      p.sku.toLowerCase().includes(term) ||
-      p.barcode.toLowerCase().includes(term) ||
-      (p.material && p.material.toLowerCase().includes(term))
-    );
+    const query = normalizeCode(cardSearch);
+    const queryNoDashes = query.replace(/-/g, '');
+
+    return list.filter(p => {
+      const sku = normalizeCode(p.sku);
+      const skuNoDashes = sku.replace(/-/g, '');
+      const barcode = normalizeCode(p.barcode);
+      const barcodeNoDashes = barcode.replace(/-/g, '');
+      const name = p.name.toLowerCase();
+
+      return (
+        sku.includes(query) ||
+        (queryNoDashes && skuNoDashes.includes(queryNoDashes)) ||
+        barcode.includes(query) ||
+        (queryNoDashes && barcodeNoDashes.includes(queryNoDashes)) ||
+        name.includes(query)
+      );
+    });
   }, [products, selectedCategoryId, cardSearch]);
 
   const handleCategoryChange = async (catId: string) => {
     setSelectedCategoryId(catId);
     try {
-      const catalog = await servicioCatalogo.getProducts(undefined, catId || undefined, { page: 1, pageSize: 40 });
+      setCategoryLoading(true);
+      const catalog = await servicioCatalogo.getProducts(undefined, catId || undefined, { page: 1, pageSize: 500 });
       const productItems = Array.isArray(catalog) ? catalog : catalog.items;
       setProducts(productItems.filter(product => product.isActive));
     } catch (err) {
       console.error('Error al filtrar productos por categoría:', err);
+    } finally {
+      setCategoryLoading(false);
     }
   };
 
@@ -109,7 +140,7 @@ export const PaginaPuntoVenta: React.FC = () => {
       const endDateIso = `${year}-${month}-${day}T23:59:59.999Z`;
 
       const [catalog, customerDirectory, summary, currentShift, categoryList] = await Promise.all([
-        servicioCatalogo.getProducts(undefined, DEFAULT_CATEGORY_ID, { page: 1, pageSize: 40 }),
+        servicioCatalogo.getProducts(undefined, DEFAULT_CATEGORY_ID, { page: 1, pageSize: 500 }),
         servicioCatalogo.getCustomers(undefined, undefined, undefined, { page: 1, pageSize: 500 }),
         servicioVentas.getSalesSummary(undefined, undefined, undefined, startDateIso, endDateIso),
         cashShiftService.getCurrentShift().catch(() => null),
@@ -155,11 +186,100 @@ export const PaginaPuntoVenta: React.FC = () => {
 
   const selectedCustomer = customers.find(customer => customer.id === selectedCustomerId);
   const isWholesaleCustomer = selectedCustomer?.customerType.toLocaleLowerCase() === 'mayorista';
-  const effectivePrice = (product: Producto, quantity: number) =>
-    product.wholesalePrice > 0 &&
-    (isWholesaleCustomer || (product.wholesaleMinQuantity > 0 && quantity >= product.wholesaleMinQuantity))
-      ? product.wholesalePrice
-      : product.unitPrice;
+
+  const calculateCartItemPricing = (
+    product: Producto,
+    quantity: number,
+    isWholesaleCust: boolean
+  ) => {
+    const unitPrice = product.unitPrice;
+    const wholesalePrice = product.wholesalePrice > 0 ? product.wholesalePrice : unitPrice;
+    const isLambrinInterior = product.categoryId === DEFAULT_CATEGORY_ID;
+    const ppb = product.piecesPerBox && product.piecesPerBox > 0 ? product.piecesPerBox : 1;
+
+    if (isWholesaleCust) {
+      return {
+        subtotal: quantity * wholesalePrice,
+        isSplitPricing: false,
+        boxes: Math.floor(quantity / ppb),
+        remPzas: quantity % ppb,
+        wholesalePieces: quantity,
+        wholesalePrice,
+        retailPieces: 0,
+        retailPrice: unitPrice,
+        effectiveUnitPrice: wholesalePrice,
+        ruleApplied: 'customerWholesale'
+      };
+    }
+
+    if (isLambrinInterior && product.wholesalePrice > 0) {
+      const boxes = Math.floor(quantity / ppb);
+      const loosePieces = quantity % ppb;
+
+      if (boxes >= 2) {
+        return {
+          subtotal: quantity * wholesalePrice,
+          isSplitPricing: false,
+          boxes,
+          remPzas: loosePieces,
+          wholesalePieces: quantity,
+          wholesalePrice,
+          retailPieces: 0,
+          retailPrice: unitPrice,
+          effectiveUnitPrice: wholesalePrice,
+          ruleApplied: 'lambrin2BoxesPlus'
+        };
+      } else if (boxes === 1) {
+        const wholesalePieces = ppb;
+        const retailPieces = loosePieces;
+        const subtotal = (wholesalePieces * wholesalePrice) + (retailPieces * unitPrice);
+        return {
+          subtotal,
+          isSplitPricing: loosePieces > 0,
+          boxes,
+          remPzas: loosePieces,
+          wholesalePieces,
+          wholesalePrice,
+          retailPieces,
+          retailPrice: unitPrice,
+          effectiveUnitPrice: subtotal / quantity,
+          ruleApplied: 'lambrin1BoxSplit'
+        };
+      } else {
+        return {
+          subtotal: quantity * unitPrice,
+          isSplitPricing: false,
+          boxes,
+          remPzas: loosePieces,
+          wholesalePieces: 0,
+          wholesalePrice,
+          retailPieces: quantity,
+          retailPrice: unitPrice,
+          effectiveUnitPrice: unitPrice,
+          ruleApplied: 'lambrinRetail'
+        };
+      }
+    }
+
+    const qualifiesWholesale = wholesalePrice > 0 && product.wholesaleMinQuantity > 0 && quantity >= product.wholesaleMinQuantity;
+    const chosenPrice = qualifiesWholesale ? wholesalePrice : unitPrice;
+    return {
+      subtotal: quantity * chosenPrice,
+      isSplitPricing: false,
+      boxes: Math.floor(quantity / ppb),
+      remPzas: quantity % ppb,
+      wholesalePieces: qualifiesWholesale ? quantity : 0,
+      wholesalePrice,
+      retailPieces: qualifiesWholesale ? 0 : quantity,
+      retailPrice: unitPrice,
+      effectiveUnitPrice: chosenPrice,
+      ruleApplied: qualifiesWholesale ? 'standardWholesale' : 'standardRetail'
+    };
+  };
+
+  const effectivePrice = (product: Producto, quantity: number) => {
+    return calculateCartItemPricing(product, quantity, isWholesaleCustomer).effectiveUnitPrice;
+  };
 
   const getPieceCoverage = (product: Producto): number => {
     if (product.coveragePerUnitSqM && product.coveragePerUnitSqM > 0) return product.coveragePerUnitSqM;
@@ -169,35 +289,120 @@ export const PaginaPuntoVenta: React.FC = () => {
     return 0;
   };
 
-  const subtotal = cart.reduce((total, item) => total + item.quantity * effectivePrice(item.product, item.quantity), 0);
-  const customerDiscount = Math.round(subtotal * Math.min(100, Math.max(0, selectedCustomer?.specialDiscountPercentage ?? 0)) / 100 * 100) / 100;
-  const requestedDiscount = canDiscount ? Number(manualDiscount || 0) : 0;
-  const appliedDiscount = Math.max(customerDiscount, Number.isFinite(requestedDiscount) ? requestedDiscount : 0);
-  const taxAmount = requiresInvoice ? Math.round(subtotal * 0.16 * 100) / 100 : 0;
-  const totalAmount = Math.max(0, subtotal - appliedDiscount + taxAmount);
+  const subtotal = cart.reduce((total, item) => {
+    return total + calculateCartItemPricing(item.product, item.quantity, isWholesaleCustomer).subtotal;
+  }, 0);
+
+  // Descuento automático del cliente (en porcentaje)
+  const customerDiscountPercent = Math.min(100, Math.max(0, selectedCustomer?.specialDiscountPercentage ?? 0));
+  const customerDiscountAmount = Math.round(subtotal * (customerDiscountPercent / 100) * 100) / 100;
+
+  // Descuento manual ingresado como PORCENTAJE (0 a 100%)
+  const manualDiscountPercent = canDiscount ? Math.min(100, Math.max(0, parseFloat(manualDiscount || '0') || 0)) : 0;
+  const manualDiscountAmount = Math.round(subtotal * (manualDiscountPercent / 100) * 100) / 100;
+
+  // Se aplica el descuento mayor (en pesos)
+  const appliedDiscount = Math.max(customerDiscountAmount, manualDiscountAmount);
+  const effectiveDiscountPercent = subtotal > 0 ? Math.round((appliedDiscount / subtotal) * 1000) / 10 : 0;
+
+  // Base gravable: IVA (16%) aplica sobre el subtotal descontado
+  const taxableBase = Math.max(0, subtotal - appliedDiscount);
+  const taxAmount = requiresInvoice ? Math.round(taxableBase * 0.16 * 100) / 100 : 0;
+  const totalAmount = Math.max(0, taxableBase + taxAmount);
   const coverage = cart.reduce((total, item) => total + item.quantity * getPieceCoverage(item.product), 0);
 
-  const selectedCalcProduct = products.find(p => p.id === calcProductId) || (products.length > 0 ? products[0] : null);
+  // Búsqueda remota de productos para la calculadora de m²
+  useEffect(() => {
+    if (!isCalculatorModalOpen) return;
+    const term = calcProductSearch.trim();
+    if (!term) {
+      setCalcRemoteProducts([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await servicioCatalogo.getProducts(term, undefined, { page: 1, pageSize: 200 });
+        const items = Array.isArray(res) ? res : res.items;
+        setCalcRemoteProducts(items.filter(p => p.isActive));
+      } catch {
+        setCalcRemoteProducts([]);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [calcProductSearch, isCalculatorModalOpen]);
+
+  const calcFilteredProducts = useMemo(() => {
+    const map = new Map<string, Producto>();
+    for (const p of products) {
+      map.set(p.id, p);
+    }
+    for (const rp of calcRemoteProducts) {
+      if (!map.has(rp.id)) {
+        map.set(rp.id, rp);
+      }
+    }
+    const all = Array.from(map.values());
+    const cleanSearch = calcProductSearch.trim();
+    if (!cleanSearch) return all;
+
+    const selected = all.find(p => p.id === calcProductId);
+    if (selected && `${selected.sku} — ${selected.name}`.toLowerCase() === cleanSearch.toLowerCase()) {
+      return all;
+    }
+
+    const query = normalizeCode(cleanSearch);
+    const queryNoDashes = query.replace(/-/g, '');
+    return all.filter(p => {
+      const sku = normalizeCode(p.sku);
+      const skuNoDashes = sku.replace(/-/g, '');
+      const barcode = normalizeCode(p.barcode);
+      const barcodeNoDashes = barcode.replace(/-/g, '');
+      const name = p.name.toLowerCase();
+      return (
+        sku.includes(query) ||
+        (queryNoDashes && skuNoDashes.includes(queryNoDashes)) ||
+        barcode.includes(query) ||
+        (queryNoDashes && barcodeNoDashes.includes(queryNoDashes)) ||
+        name.includes(query)
+      );
+    });
+  }, [products, calcRemoteProducts, calcProductSearch, calcProductId]);
+
+  const selectedCalcProduct = useMemo(() => {
+    if (!calcProductId) return null;
+    return products.find(p => p.id === calcProductId) || calcRemoteProducts.find(p => p.id === calcProductId) || null;
+  }, [calcProductId, products, calcRemoteProducts]);
   const calcPieceCoverage = selectedCalcProduct ? getPieceCoverage(selectedCalcProduct) : 0;
-  const calcTargetNum = parseFloat(calcTargetM2) || 0;
+  const calcTargetNum = calcMode === 'wall'
+    ? (Number(calcHeight || 0) * Number(calcWidth || 0))
+    : (parseFloat(calcTargetM2) || 0);
   const calcNeededPieces = calcPieceCoverage > 0 && calcTargetNum > 0 ? Math.ceil(calcTargetNum / calcPieceCoverage) : 0;
   const calcPpb = selectedCalcProduct?.piecesPerBox && selectedCalcProduct.piecesPerBox > 0 ? selectedCalcProduct.piecesPerBox : 1;
   const calcBoxesEq = Math.ceil(calcNeededPieces / calcPpb);
   const calcRealCoverage = (calcNeededPieces * calcPieceCoverage).toFixed(2);
-  const calcPrice = selectedCalcProduct ? effectivePrice(selectedCalcProduct, calcNeededPieces) : 0;
-  const calcTotalCost = calcNeededPieces * calcPrice;
+  const calcPricing = selectedCalcProduct ? calculateCartItemPricing(selectedCalcProduct, calcNeededPieces, isWholesaleCustomer) : null;
+  const calcTotalCost = calcPricing ? calcPricing.subtotal : 0;
 
   const findAndAddProduct = async (code: string) => {
-    const term = code.trim().toLocaleLowerCase();
+    const term = normalizeCode(code);
+    const termNoDashes = term.replace(/-/g, '');
     if (!term) return;
-    let product = products.find(item => item.barcode.toLocaleLowerCase() === term || item.sku.toLocaleLowerCase() === term);
+    let product = products.find(item => {
+      const b = normalizeCode(item.barcode);
+      const bNoDashes = b.replace(/-/g, '');
+      return b === term || (termNoDashes && bNoDashes === termNoDashes);
+    });
 
     if (!product) {
       try {
         const fetched = await servicioCatalogo.getProductByCode(term);
         if (fetched && fetched.isActive) {
-          product = fetched;
-          setProducts(prev => prev.some(p => p.id === fetched.id) ? prev : [fetched, ...prev]);
+          const fetchedBarcode = normalizeCode(fetched.barcode);
+          const fetchedBarcodeNoDashes = fetchedBarcode.replace(/-/g, '');
+          if (fetchedBarcode === term || (termNoDashes && fetchedBarcodeNoDashes === termNoDashes)) {
+            product = fetched;
+            setProducts(prev => prev.some(p => p.id === fetched.id) ? prev : [fetched, ...prev]);
+          }
         }
       } catch {
         // No encontrado en backend
@@ -322,6 +527,13 @@ export const PaginaPuntoVenta: React.FC = () => {
     const cash = paymentType === 'FullPayment' ? totalAmount : paymentType === 'CardPayment' ? 0 : Number(cashAmount || 0);
     const card = paymentType === 'CardPayment' ? totalAmount : (paymentType === 'MixedPayment' ? Number(cardAmount || 0) : 0);
     const transfer = paymentType === 'MixedPayment' ? Number(transferAmount || 0) : 0;
+
+    const requiresBankRef = paymentType === 'CardPayment' || (paymentType === 'MixedPayment' && (card > 0 || transfer > 0));
+    if (requiresBankRef && !bankReference.trim()) {
+      setIsBankRefAlertOpen(true);
+      return;
+    }
+
     if (paymentType === 'MixedPayment' && Math.abs(cash + card + transfer - totalAmount) > 0.01) {
       setNotice({ type: 'error', key: 'mixedPaymentMismatch', params: { total: money.format(totalAmount) }, text: t('mixedPaymentMismatch', { total: money.format(totalAmount) }) });
       return;
@@ -340,22 +552,28 @@ export const PaginaPuntoVenta: React.FC = () => {
     try {
       setProcessing(true);
       setNotice(null);
+      const baseNotes = notes.trim() || t('defaultSaleNote', { coverage: coverage.toFixed(2) });
+      const finalNotes = bankReference.trim() ? `${baseNotes} | Ref: ${bankReference.trim()}` : baseNotes;
+
       const sale = await servicioVentas.procesarVenta({
         customerId: selectedCustomerId || undefined,
         paymentType: paymentType === 'CardPayment' ? 'MixedPayment' : paymentType,
-        discountAmount: canDiscount ? Number(manualDiscount || 0) : 0,
+        discountAmount: appliedDiscount,
         advanceAmount: paymentType === 'AdvanceDeposit' ? cash : totalAmount,
         cashAmount: cash,
         cardAmount: card,
         transferAmount: transfer,
-        notes: notes.trim() || t('defaultSaleNote', { coverage: coverage.toFixed(2) }),
+        notes: finalNotes,
         requiresInvoice,
-        items: cart.map(item => ({
-          productId: item.product.id,
-          quantity: item.quantity,
-          unitPrice: effectivePrice(item.product, item.quantity),
-          discountAmount: 0
-        }))
+        items: cart.map(item => {
+          const pricing = calculateCartItemPricing(item.product, item.quantity, isWholesaleCustomer);
+          return {
+            productId: item.product.id,
+            quantity: item.quantity,
+            unitPrice: pricing.effectiveUnitPrice,
+            discountAmount: 0
+          };
+        })
       });
       setReceipt(sale);
       setCart([]);
@@ -364,6 +582,7 @@ export const PaginaPuntoVenta: React.FC = () => {
       setCashAmount('');
       setCardAmount('');
       setTransferAmount('');
+      setBankReference('');
       setManualDiscount('');
       setNotes('');
       setNotice({ type: 'success', key: 'saleCompleted', params: { idVenta: sale.idVenta }, text: t('saleCompleted', { idVenta: sale.idVenta }) });
@@ -428,68 +647,75 @@ export const PaginaPuntoVenta: React.FC = () => {
           />
         </div>
 
-        <div className="pos-products">
-          {filteredProducts.map(product => {
-            const unavailable = product.availableQuantity <= 0 || product.isQuoteOnly;
-            const ppb = product.piecesPerBox && product.piecesPerBox > 0 ? product.piecesPerBox : 1;
+        {categoryLoading ? (
+          <div className="pos-category-loading">
+            <div className="pos-category-spinner" />
+            <span>{t('loadingCategoryProducts')}</span>
+          </div>
+        ) : (
+          <div className="pos-products">
+            {filteredProducts.map(product => {
+              const unavailable = product.availableQuantity <= 0 || product.isQuoteOnly;
+              const ppb = product.piecesPerBox && product.piecesPerBox > 0 ? product.piecesPerBox : 1;
 
-            return (
-              <div key={product.id} className={`pos-product ${unavailable ? 'pos-product--unavailable' : ''}`}>
-                <div
-                  className="pos-product__main"
-                  onClick={() => setProductDetailModal(product)}
-                  title={t('viewProductDetailTooltip')}
-                  style={{ cursor: 'pointer' }}
-                >
-                  {product.imageUrl ? (
-                    <img
-                      src={resolveProductImageUrl(product.imageUrl)}
-                      alt={product.name}
-                      width={120}
-                      height={120}
-                      decoding="async"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <span className="pos-product__placeholder">📷</span>
-                  )}
-                  <span className="pos-product__details">
-                    <small>{product.sku}</small>
-                    <strong>{product.name}</strong>
-                    <span>{product.coveragePerUnitSqM} m²/Pza · {ppb} pzas/caja</span>
-                    <b>{money.format(product.unitPrice)}</b>
-                    <em className={product.availableQuantity > 0 ? '' : 'is-empty'}>
-                      {product.isQuoteOnly ? t('quoteOnly') : t('availableStock', { quantity: product.availableQuantity })}
-                    </em>
-                  </span>
-                </div>
-                <div className="pos-product__cart-btns">
-                  <button
-                    type="button"
-                    className="pos-btn-p"
-                    disabled={unavailable}
-                    title={`${t('unitPza')} +1`}
-                    onClick={(e) => { e.stopPropagation(); addProductToCart(product, 1); }}
+              return (
+                <div key={product.id} className={`pos-product ${unavailable ? 'pos-product--unavailable' : ''}`}>
+                  <div
+                    className="pos-product__main"
+                    onClick={() => setProductDetailModal(product)}
+                    title={t('viewProductDetailTooltip')}
+                    style={{ cursor: 'pointer' }}
                   >
-                    {t('unitPza')} +
-                  </button>
+                    {product.imageUrl ? (
+                      <img
+                        src={resolveProductImageUrl(product.imageUrl)}
+                        alt={product.name}
+                        width={120}
+                        height={120}
+                        decoding="async"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <span className="pos-product__placeholder">📷</span>
+                    )}
+                    <span className="pos-product__details">
+                      <small>{product.sku}</small>
+                      <strong>{product.name}</strong>
+                      <span>{product.coveragePerUnitSqM} m²/Pza · {ppb} pzas/caja</span>
+                      <b>{money.format(product.unitPrice)}</b>
+                      <em className={product.availableQuantity > 0 ? '' : 'is-empty'}>
+                        {product.isQuoteOnly ? t('quoteOnly') : t('availableStock', { quantity: product.availableQuantity })}
+                      </em>
+                    </span>
+                  </div>
+                  <div className="pos-product__cart-btns">
+                    <button
+                      type="button"
+                      className="pos-btn-p"
+                      disabled={unavailable}
+                      title={`${t('unitPza')} +1`}
+                      onClick={(e) => { e.stopPropagation(); addProductToCart(product, 1); }}
+                    >
+                      {t('unitPza')} +
+                    </button>
 
-                  <button
-                    type="button"
-                    className="pos-btn-c"
-                    disabled={unavailable}
-                    title={`${t('unitCaja')} +1 (${ppb} ${t('deleteProductPieces')})`}
-                    onClick={(e) => { e.stopPropagation(); addProductToCart(product, ppb); }}
-                  >
-                    {t('unitCaja')} +
-                  </button>
+                    <button
+                      type="button"
+                      className="pos-btn-c"
+                      disabled={unavailable}
+                      title={`${t('unitCaja')} +1 (${ppb} ${t('deleteProductPieces')})`}
+                      onClick={(e) => { e.stopPropagation(); addProductToCart(product, ppb); }}
+                    >
+                      {t('unitCaja')} +
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </article>
 
       <aside className="pos-card pos-checkout">
@@ -499,7 +725,10 @@ export const PaginaPuntoVenta: React.FC = () => {
             <button
               type="button"
               className="action-btn"
-              onClick={() => setIsCalculatorModalOpen(true)}
+              onClick={() => {
+                setIsCalculatorModalOpen(true);
+                setCalcDropdownOpen(false);
+              }}
               title={t('calculatorM2')}
             >
               📐 {t('calculatorM2')}
@@ -532,7 +761,7 @@ export const PaginaPuntoVenta: React.FC = () => {
 
         <div className="pos-cart-list">
           {cart.length === 0 ? <div className="pos-empty">{t('emptyCartHint')}</div> : cart.map(item => {
-            const price = effectivePrice(item.product, item.quantity);
+            const pricing = calculateCartItemPricing(item.product, item.quantity, isWholesaleCustomer);
             const ppb = item.product.piecesPerBox && item.product.piecesPerBox > 0 ? item.product.piecesPerBox : 1;
             const boxes = Math.floor(item.quantity / ppb);
             const remPzas = item.quantity % ppb;
@@ -571,6 +800,21 @@ export const PaginaPuntoVenta: React.FC = () => {
                   </button>
                 </div>
 
+                {pricing.ruleApplied === 'lambrin2BoxesPlus' && (
+                  <div className="pos-cart-item__wholesale-row">
+                    <span className="badge badge-success">
+                      {t('wholesaleAppliedBoxes', { boxes })}
+                    </span>
+                  </div>
+                )}
+                {pricing.ruleApplied === 'lambrin1BoxSplit' && pricing.isSplitPricing && (
+                  <div className="pos-cart-item__wholesale-row">
+                    <span className="badge badge-warning">
+                      {t('splitWholesaleBox', { ppb, rem: pricing.retailPieces })}
+                    </span>
+                  </div>
+                )}
+
                 <div className="pos-cart-item__bottom">
                   <div className="pos-quantity-control">
                     <button type="button" onClick={() => changeQuantity(item.product.id, -1)} aria-label={t('decreaseQuantity')}>−</button>
@@ -589,11 +833,11 @@ export const PaginaPuntoVenta: React.FC = () => {
 
                   <div className="pos-cart-item__meta">
                     <span className="pos-cart-item__details">
-                      {breakdownStr} · {money.format(price)} · {(item.quantity * getPieceCoverage(item.product)).toFixed(2)} m²
+                      {breakdownStr} · {money.format(pricing.effectiveUnitPrice)} · {(item.quantity * getPieceCoverage(item.product)).toFixed(2)} m²
                     </span>
                   </div>
 
-                  <b className="pos-cart-item__subtotal">{money.format(item.quantity * price)}</b>
+                  <b className="pos-cart-item__subtotal">{money.format(pricing.subtotal)}</b>
                 </div>
               </div>
             );
@@ -623,10 +867,33 @@ export const PaginaPuntoVenta: React.FC = () => {
           <span className="pos-total">{t('total')}<b>{money.format(totalAmount)}</b></span>
         </div>
 
-        {canDiscount && <label className="pos-field">{t('manualDiscount')}
-          <input type="number" min="0" max={subtotal} step="0.01" value={manualDiscount} onChange={event => setManualDiscount(event.target.value)} placeholder="0.00" />
-          {customerDiscount > 0 && <small>{t('customerDiscountApplied', { discount: money.format(customerDiscount) })}</small>}
-        </label>}
+        {canDiscount && (
+          <label className="pos-field">
+            {t('manualDiscountPercent')}
+            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={manualDiscount}
+                onChange={event => setManualDiscount(event.target.value)}
+                placeholder="0"
+              />
+              <span style={{ fontWeight: 700, color: 'var(--primary-main)' }}>%</span>
+            </div>
+            {appliedDiscount > 0 && (
+              <small style={{ color: 'var(--success, #2e7d32)', display: 'block', marginTop: '3px', fontWeight: 650 }}>
+                {t('discountAmountSummary', { amount: money.format(appliedDiscount), percent: effectiveDiscountPercent })}
+              </small>
+            )}
+            {customerDiscountPercent > 0 && (
+              <small style={{ display: 'block', marginTop: '2px', color: 'var(--text-muted)' }}>
+                {t('customerDiscountApplied', { discount: `${customerDiscountPercent}%` })}
+              </small>
+            )}
+          </label>
+        )}
 
         <label className="pos-field">{t('paymentType')}
           <select value={paymentType} onChange={event => selectPaymentType(event.target.value as PaymentType)}>
@@ -642,6 +909,18 @@ export const PaginaPuntoVenta: React.FC = () => {
           <label>{t('card')}<input type="number" min="0" step="0.01" value={cardAmount} onChange={event => setCardAmount(event.target.value)} placeholder="0.00" /></label>
           <label>{t('transfer')}<input type="number" min="0" step="0.01" value={transferAmount} onChange={event => setTransferAmount(event.target.value)} placeholder="0.00" /></label>
         </div>}
+        {(paymentType === 'CardPayment' || paymentType === 'MixedPayment') && (
+          <label className="pos-field">{t('bankReference')} *
+            <input
+              type="text"
+              maxLength={50}
+              value={bankReference}
+              onChange={event => setBankReference(event.target.value)}
+              placeholder={t('bankReferencePlaceholder')}
+              required
+            />
+          </label>
+        )}
         {paymentType === 'AdvanceDeposit' && <label className="pos-field">{t('advanceAmount')} *<input type="number" min="0.01" max={Math.max(0, totalAmount - 0.01)} step="0.01" value={cashAmount} onChange={event => setCashAmount(event.target.value)} placeholder="0.00" /></label>}
         <label className="pos-field">{t('notes')}<textarea rows={2} maxLength={500} value={notes} onChange={event => setNotes(event.target.value)} placeholder={t('saleNotesPlaceholder')} /></label>
         <button className="action-btn pos-process-btn" disabled={processing || cart.length === 0 || !hasOpenShift} onClick={() => void processSale()}>{processing ? t('processing') : t('completeSale')}</button>
@@ -702,34 +981,285 @@ export const PaginaPuntoVenta: React.FC = () => {
 
     {isCalculatorModalOpen && (
       <div className="pos-receipt-backdrop" onMouseDown={e => e.target === e.currentTarget && setIsCalculatorModalOpen(false)}>
-        <div className="pos-customer-modal" style={{ width: 'min(520px, 100%)' }} role="dialog" aria-modal="true">
-          <h2>📐 Calculadora de m² de Lambrín</h2>
-          <p>Seleccione un producto e ingrese la superficie en m² para calcular las piezas necesarias.</p>
+        <div
+          className="pos-customer-modal"
+          style={{
+            width: 'min(780px, 96vw)',
+            maxHeight: '92vh',
+            minHeight: 'min(540px, 85vh)',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '1.75rem',
+            borderRadius: '14px',
+            boxShadow: '0 24px 48px rgba(0,0,0,0.3)'
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <h2>📐 {t('calcModalTitle')}</h2>
+          <p>{t('calcModalSubtitle')}</p>
 
           <form style={{ display: 'grid', gap: '0.85rem', marginTop: '1rem' }} onSubmit={e => e.preventDefault()}>
-            <label className="pos-field">Seleccionar Producto
-              <select value={calcProductId} onChange={e => setCalcProductId(e.target.value)}>
-                <option value="">-- Seleccionar producto para calcular --</option>
-                {products.map(p => (
-                  <option key={p.id} value={p.id}>{p.sku} - {p.name}</option>
-                ))}
-              </select>
-            </label>
+            <div className="calc-mode-toggle" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', padding: '6px', background: '#f3f4f6', borderRadius: '8px', border: '1px solid #e5e7eb', marginBottom: '0.5rem' }}>
+              <button
+                type="button"
+                className={`calc-mode-btn ${calcMode === 'wall' ? 'is-active' : ''}`}
+                onClick={() => setCalcMode('wall')}
+                style={calcMode === 'wall' ? {
+                  background: '#c59b27',
+                  color: '#ffffff',
+                  border: '1px solid #a8821d',
+                  fontWeight: 700,
+                  boxShadow: '0 2px 8px rgba(197, 155, 39, 0.45)',
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.88rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem'
+                } : {
+                  background: '#ffffff',
+                  color: '#4b5563',
+                  border: '1px solid #d1d5db',
+                  fontWeight: 600,
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.88rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                🧱 {t('calcWallMode')}
+              </button>
+              <button
+                type="button"
+                className={`calc-mode-btn ${calcMode === 'direct' ? 'is-active' : ''}`}
+                onClick={() => setCalcMode('direct')}
+                style={calcMode === 'direct' ? {
+                  background: '#c59b27',
+                  color: '#ffffff',
+                  border: '1px solid #a8821d',
+                  fontWeight: 700,
+                  boxShadow: '0 2px 8px rgba(197, 155, 39, 0.45)',
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.88rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem'
+                } : {
+                  background: '#ffffff',
+                  color: '#4b5563',
+                  border: '1px solid #d1d5db',
+                  fontWeight: 600,
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.88rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                📐 {t('calcDirectMode')}
+              </button>
+            </div>
 
-            <label className="pos-field">Superficie requerida a cubrir (m²)
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="Ej. 15.5"
-                  value={calcTargetM2}
-                  onChange={e => setCalcTargetM2(e.target.value)}
-                  autoFocus
-                />
-                <span style={{ fontWeight: 700, color: 'var(--primary-main)' }}>m²</span>
+            <div className="pos-field">
+              <label style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.35rem', display: 'block' }}>
+                {t('selectProduct')}
+              </label>
+              <div className="calc-product-search-box" style={{ position: 'relative', width: '100%' }}>
+                <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder={`🔍 ${t('calcSearchProduct')}`}
+                    value={calcProductSearch}
+                    onChange={e => {
+                      setCalcProductSearch(e.target.value);
+                      setCalcDropdownOpen(true);
+                      if (selectedCalcProduct) {
+                        setCalcProductId('');
+                      }
+                    }}
+                    onFocus={() => setCalcDropdownOpen(true)}
+                    style={{
+                      flex: 1,
+                      padding: '0.65rem 0.85rem',
+                      border: '1px solid var(--border-input, #cbd5e1)',
+                      borderRadius: '6px',
+                      fontSize: '0.88rem',
+                      background: 'var(--background-surface, #ffffff)',
+                      color: 'var(--text-main, #111827)'
+                    }}
+                  />
+                  {selectedCalcProduct && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCalcProductId('');
+                        setCalcProductSearch('');
+                        setCalcDropdownOpen(true);
+                      }}
+                      className="lang-btn"
+                      style={{
+                        padding: '0.6rem 0.85rem',
+                        fontSize: '0.82rem',
+                        whiteSpace: 'nowrap',
+                        color: 'var(--danger, #ef4444)',
+                        borderColor: '#fca5a5'
+                      }}
+                      title={t('calcChangeProduct')}
+                    >
+                      ✕ {t('calcChangeProduct')}
+                    </button>
+                  )}
+                </div>
+
+                {calcDropdownOpen && (
+                  <ul
+                    className="calc-product-dropdown"
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      zIndex: 1000,
+                      maxHeight: '280px',
+                      overflowY: 'auto',
+                      overscrollBehavior: 'contain',
+                      margin: '4px 0 0 0',
+                      padding: '4px 0',
+                      listStyle: 'none',
+                      background: '#ffffff',
+                      border: '1.5px solid var(--primary-main, #c59b27)',
+                      borderRadius: '8px',
+                      boxShadow: '0 12px 28px rgba(0, 0, 0, 0.25)',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    {calcFilteredProducts.length === 0 ? (
+                      <li style={{ padding: '0.75rem 1rem', color: '#6b7280', fontSize: '0.85rem' }}>
+                        {t('calcNoProductsFound')}
+                      </li>
+                    ) : (
+                      calcFilteredProducts.map(p => (
+                        <li
+                          key={p.id}
+                          className="calc-product-dropdown-item"
+                          onMouseDown={e => {
+                            e.preventDefault();
+                            setCalcProductId(p.id);
+                            setCalcProductSearch(`${p.sku} — ${p.name}`);
+                            setCalcDropdownOpen(false);
+                          }}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '1rem',
+                            padding: '0.75rem 1.15rem',
+                            borderBottom: '1px solid #f1f5f9',
+                            cursor: 'pointer',
+                            fontSize: '0.88rem',
+                            color: '#1f2937',
+                            boxSizing: 'border-box',
+                            minWidth: 0,
+                            width: '100%'
+                          }}
+                        >
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <strong style={{ color: '#c59b27', fontSize: '0.95rem' }}>{p.sku}</strong>
+                            <span style={{ margin: '0 0.4rem', color: '#9ca3af' }}>—</span>
+                            <span style={{ fontWeight: 500 }}>{p.name}</span>
+                            {p.barcode && (
+                              <small style={{ display: 'block', color: '#6b7280', fontSize: '0.75rem', marginTop: '3px' }}>
+                                条形码 / Cód: {p.barcode}
+                              </small>
+                            )}
+                          </div>
+                          <span
+                            className="badge badge-info"
+                            style={{
+                              flexShrink: 0,
+                              marginLeft: '0.5rem',
+                              whiteSpace: 'nowrap',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              padding: '0.3rem 0.65rem',
+                              borderRadius: '6px'
+                            }}
+                          >
+                            {p.coveragePerUnitSqM || 0} m²
+                          </span>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                )}
               </div>
-            </label>
+            </div>
+
+            {calcMode === 'wall' ? (
+              <div style={{ display: 'grid', gap: '0.5rem' }}>
+                <div className="calc-wall-grid">
+                  <label className="pos-field">{t('calcWallHeight')}
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Ej. 2.60"
+                      value={calcHeight}
+                      onChange={e => setCalcHeight(e.target.value)}
+                      autoFocus
+                    />
+                  </label>
+                  <label className="pos-field">{t('calcWallWidth')}
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Ej. 3.50"
+                      value={calcWidth}
+                      onChange={e => setCalcWidth(e.target.value)}
+                    />
+                  </label>
+                </div>
+                <div style={{
+                  padding: '0.5rem 0.75rem',
+                  background: 'var(--background-container)',
+                  borderRadius: 'var(--radius-sm, 6px)',
+                  fontSize: '0.85rem',
+                  color: 'var(--text-secondary)'
+                }}>
+                  {t('calcCalculatedArea')}: <strong style={{ color: 'var(--primary-main)' }}>{(Number(calcHeight || 0) * Number(calcWidth || 0)).toFixed(2)} m²</strong>
+                </div>
+              </div>
+            ) : (
+              <label className="pos-field">{t('calcDirectAreaLabel')}
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Ej. 15.5"
+                    value={calcTargetM2}
+                    onChange={e => setCalcTargetM2(e.target.value)}
+                    autoFocus
+                  />
+                  <span style={{ fontWeight: 700, color: 'var(--primary-main)' }}>m²</span>
+                </div>
+              </label>
+            )}
 
             {selectedCalcProduct && (
               <div style={{
@@ -742,8 +1272,8 @@ export const PaginaPuntoVenta: React.FC = () => {
                 fontSize: '0.8rem',
                 color: 'var(--text-secondary)'
               }}>
-                <span>📐 Cobertura/Pieza: <strong>{calcPieceCoverage.toFixed(3)} m²</strong></span>
-                <span>📦 Piezas por Caja: <strong>{calcPpb} pzas</strong></span>
+                <span>📐 {t('calcPieceCoverage')}: <strong>{calcPieceCoverage.toFixed(3)} m²</strong></span>
+                <span>📦 {t('calcPiecesPerBox')}: <strong>{calcPpb} pzas</strong></span>
               </div>
             )}
 
@@ -759,19 +1289,19 @@ export const PaginaPuntoVenta: React.FC = () => {
               }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.6rem' }}>
                   <div style={{ padding: '0.5rem 0.75rem', background: 'var(--background-surface)', border: '1px solid var(--border-subtle)', borderRadius: '6px' }}>
-                    <small style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Piezas Necesarias</small>
+                    <small style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{t('calcPiecesNeeded')}</small>
                     <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>🧩 {calcNeededPieces} Pzas</strong>
                   </div>
                   <div style={{ padding: '0.5rem 0.75rem', background: 'var(--background-surface)', border: '1px solid var(--border-subtle)', borderRadius: '6px' }}>
-                    <small style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Cajas Equivalentes</small>
+                    <small style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{t('calcBoxesEquivalent')}</small>
                     <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>📦 ~{calcBoxesEq} Cjas</strong>
                   </div>
                   <div style={{ padding: '0.5rem 0.75rem', background: 'var(--background-surface)', border: '1px solid var(--border-subtle)', borderRadius: '6px' }}>
-                    <small style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Cobertura Real</small>
+                    <small style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{t('calcRealCoverage')}</small>
                     <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>📐 {calcRealCoverage} m²</strong>
                   </div>
                   <div style={{ padding: '0.5rem 0.75rem', background: 'var(--background-surface)', border: '1px solid var(--border-subtle)', borderRadius: '6px' }}>
-                    <small style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Costo Estimado</small>
+                    <small style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{t('calcEstimatedCost')}</small>
                     <strong style={{ fontSize: '0.95rem', color: 'var(--success)' }}>{money.format(calcTotalCost)}</strong>
                   </div>
                 </div>
@@ -785,7 +1315,7 @@ export const PaginaPuntoVenta: React.FC = () => {
                 style={{ flex: 1 }}
                 onClick={() => setIsCalculatorModalOpen(false)}
               >
-                Cancelar
+                {t('cancel')}
               </button>
               {calcNeededPieces > 0 && selectedCalcProduct && (
                 <button
@@ -796,13 +1326,38 @@ export const PaginaPuntoVenta: React.FC = () => {
                     addProductToCart(selectedCalcProduct, calcNeededPieces);
                     setIsCalculatorModalOpen(false);
                     setCalcTargetM2('');
+                    setCalcHeight('');
+                    setCalcWidth('');
                   }}
                 >
-                  🛒 Agregar {calcNeededPieces} Pzas ({money.format(calcTotalCost)})
+                  🛒 {t('calcAddToCart', { count: calcNeededPieces, cost: money.format(calcTotalCost) })}
                 </button>
               )}
             </div>
           </form>
+        </div>
+      </div>
+    )}
+
+    {isBankRefAlertOpen && (
+      <div className="pos-receipt-backdrop" onMouseDown={e => e.target === e.currentTarget && setIsBankRefAlertOpen(false)}>
+        <div className="pos-customer-modal" style={{ width: 'min(440px, 95%)', textAlign: 'center', padding: '1.75rem' }} role="dialog" aria-modal="true">
+          <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>⚠️</div>
+          <h2 style={{ fontSize: '1.25rem', color: 'var(--danger-main, #d93025)', marginBottom: '0.65rem' }}>
+            {t('bankReferenceAlertTitle')}
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+            {t('bankReferenceAlertDesc')}
+          </p>
+          <button
+            type="button"
+            className="action-btn"
+            style={{ width: '100%', padding: '0.75rem 1rem' }}
+            onClick={() => setIsBankRefAlertOpen(false)}
+            autoFocus
+          >
+            Aceptar / 明白
+          </button>
         </div>
       </div>
     )}

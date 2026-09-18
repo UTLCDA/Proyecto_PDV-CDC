@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthApplicationService, AuthApplicationService>();
         services.AddScoped<ICatalogApplicationService, CatalogApplicationService>();
         services.AddScoped<IInventoryApplicationService, InventoryApplicationService>();
+        services.AddScoped<IPurchaseReceiptApplicationService, PurchaseReceiptApplicationService>();
         services.AddScoped<ISaleApplicationService, SaleApplicationService>();
         services.AddScoped<ICommercialOperationsService, CommercialOperationsService>();
         services.AddScoped<ICashShiftApplicationService, CashShiftApplicationService>();

@@ -1,3 +1,24 @@
+## 📌 Hito Cumplido: Observaciones y Mejoras del 18 de Septiembre (Rama `mantenimiento-observaciones-18-septiembre`)
+- **Rama Git**: `mantenimiento-observaciones-18-septiembre` (sin commits realizados todavía, respetando la instrucción de esperar el VoBo del usuario tras su validación en `localhost`).
+- **Resumen de Cambios**:
+  1. **🛒 Punto de Venta (PDV)**:
+     - Ajuste de zoom al 80% y 60%: `.main-content` a `max-width: 100%` con layout elástico para que las tarjetas de catálogo y cobro no se encojan.
+     - Búsqueda en catálogo con normalización de guiones Mac Unicode (`\u2010-\u2015`, `\u2212`, etc.), case-insensitive y búsqueda estricta por SKU / código de barras con y sin guiones.
+     - Escáner superior con búsqueda estricta por código de barras.
+     - Carga de categoría inicial con `pageSize: 500` (desplegando los 104+ productos) y animación spinner de carga al cambiar de categoría.
+     - Campo obligatorio de Referencia Bancaria (hasta 50 caracteres) en pagos con Tarjeta o Mixtos; modal de alerta ante omisión y anexado auditado en notas.
+     - Regla de mayoreo para *Lambrin Interior 格栅板* (2+ cajas todo a mayoreo; 1 caja a mayoreo y sueltas a menudeo; <1 caja menudeo) reflejada en el cálculo del carrito y del backend, con badge visual en fila completa sin desbordar.
+     - Calculadora de m² dual (por dimensiones `Alto × Ancho` en metros o directo en m²) con modal ampliado y responsivo (`min(780px, 96vw)`), botones estilizados con color corporativo activo, 100% traducida a Chino y Español, buscador predictivo con despliegue de los 23+ productos completos (LAM-01 a LAM-23 y catálogo remoto hasta 200 items), con `overscroll-behavior: contain` para scroll independiente y fluido sin desbordes.
+     - Descuento manual modificado a porcentaje (ej. 15 = 15%) y recálculo exacto de IVA sobre la base gravable (`subtotal - descuento`).
+     - Comprobante térmico de venta fijado en español (sin chino) y retiro del badge `PRÓXIMAMENTE` junto a `www.wpcbajio.com`.
+     - Soporte multilínea para nombres largos de productos y cuadrícula de 3 columnas para mayor legibilidad.
+  2. **🔐 Login**: Campos de correo y contraseña limpios por defecto (`''`).
+  3. **🏷️ Navbar y Footer**: Eliminado botón de modo claro; pie de página bilingüe oficial.
+  4. **📄 Contratos A4**: Generación simultánea de plantilla en Chino Simplificado al guardar plantilla en español.
+  5. **🏭 Inventario (Capturar Movimiento)**: Buscador predictivo por SKU/código de barras en el modal con existencias en tiempo real.
+  6. **📦 Módulo de Recibos de Compra**: Módulo completo end-to-end (entidad `ReciboCompra`, servicio, controlador REST, migración EF Core, pruebas en backend y página React con modal de captura, ajuste dinámico de stock y voucher térmico de 80mm). Columnas de la tabla y exportación en formato simultáneo bilingüe Español / Chino (`Folio / 单号`, `Fecha / 日期`, `ID Prod. / 产品编号`, `Producto / 产品说明`, `SKU / Código / 货号`, `Precio Costo / 成本价`, `Precio Venta / 零售价`, `Stock Previo / 原库存`, `Cantidad / 进货数量`, `Stock Resultante / 最终库存`, `Operador / 操作员`, `Acciones / 操作`).
+- **Validaciones**: 95 pruebas de backend superadas (0 fallos), 47 pruebas de frontend superadas (0 fallos), build de producción exitoso.
+
 ## 📌 Hito Cumplido: Script Maestro en Python para Inicio Simultáneo de Servicios (`iniciar_servicios.py`)
 - **Archivos Creados**:
   - `D:\Proyecto_PDV-CDC\iniciar_servicios.py`: Script maestro en Python 3 que inicia y monitorea concurrentemente los 5 servicios (Backend .NET, Visor de Etiquetas, PDV, Media Studio y E-commerce). Soporta resolución dual IPv4/IPv6 (`socket.create_connection`), chequeo de puertos ocupados, health checks HTTP en vivo y terminación en árbol (`taskkill /F /T`) al presionar `Ctrl+C`.

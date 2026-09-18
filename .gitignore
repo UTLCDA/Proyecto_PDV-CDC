@@ -52,3 +52,7 @@ backups/
 
 
 *.pdf
+src/backend/Pos.Api/data/
+dnsconfig.txt
+*.txt
+!requirements.txt

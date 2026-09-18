@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.10.0] Mantenimiento y Mejoras: Recibos de Compra, PDV, Mayoreo, Calculadora m² e i18n - 2026-09-18
+
+### Añadido / Optimizado
+- **Módulo Completo de Recibos de Compra (Almacén y Proveedores)**:
+  - Nueva entidad `ReciboCompra` en `Pos.Domain`, DTOs y servicio de aplicación con auditoría completa.
+  - Endpoints REST en `PurchaseReceiptsController` para consulta paginada, ordenamiento, alta y edición.
+  - Registro de compras que incrementa las existencias en inventario y actualiza opcionalmente el precio de costo del producto en el catálogo.
+  - Comprobante imprimible de entrada de almacén (A4 y formato térmico) y exportación de reportes a Excel y PDF con columnas bilingües (`Folio / 单号`, `Fecha / 日期`, `ID Prod. / 产品编号`, `Producto / 产品说明`, `SKU / Código / 货号`, etc.).
+  - Migración EF Core `20260918094233_AddPurchaseReceiptsModule` aplicada y versionada.
+- **Punto de Venta (PDV)**:
+  - Soporte de layout elástico y responsivo: la interfaz mantiene proporciones óptimas ante niveles de zoom de 80% y 60% sin encogimiento ni desajustes.
+  - Búsqueda insensible a mayúsculas/minúsculas con normalización de caracteres de guion de Mac (`\u2010` a `\u2015`, `\u2212`, etc.) y búsqueda estricta con y sin guiones.
+  - Carga inicial de categoría con 500 productos e indicador visual de carga (*spinner*) al alternar categorías.
+  - Captura obligatoria de Referencia Bancaria (máximo 50 caracteres) en pagos con tarjeta o pagos mixtos con bloqueo y modal de alerta si se omite.
+  - Regla de mayoreo de *Lambrin Interior 格栅板* (2+ cajas todo a mayoreo; 1 caja a mayoreo y sueltas a menudeo; <1 caja menudeo) con desglose en fila completa sin desborde.
+  - Calculadora de m² dual ampliada (`min(780px, 96vw)`) con botones de modo destacados en dorado corporativo (`#c59b27`), traducción 100% bilingüe (Español / Chino) y buscador con autocompletado en vivo de todo el catálogo (LAM-01 a LAM-23+) con scroll independiente (`overscroll-behavior: contain`).
+  - Descuento manual porcentual (ej. `15%`) con cálculo exacto de base gravable e IVA (16%) en ventas facturadas.
+  - Comprobante térmico de venta fijado en español y retiro de la etiqueta *PRÓXIMAMENTE* de `www.wpcbajio.com`.
+- **Autenticación y Navegación**:
+  - Limpieza de campos de usuario y contraseña en Login sin credenciales prellenadas.
+  - Eliminado switch innecesario de modo claro en la barra de navegación; pie de página estandarizado y bilingüe.
+- **Contratos y Operaciones Comerciales**:
+  - Generación automática de versión en Chino Simplificado al guardar contratos en español.
+- **Pruebas y Verificación**:
+  - Backend: 95 pruebas unitarias e integración en xUnit superadas al 100%.
+  - Frontend: 47 pruebas unitarias en Vitest superadas al 100%.
+  - Compilación de producción limpia en TypeScript y Vite.
+
 ## [2.9.0] Optimización de Almacenamiento y Entrega de Imágenes de Productos (WebP + Static Files) - 2026-09-11
 
 ### Añadido / Optimizado

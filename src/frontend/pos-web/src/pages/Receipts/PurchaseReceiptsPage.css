@@ -1,0 +1,456 @@
+.receipts-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.receipts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.receipts-header h1 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 1.65rem;
+}
+
+.receipts-header p {
+  margin: 0.25rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.receipts-create-btn {
+  padding: 0.65rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.receipts-notice {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.receipts-notice--success {
+  background: var(--success-surface);
+  border: 1px solid var(--success-border);
+  color: var(--success);
+}
+
+.receipts-notice--error {
+  background: var(--danger-surface);
+  border: 1px solid var(--danger-border);
+  color: var(--danger);
+}
+
+.receipts-card {
+  padding: 1.25rem;
+}
+
+.receipts-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.receipts-search-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex: 1;
+  max-width: 520px;
+}
+
+.receipts-search-form input {
+  flex: 1;
+}
+
+.receipts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.receipts-table th {
+  padding: 0.75rem 0.65rem;
+  text-align: left;
+  border-bottom: 2px solid var(--border-subtle);
+  background: var(--background-container);
+  color: var(--text-main);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.receipts-table td {
+  padding: 0.7rem 0.65rem;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.receipts-table tr:hover {
+  background: var(--background-cream-soft);
+}
+
+.receipts-folio-badge {
+  font-family: monospace;
+  font-size: 0.92rem;
+  color: var(--primary-main);
+  background: var(--background-selected);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.receipts-qty-badge {
+  display: inline-block;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.receipts-icon-btn {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.95rem;
+  border-radius: 6px;
+}
+
+.receipts-empty {
+  text-align: center;
+  padding: 2.5rem;
+  color: var(--text-secondary);
+}
+
+.receipts-loading {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+}
+
+/* MODAL STYLES */
+.receipts-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  display: grid;
+  place-items: center;
+  z-index: 1050;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.receipts-modal-content {
+  width: min(580px, 100%);
+  background: var(--background-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+.receipts-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0.75rem;
+}
+
+.receipts-modal-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--text-main);
+}
+
+.receipts-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.receipts-modal-close:hover {
+  background: var(--background-container);
+  color: var(--text-main);
+}
+
+.receipts-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.receipts-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.receipts-form-group label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+
+.receipts-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+}
+
+.receipts-dropdown-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--background-surface);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0;
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.receipts-dropdown-item {
+  padding: 0.6rem 0.85rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.receipts-dropdown-item:hover {
+  background: var(--background-cream-soft);
+}
+
+.receipts-product-preview-card {
+  padding: 0.85rem;
+  background: var(--background-container);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.receipts-preview-row {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.receipts-preview-row small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.receipts-calc-box {
+  padding: 0.75rem 1rem;
+  background: var(--background-cream);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+}
+
+.receipts-calc-box div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.receipts-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.85rem;
+}
+
+/* VOUCHER PRINT MODAL */
+.receipts-voucher-modal {
+  width: min(720px, 100%);
+  background: #fff;
+  color: #111;
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 94vh;
+  overflow-y: auto;
+}
+
+.receipts-voucher-document {
+  border: 2px solid #222;
+  padding: 1.5rem;
+  background: #fff;
+  color: #111;
+  font-family: inherit;
+}
+
+.receipts-voucher-banner {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  border-bottom: 2px solid #222;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+.receipts-voucher-logo {
+  height: 65px;
+  object-fit: contain;
+}
+
+.receipts-voucher-banner h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  letter-spacing: 0.5px;
+}
+
+.receipts-voucher-banner p {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: #555;
+  font-weight: 700;
+}
+
+.receipts-voucher-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.65rem 1.5rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.receipts-voucher-meta-grid span {
+  color: #555;
+  margin-right: 0.4rem;
+}
+
+.receipts-voucher-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.25rem;
+  font-size: 0.88rem;
+}
+
+.receipts-voucher-items-table th {
+  border-bottom: 2px solid #333;
+  padding: 0.5rem;
+  text-align: left;
+  background: #f4f4f4;
+  font-size: 0.82rem;
+}
+
+.receipts-voucher-items-table td {
+  border-bottom: 1px solid #ddd;
+  padding: 0.6rem 0.5rem;
+}
+
+.receipts-voucher-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.receipts-voucher-stock-audit {
+  padding: 0.75rem 1rem;
+  background: #f8f8f8;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 220px;
+}
+
+.receipts-voucher-stock-audit div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.receipts-voucher-notes {
+  flex: 1;
+  font-size: 0.85rem;
+  color: #444;
+}
+
+.receipts-voucher-signatures {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  text-align: center;
+}
+
+.receipts-voucher-signatures div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.signature-line {
+  color: #888;
+  letter-spacing: -1px;
+}
+
+.receipts-voucher-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #receipt-printable-voucher,
+  #receipt-printable-voucher * {
+    visibility: visible;
+  }
+  #receipt-printable-voucher {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none;
+    padding: 0;
+  }
+}

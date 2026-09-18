@@ -1,6 +1,39 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
-## 🟢 ESTADO ACTUAL (Septiembre, 2026)
+## 🟢 ESTADO ACTUAL (18 de Septiembre, 2026)
+
+- **Rama Activa de Mantenimiento (`mantenimiento-observaciones-18-septiembre`)**:
+  - **Objetivo**: Implementación completa de las observaciones solicitadas el 18 de septiembre para PDV, Login, Contratos, Inventario y el nuevo Módulo de Recibos de Compra.
+  - **Estado**: Código 100% implementado y validado en local. Sin commits realizados aún, en espera del VoBo del usuario tras su validación en `localhost`.
+  - **Ajustes Realizados**:
+    1. **🛒 Punto de Venta (PDV)**:
+       - Zoom 80% y 60% corregido (el contenedor ya no se encoge; `.main-content` max-width 100% y layout con clamp elástico).
+       - Búsqueda en catálogo con normalización de guiones Unicode de Mac (`\u2010` a `\u2015`, `\u2212`, etc.), case-insensitive y búsqueda estricta por SKU / código de barras con y sin guiones.
+       - Escáner superior estricto por código de barras.
+       - Carga de categoría por defecto con `pageSize: 500` (desplegando los 104+ productos) con indicador spinner visual al cambiar de categoría.
+       - Referencia bancaria obligatoria (50 caracteres) para pagos con Tarjeta o Mixtos (tarjeta/transferencia); bloqueo y modal de alerta si no se captura.
+       - Regla de mayoreo para *Lambrin Interior 格栅板*: $\ge 2$ cajas todas a mayoreo; 1 caja a mayoreo y sueltas a menudeo; $<1$ caja a menudeo. Desglose detallado visual en carrito acomodado en fila propia para evitar desbordes.
+       - Calculadora m² con modal ampliado y responsivo (`min(780px, 96vw)`), botones estilizados con color corporativo activo, 100% traducida en Chino y Español, buscador predictivo flotante sin límite de corte (desplegando los 23+ productos completos de LAM-01 a LAM-23 y catálogo remoto hasta 200 items), con `overscroll-behavior: contain` para evitar pérdidas de scroll.
+       - Descuento manual transformado a porcentaje (ej. 15 = 15%) con recálculo exacto de IVA sobre base gravable (`subtotal - descuento`).
+       - Comprobante térmico de venta fijado en español (sin chino) y eliminación del badge `PRÓXIMAMENTE` junto a `www.wpcbajio.com`.
+       - Tarjeta de producto con soporte multilínea para nombres largos (ej. *Cierre de encaje / Clips 扣*) y 3 columnas desktop para mejor legibilidad.
+    2. **🔐 Login**:
+       - Campos de correo y contraseña limpios por defecto (`''`), sin credenciales prellenadas.
+    3. **🏷️ Navbar y Footer**:
+       - Eliminado el botón/indicador de modo claro.
+       - Pie de página actualizado: `WPC Bajío — Punto de Venta e Inventario Lambrín Decorativo / 销售点与装饰墙板库存管理系统`.
+    4. **📄 Contratos A4**:
+       - Generación automática y simultánea de la versión en Chino Simplificado (`[ZH] / [中文]`) al guardar una plantilla en español.
+    5. **🏭 Inventario (Capturar Movimiento)**:
+       - Reemplazado el selector estático de 25 productos por un buscador en vivo por SKU / código de barras sobre todo el catálogo con existencias en tiempo real.
+    6. **📦 Módulo de Recibos de Compra**:
+       - Nueva entidad `ReciboCompra`, DTOs, servicio, controlador REST y migración EF Core (`AddPurchaseReceiptsModule`) aplicada en BD local.
+       - Interfaz completa en React `PurchaseReceiptsPage.tsx` con alta/edición, ajuste de stock dinámico, actualización de costo y voucher térmico de 80mm.
+       - Columnas de la tabla y reportes de exportación en formato simultáneo bilingüe Español / Chino (`Folio / 单号`, `Fecha / 日期`, `ID Prod. / 产品编号`, `Producto / 产品说明`, `SKU / Código / 货号`, `Precio Costo / 成本价`, `Precio Venta / 零售价`, `Stock Previo / 原库存`, `Cantidad / 进货数量`, `Stock Resultante / 最终库存`, `Operador / 操作员`, `Acciones / 操作`), además de traducción total al chino y español de modales, botones y filtros.
+  - **Pruebas y Verificación**:
+    - Backend: 95 pruebas unitarias e integración superadas (100% exitoso).
+    - Frontend: 47 pruebas unitarias de Vitest superadas (100% exitoso).
+    - Compilación de producción: `npm run build` completada con éxito.
 
 - **Script Maestro de Inicio Simultáneo de Servicios (`iniciar_servicios.py` y `iniciar_servicios.bat`)**:
   - **Objetivo**: Levantar y supervisar en una sola consola todos los subsistemas del ecosistema WPC Bajío sin requerir 5 terminales manuales ni lidiar con puertos bloqueados.
