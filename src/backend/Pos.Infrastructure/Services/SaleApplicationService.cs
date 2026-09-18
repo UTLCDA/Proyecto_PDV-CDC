@@ -99,6 +99,7 @@ public class SaleApplicationService : ISaleApplicationService
 
         var productIds = groupedItems.Select(item => item.ProductId).ToList();
         var products = await _dbContext.Products
+            .Include(product => product.Categoria)
             .Where(product => productIds.Contains(product.Id))
             .ToDictionaryAsync(product => product.Id, cancellationToken);
         var stocks = await _dbContext.Stocks
@@ -111,6 +112,7 @@ public class SaleApplicationService : ISaleApplicationService
         }
 
         var isWholesaleCustomer = string.Equals(customer?.TipoCliente, "Mayorista", StringComparison.OrdinalIgnoreCase);
+        var lambrinInteriorCategoryId = Guid.Parse("7938934b-d6cb-44fd-98de-b0645c66017d");
         var pricedItems = new List<(Producto Product, Existencia Stock, decimal Quantity, decimal UnitPrice)>();
         decimal rawSubtotal = 0m;
         decimal requestedItemDiscounts = 0m;
@@ -134,19 +136,60 @@ public class SaleApplicationService : ISaleApplicationService
                 throw new InvalidOperationException($"Existencias insuficientes para '{product.Nombre}'. Disponibles: {stock.CantidadDisponible}, solicitadas: {item.Quantity}.");
             }
 
-            var useWholesalePrice = isWholesaleCustomer ||
-                (product.CantidadMinimaMayoreo > 0 && item.Quantity >= product.CantidadMinimaMayoreo);
-            var unitPrice = authorizedUnitPrices != null && authorizedUnitPrices.TryGetValue(product.Id, out var authorizedPrice)
-                ? authorizedPrice
-                : useWholesalePrice && product.PrecioMayoreo > 0
-                    ? product.PrecioMayoreo
-                    : product.PrecioUnitario;
+            var isLambrinInterior = product.CategoriaId == lambrinInteriorCategoryId ||
+                (product.Categoria != null && product.Categoria.Nombre.Contains("Lambrin Interior", StringComparison.OrdinalIgnoreCase));
+            var piecesPerBox = product.PiezasPorCaja > 0 ? (decimal)product.PiezasPorCaja : 0m;
+
+            decimal itemSubtotal;
+            decimal unitPrice;
+
+            if (authorizedUnitPrices != null && authorizedUnitPrices.TryGetValue(product.Id, out var authorizedPrice))
+            {
+                unitPrice = authorizedPrice;
+                itemSubtotal = item.Quantity * unitPrice;
+            }
+            else if (isWholesaleCustomer && product.PrecioMayoreo > 0)
+            {
+                unitPrice = product.PrecioMayoreo;
+                itemSubtotal = item.Quantity * unitPrice;
+            }
+            else if (isLambrinInterior && piecesPerBox > 0 && product.PrecioMayoreo > 0)
+            {
+                var boxes = Math.Floor(item.Quantity / piecesPerBox);
+                var remainder = item.Quantity % piecesPerBox;
+
+                if (boxes >= 2)
+                {
+                    // 2 o mas cajas: todo a precio mayoreo
+                    unitPrice = product.PrecioMayoreo;
+                    itemSubtotal = item.Quantity * unitPrice;
+                }
+                else if (boxes == 1)
+                {
+                    // 1 caja a precio mayoreo, piezas sueltas a precio menudeo
+                    itemSubtotal = (piecesPerBox * product.PrecioMayoreo) + (remainder * product.PrecioUnitario);
+                    unitPrice = Math.Round(itemSubtotal / item.Quantity, 4);
+                }
+                else
+                {
+                    // Menos de 1 caja: precio menudeo
+                    unitPrice = product.PrecioUnitario;
+                    itemSubtotal = item.Quantity * unitPrice;
+                }
+            }
+            else
+            {
+                var useWholesalePrice = product.CantidadMinimaMayoreo > 0 && item.Quantity >= product.CantidadMinimaMayoreo;
+                unitPrice = useWholesalePrice && product.PrecioMayoreo > 0 ? product.PrecioMayoreo : product.PrecioUnitario;
+                itemSubtotal = item.Quantity * unitPrice;
+            }
+
             if (unitPrice < 0)
             {
                 throw new InvalidOperationException($"El producto '{product.Nombre}' no tiene un precio válido.");
             }
 
-            rawSubtotal += item.Quantity * unitPrice;
+            rawSubtotal += itemSubtotal;
             requestedItemDiscounts += item.RequestedItemDiscount;
             pricedItems.Add((product, stock, item.Quantity, unitPrice));
         }

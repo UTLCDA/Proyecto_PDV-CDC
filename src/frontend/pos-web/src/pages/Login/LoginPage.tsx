@@ -7,8 +7,8 @@ export const LoginPage: React.FC = () => {
   const { t } = useTranslation();
   const { login } = useAuth();
 
-  const [emailOrUsername, setEmailOrUsername] = useState('admin@lambrin.com');
-  const [password, setPassword] = useState('Admin123!');
+  const [emailOrUsername, setEmailOrUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -48,7 +48,7 @@ export const LoginPage: React.FC = () => {
               value={emailOrUsername}
               onChange={(e) => setEmailOrUsername(e.target.value)}
               required
-              placeholder="admin@lambrin.com"
+              placeholder="ej. cajero@wpcbajio.com"
             />
           </div>
 

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Stock } from '../../types/inventory';
 import { inventoryService } from '../../services/inventoryService';
+import { servicioCatalogo } from '../../services/servicioCatalogo';
+import { Producto } from '../../types/tiposCatalogo';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import { useAuth } from '../../context/AuthContext';
 import { permissionCodes } from '../../security/accessControl';
@@ -67,12 +69,57 @@ export const InventoryListPage: React.FC = () => {
   // Modal State for Stock Movement Entry
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [modalProductSearch, setModalProductSearch] = useState('');
+  const [modalMatchingProducts, setModalMatchingProducts] = useState<Producto[]>([]);
+  const [selectedProductInfo, setSelectedProductInfo] = useState<Producto | null>(null);
+  const [selectedProductCurrentStock, setSelectedProductCurrentStock] = useState<number | null>(null);
   const [movementType, setMovementType] = useState<'Entry' | 'Exit' | 'Adjustment'>('Entry');
   const [quantity, setQuantity] = useState('');
   const [reason, setReason] = useState('');
   const [referenceDoc, setReferenceDoc] = useState('');
   const [location, setLocation] = useState(DEFAULT_WAREHOUSE_LOCATION);
   const [evidenceImageUrl, setEvidenceImageUrl] = useState('');
+
+  const normalizeCode = (str: string) =>
+    str.toLowerCase().trim().replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFF0D\uFE63]/g, '-');
+
+  useEffect(() => {
+    if (!modalProductSearch.trim() || selectedProductInfo) {
+      setModalMatchingProducts([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const term = normalizeCode(modalProductSearch);
+        const res = await servicioCatalogo.getProducts(term, undefined, { page: 1, pageSize: 20 });
+        const items = Array.isArray(res) ? res : res.items;
+        const cleanTerm = term.replace(/-/g, '');
+        const filtered = items.filter(p => {
+          if (!p.isActive) return false;
+          const sku = normalizeCode(p.sku);
+          const bar = normalizeCode(p.barcode || '');
+          return sku.includes(term) || bar.includes(term) || sku.replace(/-/g, '').includes(cleanTerm) || bar.replace(/-/g, '').includes(cleanTerm);
+        });
+        setModalMatchingProducts(filtered);
+      } catch {
+        setModalMatchingProducts([]);
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [modalProductSearch, selectedProductInfo]);
+
+  const handleSelectModalProduct = async (prod: Producto) => {
+    setSelectedProductId(prod.id);
+    setSelectedProductInfo(prod);
+    setModalMatchingProducts([]);
+    setModalProductSearch(`${prod.sku} — ${prod.name}`);
+    try {
+      const stock = await inventoryService.getStockByProductId(prod.id);
+      setSelectedProductCurrentStock(stock ? stock.quantityOnHand : 0);
+    } catch {
+      setSelectedProductCurrentStock(0);
+    }
+  };
 
   const loadData = async (searchTerm = search) => {
     setLoading(true);
@@ -126,6 +173,10 @@ export const InventoryListPage: React.FC = () => {
 
   const handleOpenMovementModal = () => {
     setSelectedProductId('');
+    setSelectedProductInfo(null);
+    setSelectedProductCurrentStock(null);
+    setModalProductSearch('');
+    setModalMatchingProducts([]);
     setMovementType('Entry');
     setQuantity('');
     setReason('');
@@ -336,28 +387,79 @@ export const InventoryListPage: React.FC = () => {
             <h3 id="inventory-movement-modal-title">➕ {t('captureStockMovement')}</h3>
             <form onSubmit={handleRegisterMovement} className="inventory-movement-form">
               <div>
-                <label className="inventory-field-label" htmlFor="inventory-product">{t('selectProduct')} *</label>
-                <select
-                  id="inventory-product"
-                  className="input-field"
-                  value={selectedProductId}
-                  onChange={(e) => setSelectedProductId(e.target.value)}
-                  required
-                >
-                  <option value="" disabled>{t('selectProductPlaceholder')}</option>
-                  {stocks.map(s => (
-                    <option key={s.productId} value={s.productId}>{s.productName} ({s.productSku})</option>
-                  ))}
-                </select>
-                {selectedProductId && (() => {
-                  const selectedStock = stocks.find(stock => stock.productId === selectedProductId);
-                  return selectedStock ? (
-                    <div className="inventory-current-stock" role="status">
-                      <span>{t('currentStock')}</span>
-                      <strong>{selectedStock.quantityOnHand} Piezas</strong>
+                <label className="inventory-field-label" htmlFor="inventory-product-search">
+                  🔍 Buscar Producto (SKU / Código de barras / 货号 / 条形码) *
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    id="inventory-product-search"
+                    type="text"
+                    className="input-field"
+                    placeholder="🔍 Escanear o escribir SKU / Código de barras..."
+                    value={modalProductSearch}
+                    onChange={(e) => {
+                      setModalProductSearch(e.target.value);
+                      if (selectedProductInfo) {
+                        setSelectedProductInfo(null);
+                        setSelectedProductId('');
+                        setSelectedProductCurrentStock(null);
+                      }
+                    }}
+                    autoComplete="off"
+                    required
+                  />
+                  {modalMatchingProducts.length > 0 && (
+                    <ul style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      background: 'var(--background-surface)',
+                      border: '1px solid var(--border-hover)',
+                      borderRadius: 'var(--radius-md)',
+                      boxShadow: 'var(--shadow-card)',
+                      listStyle: 'none',
+                      padding: 0,
+                      margin: '0.25rem 0 0',
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      zIndex: 1000
+                    }}>
+                      {modalMatchingProducts.map(p => (
+                        <li
+                          key={p.id}
+                          onClick={() => handleSelectModalProduct(p)}
+                          style={{
+                            padding: '0.6rem 0.85rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            borderBottom: '1px solid var(--border-subtle)'
+                          }}
+                        >
+                          <div>
+                            <strong style={{ color: 'var(--primary-main)' }}>{p.sku}</strong> — {p.name}
+                            {p.barcode && <small style={{ display: 'block', color: 'var(--text-muted)' }}>Cód: {p.barcode}</small>}
+                          </div>
+                          <span className="badge badge-info">{p.availableQuantity} pzas</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {selectedProductInfo && (
+                  <div className="inventory-current-stock" style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <strong>{selectedProductInfo.sku}</strong> — {selectedProductInfo.name}
                     </div>
-                  ) : null;
-                })()}
+                    <div>
+                      <span>{t('currentStock')}: </span>
+                      <strong style={{ color: 'var(--primary-main)' }}>{selectedProductCurrentStock ?? selectedProductInfo.availableQuantity} Piezas</strong>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>

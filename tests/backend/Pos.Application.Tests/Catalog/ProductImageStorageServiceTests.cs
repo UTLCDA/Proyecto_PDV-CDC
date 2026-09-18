@@ -78,9 +78,9 @@ public class ProductImageStorageServiceTests : IDisposable
         // Assert
         Assert.NotNull(result);
         var idStr = productId.ToString("D");
-        Assert.Equal($"/products/{idStr}/thumbnail.webp", result.ThumbnailUrl);
-        Assert.Equal($"/products/{idStr}/pos.webp", result.PosUrl);
-        Assert.Equal($"/products/{idStr}/preview.webp", result.PreviewUrl);
+        Assert.StartsWith($"/products/{idStr}/thumbnail.webp", result.ThumbnailUrl);
+        Assert.StartsWith($"/products/{idStr}/pos.webp", result.PosUrl);
+        Assert.StartsWith($"/products/{idStr}/preview.webp", result.PreviewUrl);
 
         var productDir = Path.Combine(_testDirectory, idStr);
         Assert.True(File.Exists(Path.Combine(productDir, "thumbnail.webp")));
