@@ -164,6 +164,14 @@ public class StripePaymentsController : ControllerBase
         decimal total = Math.Max(0m, verifiedSubtotal - discount + shippingCost);
         long amountCents = (long)Math.Round(total * 100);
 
+        if (amountCents < 1000)
+        {
+            return BadRequest(new
+            {
+                message = "El monto mínimo de compra para pago en línea con tarjeta es de $10.00 MXN. Por favor añade más unidades a tu carrito."
+            });
+        }
+
         // 3. Sincronizar o crear al cliente en SQL Server
         var normalizedEmail = request.Customer.Email.Trim().ToLower();
         var customer = await _dbContext.Customers
