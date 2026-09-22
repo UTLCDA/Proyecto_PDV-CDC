@@ -296,7 +296,8 @@ public class StripePaymentsController : ControllerBase
                     IdempotencyKey = $"stripe-pi-{orderFolio}"
                 };
 
-                var paymentIntentService = new PaymentIntentService();
+                var stripeClient = new StripeClient(stripeSecretKey);
+                var paymentIntentService = new PaymentIntentService(stripeClient);
                 var paymentIntent = await paymentIntentService.CreateAsync(piOptions, requestOptions, cancellationToken);
 
                 sale.Notas += $" | PaymentIntent: {paymentIntent.Id}";
@@ -685,7 +686,8 @@ public class StripePaymentsController : ControllerBase
                     CancelUrl = cancelUrl
                 };
 
-                var service = new SessionService();
+                var stripeClient = new StripeClient(stripeSecretKey);
+                var service = new SessionService(stripeClient);
                 var session = await service.CreateAsync(options, cancellationToken: cancellationToken);
 
                 _logger.LogInformation("Stripe Checkout Session creada exitosamente: {SessionId} para folio {Folio}", session.Id, orderFolio);
