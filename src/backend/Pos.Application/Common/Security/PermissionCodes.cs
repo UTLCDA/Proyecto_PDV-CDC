@@ -64,6 +64,12 @@ public static class PermissionCodes
         public const string Administer = "usuarios:administrar";
     }
 
+    public static class Cdc
+    {
+        public const string CatalogImagesAdmin = "CDC_CATALOGO_IMAGENES_ADMIN";
+        public const string StandardCatalogImagesAdmin = "cdc:catalogo_imagenes_admin";
+    }
+
     public static IReadOnlyCollection<string> All { get; } =
     [
         Sales.Process,
@@ -93,6 +99,8 @@ public static class PermissionCodes
         Commercial.Contracts,
         Reports.SalesView,
         Reports.InventoryView,
-        Users.Administer
+        Users.Administer,
+        Cdc.CatalogImagesAdmin,
+        Cdc.StandardCatalogImagesAdmin
     ];
 }

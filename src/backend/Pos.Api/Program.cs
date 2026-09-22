@@ -303,6 +303,35 @@ app.UseStaticFiles(new StaticFileOptions
     }
 });
 
+// Servir archivos estáticos de imágenes del catálogo de eCommerce (Miniaturas 2 y 3)
+var catalogImagesConfigPath = builder.Configuration["Storage:CatalogImagesPath"];
+if (string.IsNullOrWhiteSpace(catalogImagesConfigPath))
+{
+    catalogImagesConfigPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "catalogo", "productos");
+}
+var fullCatalogImagesPath = Path.GetFullPath(catalogImagesConfigPath);
+if (!Directory.Exists(fullCatalogImagesPath))
+{
+    Directory.CreateDirectory(fullCatalogImagesPath);
+}
+
+var catalogImagesRequestPath = builder.Configuration["Storage:CatalogImagesRequestPath"] ?? "/catalogo/productos";
+if (!catalogImagesRequestPath.StartsWith('/'))
+{
+    catalogImagesRequestPath = "/" + catalogImagesRequestPath;
+}
+catalogImagesRequestPath = catalogImagesRequestPath.TrimEnd('/');
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(fullCatalogImagesPath),
+    RequestPath = catalogImagesRequestPath,
+    OnPrepareResponse = ctx =>
+    {
+        ctx.Context.Response.Headers.Append("Cache-Control", "public, max-age=604800, must-revalidate");
+    }
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

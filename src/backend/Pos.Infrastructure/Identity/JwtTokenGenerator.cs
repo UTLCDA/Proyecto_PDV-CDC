@@ -47,6 +47,20 @@ public class JwtTokenGenerator : IJwtTokenGenerator
             claims.Add(new Claim(PermissionCodes.ClaimType, permission));
         }
 
+        // Asignación explícita del permiso CDC_CATALOGO_IMAGENES_ADMIN exclusivamente a admin@lambrin.com
+        if (string.Equals(user.Email, "admin@lambrin.com", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(user.NombreUsuario, "admin", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!claims.Any(c => c.Type == PermissionCodes.ClaimType && c.Value == PermissionCodes.Cdc.CatalogImagesAdmin))
+            {
+                claims.Add(new Claim(PermissionCodes.ClaimType, PermissionCodes.Cdc.CatalogImagesAdmin));
+            }
+            if (!claims.Any(c => c.Type == PermissionCodes.ClaimType && c.Value == PermissionCodes.Cdc.StandardCatalogImagesAdmin))
+            {
+                claims.Add(new Claim(PermissionCodes.ClaimType, PermissionCodes.Cdc.StandardCatalogImagesAdmin));
+            }
+        }
+
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
