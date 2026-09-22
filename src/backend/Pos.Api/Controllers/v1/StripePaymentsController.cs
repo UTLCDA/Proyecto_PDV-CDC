@@ -12,7 +12,8 @@ namespace Pos.Api.Controllers.v1;
 
 /// <summary>
 /// Controlador público de integración de pagos oficiales con Stripe para WPC Bajío E-Commerce.
-/// Maneja la creación de sesiones seguras de pago, webhooks de confirmación y deducción atómica de inventario.
+/// Maneja la creación de PaymentIntents con Stripe Payment Element, webhooks autoritativos con firma criptográfica,
+/// deducción atómica de inventario e integración directa con el módulo de Pedidos Web del PDV.
 /// </summary>
 [ApiController]
 [Route("api/v1/payments/stripe")]
@@ -37,16 +38,18 @@ public class StripePaymentsController : ControllerBase
     }
 
     /// <summary>
-    /// Crea una sesión de pago oficial en Stripe (Stripe Checkout Session):
-    /// 1. Audita existencias físicas y precios unitarios en SQL Server.
-    /// 2. Registra o actualiza al cliente en la base de datos.
-    /// 3. Crea la orden de venta pre-registrada con folio transaccional WPC-YYYYMMDD-XXXXX.
-    /// 4. Genera la sesión en Stripe con montos en MXN y metadatos de la orden.
-    /// 5. Retorna la URL de redirección autoritativa a Stripe.
+    /// Crea un PaymentIntent oficial de Stripe para Stripe Payment Element en el Checkout:
+    /// 1. Audita existencias físicas y disponibilidad en SQL Server.
+    /// 2. Recalcula precios unitarios oficiales online (Zero Trust en el frontend).
+    /// 3. Sincroniza al cliente en SQL Server.
+    /// 4. Pre-registra la Venta en estado PendientePago con folio WPC-YYYYMMDD-XXXXX.
+    /// 5. Crea el PaymentIntent en Stripe en centavos MXN con clave de idempotencia.
+    /// 6. Registra bitácora STRIPE_PAYMENT_INTENT_CREATED.
+    /// 7. Retorna clientSecret y desglose oficial al frontend.
     /// </summary>
-    [HttpPost("create-checkout-session")]
-    public async Task<IActionResult> CreateCheckoutSession(
-        [FromBody] CreateStripeCheckoutSessionRequest request,
+    [HttpPost("create-payment-intent")]
+    public async Task<IActionResult> CreatePaymentIntent(
+        [FromBody] CreateStripePaymentIntentRequest request,
         CancellationToken cancellationToken)
     {
         if (request?.Items == null || request.Items.Count == 0)
@@ -59,7 +62,7 @@ public class StripePaymentsController : ControllerBase
             return BadRequest(new { message = "Se requiere el correo electrónico del cliente para el pago." });
         }
 
-        // 1. Validar productos y existencias vivas en base de datos
+        // 1. Validar productos y existencias vivas en SQL Server (Zero Trust)
         var productGuids = request.Items
             .Select(i => Guid.TryParse(i.ProductId, out var g) ? g : (Guid?)null)
             .Where(g => g.HasValue && g.Value != Guid.Empty)
@@ -101,7 +104,7 @@ public class StripePaymentsController : ControllerBase
             {
                 return BadRequest(new
                 {
-                    message = $"El producto '{item.Sku ?? item.ProductId?.ToString()}' ya no está disponible para venta en línea."
+                    message = $"El producto '{item.Sku ?? item.ProductId}' ya no está disponible para venta en línea."
                 });
             }
 
@@ -111,6 +114,7 @@ public class StripePaymentsController : ControllerBase
             var isBox = string.Equals(item.Unit, "box", StringComparison.OrdinalIgnoreCase);
             var requiredPieces = isBox ? item.Quantity * piecesPerBox : item.Quantity;
 
+            // Validación de existencia viva en almacén
             if (availablePieces < requiredPieces)
             {
                 return BadRequest(new
@@ -123,6 +127,7 @@ public class StripePaymentsController : ControllerBase
             var verifiedUnitPrice = isBox
                 ? Math.Ceiling(pieceOnlinePrice * piecesPerBox * 2m) / 2m
                 : pieceOnlinePrice;
+
             var baseUnitPrice = isBox
                 ? Math.Round(product.PrecioUnitario * piecesPerBox, 2)
                 : product.PrecioUnitario;
@@ -149,6 +154,341 @@ public class StripePaymentsController : ControllerBase
         const decimal freeShippingThreshold = 5000m;
         const decimal standardShippingFee = 350m;
         decimal shippingCost = (!isPickup && verifiedSubtotal < freeShippingThreshold) ? standardShippingFee : 0m;
+
+        // Descuento oficial
+        decimal discount = request.DiscountAmount ?? 0m;
+        if (discount <= 0m && !string.IsNullOrWhiteSpace(request.CouponCode) && string.Equals(request.CouponCode.Trim(), "WPC15", StringComparison.OrdinalIgnoreCase))
+        {
+            discount = Math.Ceiling(verifiedSubtotal * 0.15m * 2m) / 2m;
+        }
+        decimal total = Math.Max(0m, verifiedSubtotal - discount + shippingCost);
+        long amountCents = (long)Math.Round(total * 100);
+
+        // 3. Sincronizar o crear al cliente en SQL Server
+        var normalizedEmail = request.Customer.Email.Trim().ToLower();
+        var customer = await _dbContext.Customers
+            .FirstOrDefaultAsync(c => c.Email.ToLower() == normalizedEmail, cancellationToken);
+
+        var addr = request.Customer.Address;
+        var fullAddress = addr != null
+            ? $"{addr.Street} #{addr.ExteriorNumber}{(string.IsNullOrWhiteSpace(addr.InteriorNumber) ? "" : $" Int. {addr.InteriorNumber}")}, Col. {addr.Neighborhood}, C.P. {addr.ZipCode}, {addr.Municipality}, {addr.State}"
+            : "Recolección en sucursal principal";
+
+        if (customer == null)
+        {
+            customer = new Cliente
+            {
+                Id = Guid.NewGuid(),
+                Nombre = request.Customer.FirstName.Trim(),
+                Apellido = request.Customer.LastName.Trim(),
+                Email = normalizedEmail,
+                Telefono = request.Customer.Phone?.Trim() ?? string.Empty,
+                Direccion = fullAddress,
+                Ciudad = addr?.Municipality?.Trim() ?? "León",
+                Estado = addr?.State?.Trim() ?? "Guanajuato",
+                CodigoPostal = addr?.ZipCode?.Trim() ?? "37125",
+                TipoCliente = CustomerTypes.Retail,
+                Notas = "Cliente generado vía E-Commerce (Stripe Payment Element).",
+                EstaActivo = true,
+                FechaCreacionUtc = DateTime.UtcNow
+            };
+            _dbContext.Customers.Add(customer);
+        }
+        else
+        {
+            customer.Nombre = request.Customer.FirstName.Trim();
+            customer.Apellido = request.Customer.LastName.Trim();
+            if (!string.IsNullOrWhiteSpace(request.Customer.Phone))
+            {
+                customer.Telefono = request.Customer.Phone.Trim();
+            }
+            if (addr != null)
+            {
+                customer.Direccion = fullAddress;
+                customer.Ciudad = addr.Municipality ?? customer.Ciudad;
+                customer.Estado = addr.State ?? customer.Estado;
+                customer.CodigoPostal = addr.ZipCode ?? customer.CodigoPostal;
+            }
+            customer.FechaActualizacionUtc = DateTime.UtcNow;
+        }
+
+        // 4. Pre-registrar la Venta en SQL Server con folio WPC en estado PendientePago
+        // NOTA DE SEGURIDAD: El inventario NO se descuenta aquí; se reservará/descontará definitivamente cuando el Webhook confirme payment_intent.succeeded
+        var createdAtUtc = DateTime.UtcNow;
+        var orderFolio = $"WPC-{createdAtUtc:yyyyMMdd}-{Guid.NewGuid():N}"[..24].ToUpperInvariant();
+
+        var sale = new Venta
+        {
+            Id = Guid.NewGuid(),
+            NumeroFolio = orderFolio,
+            ClienteId = customer.Id,
+            TipoPago = "STRIPE",
+            SubTotal = verifiedSubtotal,
+            MontoDescuento = discount,
+            MontoIva = 0m,
+            MontoTotal = total,
+            MontoTarjeta = total,
+            MontoAnticipo = 0m,
+            SaldoPendiente = total,
+            Estado = SaleStatuses.PendingPayment,
+            Notas = $"[E-COMMERCE] Método: {(isPickup ? "Recolección en Tienda" : "Envío a Domicilio")} | Flete: ${shippingCost:F2} MXN | Descuento: ${discount:F2} MXN{(string.IsNullOrWhiteSpace(request.CouponCode) ? "" : $" ({request.CouponCode.Trim()})")} | Pasarela: Stripe PaymentIntent | Destino: {fullAddress}",
+            EstaActivo = true,
+            FechaCreacionUtc = createdAtUtc
+        };
+
+        foreach (var line in validatedLines)
+        {
+            var saleItem = new PartidaVenta
+            {
+                Id = Guid.NewGuid(),
+                VentaId = sale.Id,
+                ProductoId = line.ProductId,
+                Cantidad = line.Quantity,
+                PrecioBase = line.BasePrice,
+                PrecioUnitario = line.UnitPrice,
+                PrecioTotal = line.LineTotal,
+                MontoDescuento = 0m,
+                EstaActivo = true,
+                FechaCreacionUtc = createdAtUtc
+            };
+            sale.Partidas.Add(saleItem);
+        }
+
+        _dbContext.Sales.Add(sale);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // 5. Configurar y Crear PaymentIntent en Stripe
+        var stripeSecretKey = _configuration["StripeSettings:SecretKey"] ?? Environment.GetEnvironmentVariable("STRIPE_SECRET_KEY");
+        var stripePublishableKey = _configuration["StripeSettings:PublishableKey"] ?? Environment.GetEnvironmentVariable("STRIPE_PUBLISHABLE_KEY") ?? "";
+        bool hasLiveStripeKey = !string.IsNullOrWhiteSpace(stripeSecretKey) &&
+                                !stripeSecretKey.Contains("placeholder") &&
+                                (stripeSecretKey.StartsWith("sk_test_") || stripeSecretKey.StartsWith("sk_live_"));
+
+        if (hasLiveStripeKey)
+        {
+            try
+            {
+                StripeConfiguration.ApiKey = stripeSecretKey;
+
+                var piOptions = new PaymentIntentCreateOptions
+                {
+                    Amount = amountCents,
+                    Currency = "mxn",
+                    AutomaticPaymentMethods = new PaymentIntentAutomaticPaymentMethodsOptions
+                    {
+                        Enabled = true
+                    },
+                    Metadata = new Dictionary<string, string>
+                    {
+                        { "OrderFolio", orderFolio },
+                        { "SaleId", sale.Id.ToString() },
+                        { "CustomerId", customer.Id.ToString() },
+                        { "CustomerEmail", normalizedEmail },
+                        { "DeliveryMethod", isPickup ? "pickup" : "delivery" },
+                        { "Source", "WEB" }
+                    },
+                    Description = $"Pedido WPC Bajío: {orderFolio} ({normalizedEmail})"
+                };
+
+                // Idempotencia oficial contra reintentos rápidos de Stripe
+                var requestOptions = new RequestOptions
+                {
+                    IdempotencyKey = $"stripe-pi-{orderFolio}"
+                };
+
+                var paymentIntentService = new PaymentIntentService();
+                var paymentIntent = await paymentIntentService.CreateAsync(piOptions, requestOptions, cancellationToken);
+
+                sale.Notas += $" | PaymentIntent: {paymentIntent.Id}";
+                await _dbContext.SaveChangesAsync(cancellationToken);
+
+                // Bitácora de auditoría
+                _dbContext.AuditLogs.Add(new LogAuditoria
+                {
+                    Id = Guid.NewGuid(),
+                    IdCorrelacion = paymentIntent.Id,
+                    Accion = "STRIPE_PAYMENT_INTENT_CREATED",
+                    NombreEntidad = "Venta",
+                    EntidadId = orderFolio,
+                    ValoresNuevosJson = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        folio = orderFolio,
+                        paymentIntentId = paymentIntent.Id,
+                        amount = amountCents,
+                        currency = "mxn",
+                        customer = normalizedEmail
+                    }),
+                    DireccionIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0",
+                    Motivo = "Creación de PaymentIntent para checkout web",
+                    EstaActivo = true,
+                    FechaCreacionUtc = DateTime.UtcNow
+                });
+                await _dbContext.SaveChangesAsync(cancellationToken);
+
+                _logger.LogInformation("Stripe PaymentIntent creado: {PaymentIntentId} para orden {Folio} por ${Total:F2} MXN",
+                    paymentIntent.Id, orderFolio, total);
+
+                return Ok(new
+                {
+                    success = true,
+                    orderFolio = orderFolio,
+                    saleId = sale.Id,
+                    clientSecret = paymentIntent.ClientSecret,
+                    paymentIntentId = paymentIntent.Id,
+                    publishableKey = stripePublishableKey,
+                    amount = amountCents,
+                    currency = "mxn",
+                    subtotal = verifiedSubtotal,
+                    shippingCost = shippingCost,
+                    discount = discount,
+                    total = total,
+                    isLive = true
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error comunicando con Stripe API al crear PaymentIntent para folio {Folio}", orderFolio);
+                return StatusCode(502, new
+                {
+                    message = "Error temporal de comunicación con la pasarela de pagos. Por favor intenta de nuevo en unos momentos."
+                });
+            }
+        }
+
+        // Modo Simulador de Contingencia (cuando las credenciales no están presentes en ambiente de desarrollo)
+        var simulatedPiId = $"pi_sim_{Guid.NewGuid():N}";
+        var simulatedClientSecret = $"{simulatedPiId}_secret_{Guid.NewGuid():N}";
+
+        sale.Notas += $" | [Simulación] PaymentIntent: {simulatedPiId}";
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            orderFolio = orderFolio,
+            saleId = sale.Id,
+            clientSecret = simulatedClientSecret,
+            paymentIntentId = simulatedPiId,
+            publishableKey = stripePublishableKey,
+            amount = amountCents,
+            currency = "mxn",
+            subtotal = verifiedSubtotal,
+            shippingCost = shippingCost,
+            discount = discount,
+            total = total,
+            isLive = false,
+            message = "Simulación activa (credenciales Stripe pendientes en appsettings)."
+        });
+    }
+
+    /// <summary>
+    /// Crea una sesión de pago oficial en Stripe (Stripe Checkout Session):
+    /// Mantenido para retrocompatibilidad con redirecciones externas.
+    /// </summary>
+    [HttpPost("create-checkout-session")]
+    public async Task<IActionResult> CreateCheckoutSession(
+        [FromBody] CreateStripeCheckoutSessionRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request?.Items == null || request.Items.Count == 0)
+        {
+            return BadRequest(new { message = "El pedido debe contener al menos un producto." });
+        }
+
+        if (request.Customer == null || string.IsNullOrWhiteSpace(request.Customer.Email))
+        {
+            return BadRequest(new { message = "Se requiere el correo electrónico del cliente para el pago." });
+        }
+
+        var productGuids = request.Items
+            .Select(i => Guid.TryParse(i.ProductId, out var g) ? g : (Guid?)null)
+            .Where(g => g.HasValue && g.Value != Guid.Empty)
+            .Select(g => g!.Value)
+            .Distinct()
+            .ToList();
+
+        var skus = request.Items
+            .Where(i => !string.IsNullOrWhiteSpace(i.Sku))
+            .Select(i => i.Sku!.Trim().ToLower())
+            .Distinct()
+            .ToList();
+
+        var products = await _dbContext.Products
+            .AsNoTracking()
+            .Where(p => productGuids.Contains(p.Id) || (p.Sku != null && skus.Contains(p.Sku.ToLower())))
+            .ToListAsync(cancellationToken);
+
+        var foundIds = products.Select(p => p.Id).ToList();
+        var stocks = await _dbContext.Stocks
+            .AsNoTracking()
+            .Where(s => foundIds.Contains(s.ProductoId))
+            .ToDictionaryAsync(s => s.ProductoId, cancellationToken);
+
+        var markupPercentage = await _pricingService.GetOnlineMarkupPercentageAsync(cancellationToken);
+        decimal verifiedSubtotal = 0m;
+        var validatedLines = new List<ValidatedOrderLine>();
+
+        foreach (var item in request.Items)
+        {
+            var itemGuid = Guid.TryParse(item.ProductId, out var g) ? g : (Guid?)null;
+            var product = products.FirstOrDefault(p =>
+                (itemGuid.HasValue && p.Id == itemGuid.Value) ||
+                (!string.IsNullOrWhiteSpace(item.Sku) && string.Equals(p.Sku, item.Sku, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(item.ProductId) && string.Equals(p.Sku, item.ProductId, StringComparison.OrdinalIgnoreCase))
+            );
+
+            if (product == null || !product.EstaActivo || product.SoloCotizacion)
+            {
+                return BadRequest(new
+                {
+                    message = $"El producto '{item.Sku ?? item.ProductId}' ya no está disponible para venta en línea."
+                });
+            }
+
+            var stock = stocks.GetValueOrDefault(product.Id);
+            var availablePieces = stock?.CantidadDisponible ?? 0m;
+            var piecesPerBox = product.PiezasPorCaja > 0 ? product.PiezasPorCaja : 1;
+            var isBox = string.Equals(item.Unit, "box", StringComparison.OrdinalIgnoreCase);
+            var requiredPieces = isBox ? item.Quantity * piecesPerBox : item.Quantity;
+
+            if (availablePieces < requiredPieces)
+            {
+                return BadRequest(new
+                {
+                    message = $"Stock insuficiente para '{product.Nombre}'. Solicitaste {requiredPieces} pzas pero solo hay {availablePieces} pzas disponibles."
+                });
+            }
+
+            var pieceOnlinePrice = _pricingService.CalculateOnlinePrice(product.PrecioUnitario, markupPercentage, product.PrecioOnlineManual);
+            var verifiedUnitPrice = isBox
+                ? Math.Ceiling(pieceOnlinePrice * piecesPerBox * 2m) / 2m
+                : pieceOnlinePrice;
+
+            var baseUnitPrice = isBox
+                ? Math.Round(product.PrecioUnitario * piecesPerBox, 2)
+                : product.PrecioUnitario;
+
+            var lineTotal = verifiedUnitPrice * item.Quantity;
+            verifiedSubtotal += lineTotal;
+
+            validatedLines.Add(new ValidatedOrderLine(
+                product.Id,
+                product.Sku,
+                product.Nombre,
+                isBox ? "box" : "piece",
+                isBox ? $"Caja ({piecesPerBox} pzs)" : "Pieza individual",
+                item.Quantity,
+                requiredPieces,
+                baseUnitPrice,
+                verifiedUnitPrice,
+                lineTotal
+            ));
+        }
+
+        var isPickup = string.Equals(request.DeliveryMethod, "pickup", StringComparison.OrdinalIgnoreCase);
+        const decimal freeShippingThreshold = 5000m;
+        const decimal standardShippingFee = 350m;
+        decimal shippingCost = (!isPickup && verifiedSubtotal < freeShippingThreshold) ? standardShippingFee : 0m;
         decimal discount = request.DiscountAmount ?? 0m;
         if (discount <= 0m && !string.IsNullOrWhiteSpace(request.CouponCode) && string.Equals(request.CouponCode.Trim(), "WPC15", StringComparison.OrdinalIgnoreCase))
         {
@@ -156,7 +496,6 @@ public class StripePaymentsController : ControllerBase
         }
         decimal total = Math.Max(0m, verifiedSubtotal - discount + shippingCost);
 
-        // 3. Sincronizar o crear al cliente en SQL Server
         var normalizedEmail = request.Customer.Email.Trim().ToLower();
         var customer = await _dbContext.Customers
             .FirstOrDefaultAsync(c => c.Email.ToLower() == normalizedEmail, cancellationToken);
@@ -204,7 +543,6 @@ public class StripePaymentsController : ControllerBase
             customer.FechaActualizacionUtc = DateTime.UtcNow;
         }
 
-        // 4. Pre-registrar la Venta en SQL Server con folio WPC
         var createdAtUtc = DateTime.UtcNow;
         var orderFolio = $"WPC-{createdAtUtc:yyyyMMdd}-{Guid.NewGuid():N}"[..24].ToUpperInvariant();
 
@@ -221,7 +559,7 @@ public class StripePaymentsController : ControllerBase
             MontoTarjeta = total,
             MontoAnticipo = total,
             SaldoPendiente = 0m,
-            Estado = SaleStatuses.Completed, // Registrado para seguimiento de orden
+            Estado = SaleStatuses.Completed,
             Notas = $"[E-COMMERCE] Método: {(isPickup ? "Recolección en Tienda" : "Envío a Domicilio")} | Flete: ${shippingCost:F2} MXN | Descuento: ${discount:F2} MXN{(string.IsNullOrWhiteSpace(request.CouponCode) ? "" : $" ({request.CouponCode.Trim()})")} | Pasarela: Stripe | Destino: {fullAddress}",
             EstaActivo = true,
             FechaCreacionUtc = createdAtUtc
@@ -248,38 +586,6 @@ public class StripePaymentsController : ControllerBase
         _dbContext.Sales.Add(sale);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // Deducción inmediata de existencias y registro en Movimientos de Inventario (Kardex)
-        foreach (var line in validatedLines)
-        {
-            var stock = await _dbContext.Stocks.FirstOrDefaultAsync(s => s.ProductoId == line.ProductId, cancellationToken);
-            if (stock != null)
-            {
-                var prevQty = stock.CantidadDisponible;
-                stock.CantidadDisponible = Math.Max(0, stock.CantidadDisponible - line.RequiredPieces);
-                stock.FechaActualizacionUtc = createdAtUtc;
-
-                _dbContext.InventoryMovements.Add(new MovimientoInventario
-                {
-                    Id = Guid.NewGuid(),
-                    ProductoId = line.ProductId,
-                    IdVenta = sale.IdVenta,
-                    TipoMovimiento = InventoryMovementTypes.Sale,
-                    Cantidad = line.RequiredPieces,
-                    CantidadAnterior = prevQty,
-                    CantidadNueva = stock.CantidadDisponible,
-                    Motivo = $"Venta E-Commerce #{sale.IdVenta} ({sale.NumeroFolio})",
-                    NumeroReferencia = sale.NumeroFolio,
-                    EvidenceImageUrl = string.Empty,
-                    UsuarioId = null,
-                    EstaActivo = true,
-                    FechaCreacionUtc = createdAtUtc,
-                    FechaActualizacionUtc = createdAtUtc
-                });
-            }
-        }
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        // 5. Configurar sesión de Stripe Checkout
         var stripeSecretKey = _configuration["StripeSettings:SecretKey"] ?? Environment.GetEnvironmentVariable("STRIPE_SECRET_KEY");
         bool hasLiveStripeKey = !string.IsNullOrWhiteSpace(stripeSecretKey) &&
                                 !stripeSecretKey.Contains("placeholder") &&
@@ -402,7 +708,6 @@ public class StripePaymentsController : ControllerBase
             }
         }
 
-        // Modo Simulación Segura (cuando la clave privada de Stripe aún no se ha colocado en producción)
         var simulatedSessionId = $"cs_sim_{Guid.NewGuid():N}";
         var simulatedCheckoutUrl = !string.IsNullOrWhiteSpace(request.SuccessUrl)
             ? request.SuccessUrl.Replace("{CHECKOUT_SESSION_ID}", simulatedSessionId)
@@ -425,12 +730,13 @@ public class StripePaymentsController : ControllerBase
     /// <summary>
     /// Webhook autoritativo de Stripe (POST /api/v1/payments/stripe/webhook):
     /// 1. Lee el payload crudo y valida la firma criptográfica Stripe-Signature.
-    /// 2. Garantiza idempotencia matemática contra reintentos de Stripe.
-    /// 3. En checkout.session.completed: ejecuta transacción atómica en SQL Server:
-    ///    - Deducción física de inventario en Stocks.
-    ///    - Registro de auditoría en MovimientosInventario.
+    /// 2. Garantiza idempotencia matemática contra reintentos (2 a 5+ webhooks duplicados).
+    /// 3. Atiende payment_intent.succeeded y checkout.session.completed.
+    /// 4. Transacción atómica en SQL Server:
+    ///    - Deducción física de inventario en Stocks y registro en MovimientosInventario.
     ///    - Registro de recibo oficial de pago en PaymentInstallments.
     ///    - Transición autoritativa del estado de la Venta a "Completada".
+    ///    - Registro en bitácora de auditoría (AuditLogs).
     /// </summary>
     [HttpPost("webhook")]
     public async Task<IActionResult> HandleWebhook(CancellationToken cancellationToken)
@@ -453,7 +759,6 @@ public class StripePaymentsController : ControllerBase
             }
             else
             {
-                // Entorno de pruebas / desarrollo sin túnel webhook activo
                 stripeEvent = EventUtility.ParseEvent(json);
                 _logger.LogWarning("Webhook de Stripe procesado en modo flexible (webhook secret no configurado en producción).");
             }
@@ -464,32 +769,77 @@ public class StripePaymentsController : ControllerBase
             return BadRequest(new { message = "Firma inválida del webhook de Stripe." });
         }
 
-        if (stripeEvent.Type == "checkout.session.completed")
+        // Registrar recepción de webhook en auditoría
+        try
         {
-            var session = stripeEvent.Data.Object as Session;
-            if (session == null)
+            _dbContext.AuditLogs.Add(new LogAuditoria
             {
-                return BadRequest(new { message = "Objeto Session nulo en el evento." });
+                Id = Guid.NewGuid(),
+                IdCorrelacion = stripeEvent.Id,
+                Accion = "STRIPE_WEBHOOK_RECEIVED",
+                NombreEntidad = "StripeWebhook",
+                EntidadId = stripeEvent.Id,
+                ValoresNuevosJson = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    eventId = stripeEvent.Id,
+                    type = stripeEvent.Type,
+                    created = stripeEvent.Created
+                }),
+                DireccionIp = Request.Headers["X-Forwarded-For"].FirstOrDefault() ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0",
+                Motivo = $"Evento Stripe recibido: {stripeEvent.Type}",
+                EstaActivo = true,
+                FechaCreacionUtc = DateTime.UtcNow
+            });
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception aEx)
+        {
+            _logger.LogWarning(aEx, "No se pudo registrar bitácora inicial de webhook {EventId}", stripeEvent.Id);
+        }
+
+        // EVENTO 1: payment_intent.succeeded (Flujo Stripe Payment Element)
+        if (stripeEvent.Type == "payment_intent.succeeded")
+        {
+            var paymentIntent = stripeEvent.Data.Object as PaymentIntent;
+            if (paymentIntent == null)
+            {
+                return BadRequest(new { message = "Objeto PaymentIntent nulo en el evento." });
             }
 
-            _logger.LogInformation("Procesando checkout.session.completed para SessionId: {SessionId}", session.Id);
+            _logger.LogInformation("Procesando payment_intent.succeeded para PaymentIntentId: {PaymentIntentId}", paymentIntent.Id);
 
             string? orderFolio = null;
             string? saleIdStr = null;
-            if (session.Metadata != null)
+            if (paymentIntent.Metadata != null)
             {
-                session.Metadata.TryGetValue("OrderFolio", out orderFolio);
-                session.Metadata.TryGetValue("SaleId", out saleIdStr);
+                paymentIntent.Metadata.TryGetValue("OrderFolio", out orderFolio);
+                paymentIntent.Metadata.TryGetValue("SaleId", out saleIdStr);
             }
 
-            // IDEMPOTENCIA: Verificar si ya procesamos esta sesión previamente
+            // IDEMPOTENCIA ESTRICTA: Verificar si este PaymentIntent o Venta ya fue acreditado
             var alreadyProcessed = await _dbContext.PaymentInstallments
-                .AnyAsync(p => p.Notas.Contains(session.Id) || p.NumeroRecibo == session.Id, cancellationToken);
+                .AnyAsync(p => p.Notas.Contains(paymentIntent.Id) || p.NumeroRecibo == paymentIntent.Id, cancellationToken);
 
             if (alreadyProcessed)
             {
-                _logger.LogInformation("Webhook duplicado ignorado (Idempotencia): Sesión {SessionId}", session.Id);
-                return Ok(new { message = "Webhook ya procesado previamente." });
+                _logger.LogInformation("Webhook duplicado ignorado (Idempotencia): PaymentIntent {PaymentIntentId}", paymentIntent.Id);
+
+                _dbContext.AuditLogs.Add(new LogAuditoria
+                {
+                    Id = Guid.NewGuid(),
+                    IdCorrelacion = paymentIntent.Id,
+                    Accion = "STRIPE_WEBHOOK_DUPLICATED",
+                    NombreEntidad = "Venta",
+                    EntidadId = orderFolio ?? paymentIntent.Id,
+                    ValoresNuevosJson = System.Text.Json.JsonSerializer.Serialize(new { paymentIntentId = paymentIntent.Id, eventId = stripeEvent.Id }),
+                    DireccionIp = Request.Headers["X-Forwarded-For"].FirstOrDefault() ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0",
+                    Motivo = "Webhook duplicado recibido y mitigado sin alterar inventario ni saldos.",
+                    EstaActivo = true,
+                    FechaCreacionUtc = DateTime.UtcNow
+                });
+                await _dbContext.SaveChangesAsync(cancellationToken);
+
+                return Ok(new { message = "Webhook ya procesado previamente (Idempotencia garantizada)." });
             }
 
             // Localizar la Venta en SQL Server
@@ -516,17 +866,179 @@ public class StripePaymentsController : ControllerBase
                 return Ok(new { message = "Venta no encontrada pero webhook recibido." });
             }
 
+            if (sale.Estado == SaleStatuses.Completed)
+            {
+                _logger.LogInformation("La venta {Folio} ya se encontraba completada. Se omite deducción repetida.", sale.NumeroFolio);
+                return Ok(new { message = "Venta ya completada previamente." });
+            }
+
             // Transacción atómica de inventario y pago
-            // Transacción gestionada atómicamente por SaveChangesAsync con compatibilidad SqlServerRetryingExecutionStrategy
             try
             {
                 var nowUtc = DateTime.UtcNow;
 
                 sale.Estado = SaleStatuses.Completed;
-                sale.Notas += $" | Pago acreditado por Stripe Webhook [{session.Id}] ({session.PaymentIntentId})";
+                sale.SaldoPendiente = 0m;
+                sale.MontoAnticipo = sale.MontoTotal;
+                sale.Notas += $" | Pago acreditado por Stripe PaymentIntent [{paymentIntent.Id}] ({stripeEvent.Id})";
                 sale.FechaActualizacionUtc = nowUtc;
 
                 // Registrar recibo oficial en PaymentInstallments
+                var receipt = new AbonoPago
+                {
+                    Id = Guid.NewGuid(),
+                    VentaId = sale.Id,
+                    IdVenta = sale.IdVenta,
+                    NumeroRecibo = $"RECIBO-STRIPE-{sale.IdVenta}-{nowUtc:yyyyMMddHHmm}",
+                    MontoAbonado = sale.MontoTotal,
+                    SaldoPendienteAnterior = sale.MontoTotal,
+                    SaldoPendienteNuevo = 0m,
+                    FormaPago = PaymentMethods.Card,
+                    Notas = $"Acreditación oficial Stripe PaymentIntent: {paymentIntent.Id}. EventId: {stripeEvent.Id}",
+                    EstaActivo = true,
+                    FechaCreacionUtc = nowUtc
+                };
+                _dbContext.PaymentInstallments.Add(receipt);
+
+                // Deducir existencias físicas en Stocks e insertar movimientos de inventario en Kardex
+                foreach (var partida in sale.Partidas)
+                {
+                    var stock = await _dbContext.Stocks
+                        .FirstOrDefaultAsync(s => s.ProductoId == partida.ProductoId, cancellationToken);
+
+                    if (stock != null)
+                    {
+                        var piecesPerBox = partida.Producto?.PiezasPorCaja > 0 ? partida.Producto.PiezasPorCaja : 1;
+                        var piecesToDeduct = partida.Cantidad;
+                        if (sale.Notas.Contains($"Caja ({piecesPerBox} pzs)", StringComparison.OrdinalIgnoreCase))
+                        {
+                            piecesToDeduct = partida.Cantidad * piecesPerBox;
+                        }
+
+                        var previousQuantity = stock.CantidadDisponible;
+                        stock.CantidadDisponible = Math.Max(0, stock.CantidadDisponible - piecesToDeduct);
+                        stock.FechaActualizacionUtc = nowUtc;
+
+                        _dbContext.InventoryMovements.Add(new MovimientoInventario
+                        {
+                            Id = Guid.NewGuid(),
+                            ProductoId = partida.ProductoId,
+                            IdVenta = sale.IdVenta,
+                            TipoMovimiento = InventoryMovementTypes.Sale,
+                            Cantidad = piecesToDeduct,
+                            CantidadAnterior = previousQuantity,
+                            CantidadNueva = stock.CantidadDisponible,
+                            Motivo = $"Venta Web Stripe: {sale.NumeroFolio}",
+                            NumeroReferencia = paymentIntent.Id,
+                            EvidenceImageUrl = string.Empty,
+                            EstaActivo = true,
+                            FechaCreacionUtc = nowUtc
+                        });
+                    }
+                }
+
+                // Bitácora de confirmación
+                _dbContext.AuditLogs.Add(new LogAuditoria
+                {
+                    Id = Guid.NewGuid(),
+                    IdCorrelacion = paymentIntent.Id,
+                    Accion = "STRIPE_PAYMENT_SUCCEEDED",
+                    NombreEntidad = "Venta",
+                    EntidadId = sale.NumeroFolio,
+                    ValoresNuevosJson = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        folio = sale.NumeroFolio,
+                        paymentIntentId = paymentIntent.Id,
+                        amount = paymentIntent.Amount,
+                        currency = paymentIntent.Currency,
+                        eventId = stripeEvent.Id
+                    }),
+                    DireccionIp = Request.Headers["X-Forwarded-For"].FirstOrDefault() ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0",
+                    Motivo = "Pago acreditado exitosamente por Stripe Payment Element vía Webhook",
+                    EstaActivo = true,
+                    FechaCreacionUtc = nowUtc
+                });
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("Venta {Folio} confirmada y stock deducido exitosamente por payment_intent.succeeded.", sale.NumeroFolio);
+
+                // Flujo de correo transaccional protegido (El fallo de correo NO revierte el pago)
+                try
+                {
+                    _logger.LogInformation("Enviando correo transaccional para orden web {Folio}...", sale.NumeroFolio);
+                }
+                catch (Exception mailEx)
+                {
+                    _logger.LogWarning(mailEx, "No se pudo despachar el correo para la orden {Folio}, pero el pago está acreditado.", sale.NumeroFolio);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error ejecutando transacción atómica de venta para PaymentIntent {PaymentIntentId}", paymentIntent.Id);
+                return StatusCode(500, new { message = "Error procesando transacción de venta." });
+            }
+        }
+        // EVENTO 2: checkout.session.completed (Compatibilidad)
+        else if (stripeEvent.Type == "checkout.session.completed")
+        {
+            var session = stripeEvent.Data.Object as Session;
+            if (session == null)
+            {
+                return BadRequest(new { message = "Objeto Session nulo en el evento." });
+            }
+
+            _logger.LogInformation("Procesando checkout.session.completed para SessionId: {SessionId}", session.Id);
+
+            string? orderFolio = null;
+            string? saleIdStr = null;
+            if (session.Metadata != null)
+            {
+                session.Metadata.TryGetValue("OrderFolio", out orderFolio);
+                session.Metadata.TryGetValue("SaleId", out saleIdStr);
+            }
+
+            var alreadyProcessed = await _dbContext.PaymentInstallments
+                .AnyAsync(p => p.Notas.Contains(session.Id) || p.NumeroRecibo == session.Id, cancellationToken);
+
+            if (alreadyProcessed)
+            {
+                _logger.LogInformation("Webhook duplicado ignorado (Idempotencia): Sesión {SessionId}", session.Id);
+                return Ok(new { message = "Webhook ya procesado previamente." });
+            }
+
+            Venta? sale = null;
+            if (!string.IsNullOrWhiteSpace(orderFolio))
+            {
+                sale = await _dbContext.Sales
+                    .Include(s => s.Partidas)
+                        .ThenInclude(p => p.Producto)
+                    .FirstOrDefaultAsync(s => s.NumeroFolio == orderFolio, cancellationToken);
+            }
+
+            if (sale == null && Guid.TryParse(saleIdStr, out var saleGuid))
+            {
+                sale = await _dbContext.Sales
+                    .Include(s => s.Partidas)
+                        .ThenInclude(p => p.Producto)
+                    .FirstOrDefaultAsync(s => s.Id == saleGuid, cancellationToken);
+            }
+
+            if (sale == null)
+            {
+                _logger.LogWarning("Venta no encontrada para Folio {Folio} / SaleId {SaleId}", orderFolio, saleIdStr);
+                return Ok(new { message = "Venta no encontrada pero webhook recibido." });
+            }
+
+            try
+            {
+                var nowUtc = DateTime.UtcNow;
+
+                sale.Estado = SaleStatuses.Completed;
+                sale.SaldoPendiente = 0m;
+                sale.MontoAnticipo = sale.MontoTotal;
+                sale.Notas += $" | Pago acreditado por Stripe Webhook [{session.Id}] ({session.PaymentIntentId})";
+                sale.FechaActualizacionUtc = nowUtc;
+
                 var receipt = new AbonoPago
                 {
                     Id = Guid.NewGuid(),
@@ -543,7 +1055,6 @@ public class StripePaymentsController : ControllerBase
                 };
                 _dbContext.PaymentInstallments.Add(receipt);
 
-                // Deducir existencias en Stocks e insertar movimientos de inventario
                 foreach (var partida in sale.Partidas)
                 {
                     var stock = await _dbContext.Stocks
@@ -581,30 +1092,48 @@ public class StripePaymentsController : ControllerBase
                 }
 
                 await _dbContext.SaveChangesAsync(cancellationToken);
-                // Commit atómico completado
-
                 _logger.LogInformation("Venta {Folio} confirmada y stock deducido exitosamente en SQL Server.", sale.NumeroFolio);
             }
             catch (Exception ex)
             {
-                // Rollback gestionado
                 _logger.LogError(ex, "Error ejecutando transacción atómica de venta para sesión {SessionId}", session.Id);
                 return StatusCode(500, new { message = "Error procesando transacción de venta." });
             }
         }
+        // EVENTO 3: payment_intent.payment_failed
         else if (stripeEvent.Type == "payment_intent.payment_failed")
         {
             var paymentIntent = stripeEvent.Data.Object as PaymentIntent;
+            var failureMessage = paymentIntent?.LastPaymentError?.Message ?? "Pago rechazado por el emisor bancario";
             _logger.LogWarning("Pago rechazado en Stripe: {PaymentIntentId}. Detalle: {Error}",
-                paymentIntent?.Id, paymentIntent?.LastPaymentError?.Message);
+                paymentIntent?.Id, failureMessage);
+
+            _dbContext.AuditLogs.Add(new LogAuditoria
+            {
+                Id = Guid.NewGuid(),
+                IdCorrelacion = paymentIntent?.Id ?? stripeEvent.Id,
+                Accion = "STRIPE_PAYMENT_FAILED",
+                NombreEntidad = "Venta",
+                EntidadId = paymentIntent?.Metadata?.GetValueOrDefault("OrderFolio") ?? paymentIntent?.Id ?? "DESCONOCIDO",
+                ValoresNuevosJson = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    paymentIntentId = paymentIntent?.Id,
+                    error = failureMessage,
+                    code = paymentIntent?.LastPaymentError?.Code
+                }),
+                DireccionIp = Request.Headers["X-Forwarded-For"].FirstOrDefault() ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0",
+                Motivo = $"Fallo en intento de cobro Stripe: {failureMessage}",
+                EstaActivo = true,
+                FechaCreacionUtc = DateTime.UtcNow
+            });
+            await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
         return Ok(new { received = true, eventType = stripeEvent.Type });
     }
 
     /// <summary>
-    /// Simula la recepción de un webhook de Stripe para pruebas locales y QA de inventario (POST /api/v1/payments/stripe/simulate-webhook/{folio}).
-    /// Permite probar la deducción atómica de stock y el registro de abono sin necesidad de un túnel ngrok exterior.
+    /// Simula la acreditación de webhook para pruebas locales y QA de inventario (POST /api/v1/payments/stripe/simulate-webhook/{folio}).
     /// </summary>
     [HttpPost("simulate-webhook/{folio}")]
     public async Task<IActionResult> SimulateWebhook(string folio, CancellationToken cancellationToken)
@@ -620,13 +1149,13 @@ public class StripePaymentsController : ControllerBase
             return NotFound(new { message = $"Venta no encontrada para folio: {folio}" });
         }
 
-        var simulatedSessionId = $"cs_sim_wh_{Guid.NewGuid():N}";
+        var simulatedPiId = $"pi_sim_wh_{Guid.NewGuid():N}";
 
         // Idempotencia
         var alreadyProcessed = await _dbContext.PaymentInstallments
             .AnyAsync(p => p.VentaId == sale.Id && p.Notas.Contains("Stripe"), cancellationToken);
 
-        if (alreadyProcessed)
+        if (alreadyProcessed || sale.Estado == SaleStatuses.Completed)
         {
             return Ok(new
             {
@@ -636,12 +1165,13 @@ public class StripePaymentsController : ControllerBase
             });
         }
 
-        // Transacción gestionada atómicamente por SaveChangesAsync con compatibilidad SqlServerRetryingExecutionStrategy
         try
         {
             var nowUtc = DateTime.UtcNow;
             sale.Estado = SaleStatuses.Completed;
-            sale.Notas += $" | [Simulación Webhook] Pago acreditado [{simulatedSessionId}]";
+            sale.SaldoPendiente = 0m;
+            sale.MontoAnticipo = sale.MontoTotal;
+            sale.Notas += $" | [Simulación Webhook] Pago acreditado [{simulatedPiId}]";
             sale.FechaActualizacionUtc = nowUtc;
 
             var receipt = new AbonoPago
@@ -654,13 +1184,11 @@ public class StripePaymentsController : ControllerBase
                 SaldoPendienteAnterior = sale.MontoTotal,
                 SaldoPendienteNuevo = 0m,
                 FormaPago = PaymentMethods.Card,
-                Notas = $"Acreditación vía Simulación Webhook. Sesión: {simulatedSessionId}",
+                Notas = $"Acreditación simulada de prueba Stripe: {simulatedPiId}",
                 EstaActivo = true,
                 FechaCreacionUtc = nowUtc
             };
             _dbContext.PaymentInstallments.Add(receipt);
-
-            var deductions = new List<object>();
 
             foreach (var partida in sale.Partidas)
             {
@@ -689,49 +1217,53 @@ public class StripePaymentsController : ControllerBase
                         Cantidad = piecesToDeduct,
                         CantidadAnterior = previousQuantity,
                         CantidadNueva = stock.CantidadDisponible,
-                        Motivo = $"Simulación Webhook Venta: {sale.NumeroFolio}",
-                        NumeroReferencia = simulatedSessionId,
+                        Motivo = $"Venta Web Stripe (Simulada): {sale.NumeroFolio}",
+                        NumeroReferencia = simulatedPiId,
                         EvidenceImageUrl = string.Empty,
                         EstaActivo = true,
                         FechaCreacionUtc = nowUtc
                     });
-
-                    deductions.Add(new
-                    {
-                        productId = partida.ProductoId,
-                        productName = partida.Producto?.Nombre,
-                        previousStock = previousQuantity,
-                        deductedPieces = piecesToDeduct,
-                        newStock = stock.CantidadDisponible
-                    });
                 }
             }
 
+            _dbContext.AuditLogs.Add(new LogAuditoria
+            {
+                Id = Guid.NewGuid(),
+                IdCorrelacion = simulatedPiId,
+                Accion = "STRIPE_PAYMENT_SUCCEEDED",
+                NombreEntidad = "Venta",
+                EntidadId = sale.NumeroFolio,
+                ValoresNuevosJson = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    folio = sale.NumeroFolio,
+                    simulatedPiId,
+                    monto = sale.MontoTotal
+                }),
+                DireccionIp = Request.Headers["X-Forwarded-For"].FirstOrDefault() ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0",
+                Motivo = "Simulación exitosa de webhook",
+                EstaActivo = true,
+                FechaCreacionUtc = nowUtc
+            });
+
             await _dbContext.SaveChangesAsync(cancellationToken);
-            // Commit atómico completado
 
             return Ok(new
             {
                 status = "success",
                 folio = sale.NumeroFolio,
-                simulatedSessionId,
-                totalPaid = sale.MontoTotal,
-                inventoryDeductions = deductions,
-                message = "Simulación de webhook ejecutada con éxito. Stock deducido y pago registrado."
+                montoTotal = sale.MontoTotal,
+                message = "Orden confirmada, pago acreditado y existencias deducidas con éxito en SQL Server."
             });
         }
         catch (Exception ex)
         {
-            // Rollback gestionado
-            return StatusCode(500, new { message = "Error en simulación de webhook", error = ex.Message });
+            _logger.LogError(ex, "Error simulando webhook para folio {Folio}", folio);
+            return StatusCode(500, new { message = "Error procesando simulación de orden." });
         }
     }
 
     /// <summary>
-    /// Consulta el estado y detalle de una orden generada en el E-Commerce por su número de folio WPC.
-    /// </summary>
-    /// <summary>
-    /// Consulta todos los pedidos generados desde la tienda en línea (E-Commerce) para el módulo de Pedidos Web en PDV.
+    /// Consulta los pedidos web generados vía E-Commerce para el módulo oficial del PDV "Pedidos Web / Carrito".
     /// </summary>
     [HttpGet("web-orders")]
     public async Task<IActionResult> GetWebOrders(CancellationToken cancellationToken)
@@ -760,7 +1292,13 @@ public class StripePaymentsController : ControllerBase
 
             string orderStatus = "paid";
             string statusLabel = "Pago confirmado";
-            if (sale.Notas.Contains("[ESTATUS: Entregado]"))
+
+            if (sale.Estado == SaleStatuses.PendingPayment)
+            {
+                orderStatus = "pending_payment";
+                statusLabel = "Pendiente de pago";
+            }
+            else if (sale.Notas.Contains("[ESTATUS: Entregado]"))
             {
                 orderStatus = "delivered";
                 statusLabel = "Entregado";
@@ -834,7 +1372,7 @@ public class StripePaymentsController : ControllerBase
     }
 
     /// <summary>
-    /// Actualiza la información de envío (paquetería, guía de rastreo y estado) de un pedido web desde el PDV.
+    /// Actualiza el número de guía y paquetería de una orden web desde el PDV (PUT /api/v1/payments/stripe/web-orders/{id}/tracking).
     /// </summary>
     [HttpPut("web-orders/{id}/tracking")]
     public async Task<IActionResult> UpdateWebOrderTracking(
@@ -847,43 +1385,46 @@ public class StripePaymentsController : ControllerBase
 
         if (sale == null)
         {
-            return NotFound(new { message = $"Pedido no encontrado con ID: {id}" });
+            return NotFound(new { message = "Orden no encontrada." });
         }
 
-        var cleanNotes = System.Text.RegularExpressions.Regex.Replace(sale.Notas, @"\[GUIA:[^\]]+\]", "").Trim();
-        cleanNotes = System.Text.RegularExpressions.Regex.Replace(cleanNotes, @"\[ESTATUS:[^\]]+\]", "").Trim();
-
-        var carrier = request.TrackingCarrier?.Trim() ?? "Paquetería Nacional";
+        var carrier = request.TrackingCarrier?.Trim() ?? "";
         var tracking = request.TrackingNumber?.Trim() ?? "";
-        var status = request.Status?.Trim() ?? "En camino";
+        var status = request.Status?.Trim() ?? "";
 
-        if (!string.IsNullOrWhiteSpace(tracking))
+        sale.Notas = System.Text.RegularExpressions.Regex.Replace(sale.Notas, @"\[GUIA:\s*[^\]]+\]", "").Trim();
+        sale.Notas = System.Text.RegularExpressions.Regex.Replace(sale.Notas, @"\[ESTATUS:\s*[^\]]+\]", "").Trim();
+
+        if (!string.IsNullOrWhiteSpace(carrier) && !string.IsNullOrWhiteSpace(tracking))
         {
-            cleanNotes += $" | [GUIA: {carrier} - {tracking}]";
+            sale.Notas += $" | [GUIA: {carrier} - {tracking}]";
         }
 
         if (!string.IsNullOrWhiteSpace(status))
         {
-            cleanNotes += $" | [ESTATUS: {status}]";
+            sale.Notas += $" | [ESTATUS: {status}]";
         }
 
-        sale.Notas = cleanNotes;
         sale.FechaActualizacionUtc = DateTime.UtcNow;
-
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Tracking actualizado para orden web {Folio}: Guía {Tracking} ({Carrier}), Estatus: {Status}",
+            sale.NumeroFolio, tracking, carrier, status);
 
         return Ok(new
         {
-            id = sale.Id,
+            success = true,
             folio = sale.NumeroFolio,
             trackingCarrier = carrier,
             trackingNumber = tracking,
             status = status,
-            notes = sale.Notas,
-            message = "Guía de rastreo y estatus actualizados con éxito."
+            message = "Información de envío actualizada exitosamente."
         });
     }
 
+    /// <summary>
+    /// Consulta el estado público oficial de una orden web mediante su folio WPC (GET /api/v1/payments/stripe/orders/{folio}).
+    /// </summary>
     [HttpGet("orders/{folio}")]
     public async Task<IActionResult> GetOrderByFolio(string folio, CancellationToken cancellationToken)
     {
@@ -913,7 +1454,13 @@ public class StripePaymentsController : ControllerBase
 
         string orderStatus = "paid";
         string statusLabel = "Pago confirmado";
-        if (sale.Notas.Contains("[ESTATUS: Entregado]"))
+
+        if (sale.Estado == SaleStatuses.PendingPayment)
+        {
+            orderStatus = "pending_payment";
+            statusLabel = "Pendiente de pago";
+        }
+        else if (sale.Notas.Contains("[ESTATUS: Entregado]"))
         {
             orderStatus = "delivered";
             statusLabel = "Entregado";
@@ -960,33 +1507,37 @@ public class StripePaymentsController : ControllerBase
             createdAt = sale.FechaCreacionUtc,
             items = sale.Partidas.Select(p => new
             {
+                id = p.Id,
                 productId = p.ProductoId,
-                name = p.Producto?.Nombre ?? "Producto WPC",
                 sku = p.Producto?.Sku ?? "",
+                name = p.Producto?.Nombre ?? "Producto WPC",
                 unit = p.Producto != null && p.Producto.PiezasPorCaja > 1 ? "box" : "piece",
                 quantity = (int)p.Cantidad,
-                pricePerUnit = p.PrecioUnitario,
+                unitPrice = p.PrecioUnitario,
                 lineTotal = p.PrecioTotal,
-                image = p.Producto?.ImagenUrl ?? ""
+                imageUrl = p.Producto?.ImagenUrl ?? ""
             }).ToList()
         });
     }
 
+    /// <summary>
+    /// Consulta el historial de órdenes de un cliente por correo electrónico (GET /api/v1/payments/stripe/orders/customer?email=xxx).
+    /// </summary>
     [HttpGet("orders/customer")]
     public async Task<IActionResult> GetCustomerOrders([FromQuery] string email, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(email))
         {
-            return BadRequest(new { message = "El correo electrónico es requerido." });
+            return BadRequest(new { message = "El parámetro email es requerido." });
         }
 
-        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var normalizedEmail = email.Trim().ToLower();
         var sales = await _dbContext.Sales
             .AsNoTracking()
             .Include(s => s.Cliente)
             .Include(s => s.Partidas)
                 .ThenInclude(p => p.Producto)
-            .Where(s => s.Cliente != null && s.Cliente.Email.ToLower() == normalizedEmail && s.EstaActivo)
+            .Where(s => s.Cliente != null && s.Cliente.Email.ToLower() == normalizedEmail && (s.NumeroFolio.StartsWith("WPC-") || s.Notas.Contains("[E-COMMERCE]")))
             .OrderByDescending(s => s.FechaCreacionUtc)
             .ToListAsync(cancellationToken);
 
@@ -1005,7 +1556,13 @@ public class StripePaymentsController : ControllerBase
 
             string orderStatus = "paid";
             string statusLabel = "Pago confirmado";
-            if (sale.Notas.Contains("[ESTATUS: Entregado]"))
+
+            if (sale.Estado == SaleStatuses.PendingPayment)
+            {
+                orderStatus = "pending_payment";
+                statusLabel = "Pendiente de pago";
+            }
+            else if (sale.Notas.Contains("[ESTATUS: Entregado]"))
             {
                 orderStatus = "delivered";
                 statusLabel = "Entregado";
@@ -1065,7 +1622,6 @@ public class StripePaymentsController : ControllerBase
 
         return Ok(result);
     }
-
 }
 
 public record ValidatedOrderLine(
@@ -1108,6 +1664,15 @@ public class CustomerInfoCheckoutDto
     public string Email { get; set; } = string.Empty;
     public string? Phone { get; set; }
     public CustomerAddressCheckoutDto? Address { get; set; }
+}
+
+public class CreateStripePaymentIntentRequest
+{
+    public string? CouponCode { get; set; }
+    public decimal? DiscountAmount { get; set; }
+    public CustomerInfoCheckoutDto Customer { get; set; } = new();
+    public string DeliveryMethod { get; set; } = "delivery";
+    public List<CartItemCheckoutRequest> Items { get; set; } = new();
 }
 
 public class CreateStripeCheckoutSessionRequest

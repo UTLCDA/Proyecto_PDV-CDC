@@ -17,6 +17,7 @@ public static class SalePaymentTypes
 public static class SaleStatuses
 {
     public const string Completed = "Completada";
+    public const string PendingPayment = "PendientePago";
     public const string DepositPaid = "ApartadoPagado";
     public const string Cancelled = "Cancelada";
     public const string PartiallyReturned = "DevolucionParcial";
