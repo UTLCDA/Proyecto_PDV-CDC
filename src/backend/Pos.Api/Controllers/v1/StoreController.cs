@@ -36,17 +36,23 @@ public class StoreController : ControllerBase
     private readonly PosDbContext _dbContext;
     private readonly IPricingService _pricingService;
     private readonly ILogger<StoreController> _logger;
+    private readonly IWebHostEnvironment _env;
+
+    private static bool _migrationStarted = false;
+    private static readonly object _migrationLock = new();
 
     public StoreController(
         ICatalogApplicationService catalogService,
         PosDbContext dbContext,
         IPricingService pricingService,
-        ILogger<StoreController> logger)
+        ILogger<StoreController> logger,
+        IWebHostEnvironment env)
     {
         _catalogService = catalogService;
         _dbContext = dbContext;
         _pricingService = pricingService;
         _logger = logger;
+        _env = env;
     }
 
     /// <summary>
@@ -88,6 +94,8 @@ public class StoreController : ControllerBase
         CancellationToken cancellationToken)
     {
         var productsResult = await _catalogService.GetProductsAsync(search, categoryId, isTopSellerOnly, cancellationToken, page: 1, pageSize: 500);
+
+        TriggerBackgroundBase64Extraction();
 
         var storeProducts = productsResult.Items
             .Where(p => p.IsActive && !p.IsQuoteOnly)
@@ -808,14 +816,192 @@ public class StoreController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Sirve la imagen del producto (WebP o JPEG) de forma eficiente con encabezados HTTP Cache de 7 días.
+    /// Si la imagen está en formato Base64 en la base de datos, la decodifica, la persiste en disco en wwwroot/catalogo/productos
+    /// para aceleración futura y la devuelve en binario.
+    /// </summary>
+    [HttpGet("products/{idOrCode}/image")]
+    [ResponseCache(Duration = 604800, Location = ResponseCacheLocation.Any)]
+    public async Task<IActionResult> GetProductImage(string idOrCode, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(idOrCode))
+        {
+            return NotFound();
+        }
+
+        var isGuid = Guid.TryParse(idOrCode, out var productId);
+        var term = idOrCode.Trim();
+
+        var webRoot = !string.IsNullOrWhiteSpace(_env.WebRootPath)
+            ? _env.WebRootPath
+            : Path.Combine(_env.ContentRootPath, "wwwroot");
+        var catalogPath = Path.Combine(webRoot, "catalogo", "productos");
+
+        string? existingFile = null;
+        if (isGuid)
+        {
+            var webpGuid = Path.Combine(catalogPath, $"{productId:D}.webp");
+            var jpgGuid = Path.Combine(catalogPath, $"{productId:D}.jpg");
+            var pngGuid = Path.Combine(catalogPath, $"{productId:D}.png");
+            if (System.IO.File.Exists(webpGuid)) existingFile = webpGuid;
+            else if (System.IO.File.Exists(jpgGuid)) existingFile = jpgGuid;
+            else if (System.IO.File.Exists(pngGuid)) existingFile = pngGuid;
+        }
+
+        if (existingFile != null)
+        {
+            var ext = Path.GetExtension(existingFile).ToLowerInvariant();
+            var contentType = ext switch
+            {
+                ".webp" => "image/webp",
+                ".png" => "image/png",
+                _ => "image/jpeg"
+            };
+            Response.Headers.Append("Cache-Control", "public, max-age=604800, must-revalidate");
+            return PhysicalFile(existingFile, contentType);
+        }
+
+        // Consultar el producto en BD
+        var product = isGuid
+            ? await _dbContext.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == productId, cancellationToken)
+            : await _dbContext.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Sku == term || p.Barcode == term, cancellationToken);
+
+        if (product == null || string.IsNullOrWhiteSpace(product.ImagenUrl))
+        {
+            return NotFound();
+        }
+
+        var rawImg = product.ImagenUrl.Trim();
+        if (rawImg.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || rawImg.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return Redirect(rawImg);
+        }
+
+        if (rawImg.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase) || rawImg.Length > 200)
+        {
+            try
+            {
+                var commaIdx = rawImg.IndexOf(',');
+                var base64Part = commaIdx >= 0 ? rawImg.Substring(commaIdx + 1) : rawImg;
+                var bytes = Convert.FromBase64String(base64Part);
+
+                var contentType = "image/jpeg";
+                var ext = ".jpg";
+                if (rawImg.StartsWith("data:image/png", StringComparison.OrdinalIgnoreCase))
+                {
+                    contentType = "image/png";
+                    ext = ".png";
+                }
+                else if (rawImg.StartsWith("data:image/webp", StringComparison.OrdinalIgnoreCase))
+                {
+                    contentType = "image/webp";
+                    ext = ".webp";
+                }
+
+                try
+                {
+                    Directory.CreateDirectory(catalogPath);
+                    var savePath = Path.Combine(catalogPath, $"{product.Id:D}{ext}");
+                    await System.IO.File.WriteAllBytesAsync(savePath, bytes, cancellationToken);
+                }
+                catch (Exception diskEx)
+                {
+                    _logger.LogWarning(diskEx, "No fue posible persistir en disco la imagen de {ProductId}", product.Id);
+                }
+
+                Response.Headers.Append("Cache-Control", "public, max-age=604800, must-revalidate");
+                return File(bytes, contentType);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error al decodificar imagen Base64 para producto {IdOrCode}", idOrCode);
+                return NotFound();
+            }
+        }
+
+        return NotFound();
+    }
+
+    private void TriggerBackgroundBase64Extraction()
+    {
+        if (_migrationStarted) return;
+        lock (_migrationLock)
+        {
+            if (_migrationStarted) return;
+            _migrationStarted = true;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var webRoot = !string.IsNullOrWhiteSpace(_env.WebRootPath)
+                    ? _env.WebRootPath
+                    : Path.Combine(_env.ContentRootPath, "wwwroot");
+                var catalogPath = Path.Combine(webRoot, "catalogo", "productos");
+                Directory.CreateDirectory(catalogPath);
+
+                var productsWithBase64 = await _dbContext.Products
+                    .AsNoTracking()
+                    .Where(p => p.EstaActivo && p.ImagenUrl.StartsWith("data:image/"))
+                    .Select(p => new { p.Id, p.ImagenUrl })
+                    .ToListAsync();
+
+                _logger.LogInformation("Iniciando pre-extracción de {Count} imágenes Base64 a disco...", productsWithBase64.Count);
+
+                foreach (var p in productsWithBase64)
+                {
+                    try
+                    {
+                        var targetFile = Path.Combine(catalogPath, $"{p.Id:D}.jpg");
+                        if (System.IO.File.Exists(targetFile)) continue;
+
+                        var commaIdx = p.ImagenUrl.IndexOf(',');
+                        var base64Part = commaIdx >= 0 ? p.ImagenUrl.Substring(commaIdx + 1) : p.ImagenUrl;
+                        var bytes = Convert.FromBase64String(base64Part);
+                        await System.IO.File.WriteAllBytesAsync(targetFile, bytes);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Fallo al pre-extraer imagen de {ProductId}", p.Id);
+                    }
+                }
+
+                _logger.LogInformation("Pre-extracción de imágenes Base64 a disco completada exitosamente.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error general en la pre-extracción de imágenes Base64.");
+            }
+        });
+    }
+
     private static ProductDto SanitizeForStore(ProductDto p)
     {
+        var imageUrl = p.ImageUrl;
+        if (!string.IsNullOrWhiteSpace(imageUrl) && imageUrl.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+        {
+            imageUrl = $"/api/v1/store/products/{p.Id:D}/image";
+        }
+
+        var imageUrls = p.ImageUrls;
+        if (imageUrls != null && imageUrls.Any(img => img.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)))
+        {
+            imageUrls = imageUrls
+                .Where(img => !img.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
         return p with {
             UnitCost = 0m,
-            UnitPrice = p.OnlinePrice ?? p.UnitPrice
+            UnitPrice = p.OnlinePrice ?? p.UnitPrice,
+            ImageUrl = imageUrl,
+            ImageUrls = imageUrls
         };
     }
 }
+
 
 public record CheckInventoryItemRequest(Guid ProductId, string Unit, decimal Quantity);
 public record CheckInventoryBatchRequest(List<CheckInventoryItemRequest> Items);
