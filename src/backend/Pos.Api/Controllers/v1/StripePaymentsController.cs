@@ -52,6 +52,19 @@ public class StripePaymentsController : ControllerBase
         [FromBody] CreateStripePaymentIntentRequest request,
         CancellationToken cancellationToken)
     {
+        var isMaintenance = _configuration.GetValue<bool>("StripeSettings:MaintenanceMode", true) ||
+                            string.Equals(Environment.GetEnvironmentVariable("STRIPE_MAINTENANCE_MODE"), "true", StringComparison.OrdinalIgnoreCase);
+
+        if (isMaintenance)
+        {
+            return StatusCode(503, new
+            {
+                maintenance = true,
+                reopenDate = "2026-09-25",
+                message = "El módulo de pagos con tarjeta en línea se encuentra en mantenimiento preventivo por validación de titular de cuenta hasta el 25 de septiembre de 2026. Por favor contáctanos vía WhatsApp al 477 807 2768."
+            });
+        }
+
         if (request?.Items == null || request.Items.Count == 0)
         {
             return BadRequest(new { message = "El pedido debe contener al menos un producto." });
@@ -399,6 +412,19 @@ public class StripePaymentsController : ControllerBase
         [FromBody] CreateStripeCheckoutSessionRequest request,
         CancellationToken cancellationToken)
     {
+        var isMaintenance = _configuration.GetValue<bool>("StripeSettings:MaintenanceMode", true) ||
+                            string.Equals(Environment.GetEnvironmentVariable("STRIPE_MAINTENANCE_MODE"), "true", StringComparison.OrdinalIgnoreCase);
+
+        if (isMaintenance)
+        {
+            return StatusCode(503, new
+            {
+                maintenance = true,
+                reopenDate = "2026-09-25",
+                message = "El módulo de pagos con tarjeta en línea se encuentra en mantenimiento preventivo por validación de titular de cuenta hasta el 25 de septiembre de 2026. Por favor contáctanos vía WhatsApp al 477 807 2768."
+            });
+        }
+
         if (request?.Items == null || request.Items.Count == 0)
         {
             return BadRequest(new { message = "El pedido debe contener al menos un producto." });
