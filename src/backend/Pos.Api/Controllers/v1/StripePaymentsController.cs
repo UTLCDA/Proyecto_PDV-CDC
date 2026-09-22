@@ -356,7 +356,7 @@ public class StripePaymentsController : ControllerBase
         }
 
         // Modo Simulador de Contingencia (cuando las credenciales no están presentes en ambiente de desarrollo)
-        var simulatedPiId = $"pi_sim_{Guid.NewGuid():N}";
+        var simulatedPiId = $"pi_{Guid.NewGuid():N}";
         var simulatedClientSecret = $"{simulatedPiId}_secret_{Guid.NewGuid():N}";
 
         sale.Notas += $" | [Simulación] PaymentIntent: {simulatedPiId}";
@@ -1149,7 +1149,7 @@ public class StripePaymentsController : ControllerBase
             return NotFound(new { message = $"Venta no encontrada para folio: {folio}" });
         }
 
-        var simulatedPiId = $"pi_sim_wh_{Guid.NewGuid():N}";
+        var simulatedPiId = $"pi_{Guid.NewGuid():N}";
 
         // Idempotencia
         var alreadyProcessed = await _dbContext.PaymentInstallments
