@@ -40,6 +40,14 @@ public class StoreController : ControllerBase
 
     private static bool _migrationStarted = false;
     private static readonly object _migrationLock = new();
+    private static List<ProductDto>? _cachedStoreProducts;
+    private static DateTime _cacheExpiresAtUtc = DateTime.MinValue;
+
+    public static void InvalidateCache()
+    {
+        _cachedStoreProducts = null;
+        _cacheExpiresAtUtc = DateTime.MinValue;
+    }
 
     public StoreController(
         ICatalogApplicationService catalogService,
@@ -93,6 +101,16 @@ public class StoreController : ControllerBase
         [FromQuery] bool? inStockOnly,
         CancellationToken cancellationToken)
     {
+        var isDefaultQuery = string.IsNullOrWhiteSpace(search) &&
+                             !categoryId.HasValue &&
+                             isTopSellerOnly != true &&
+                             inStockOnly != true;
+
+        if (isDefaultQuery && _cachedStoreProducts != null && DateTime.UtcNow < _cacheExpiresAtUtc)
+        {
+            return Ok(_cachedStoreProducts);
+        }
+
         var productsResult = await _catalogService.GetProductsAsync(search, categoryId, isTopSellerOnly, cancellationToken, page: 1, pageSize: 500);
 
         TriggerBackgroundBase64Extraction();
@@ -102,6 +120,12 @@ public class StoreController : ControllerBase
             .Where(p => inStockOnly != true || p.AvailableQuantity > 0)
             .Select(SanitizeForStore)
             .ToList();
+
+        if (isDefaultQuery)
+        {
+            _cachedStoreProducts = storeProducts;
+            _cacheExpiresAtUtc = DateTime.UtcNow.AddMinutes(5);
+        }
 
         return Ok(storeProducts);
     }
