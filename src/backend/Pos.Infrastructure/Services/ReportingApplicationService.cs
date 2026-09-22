@@ -421,7 +421,7 @@ public class ReportingApplicationService : IReportingApplicationService
     {
         var query = _dbContext.Sales
             .AsNoTracking()
-            .Where(sale => sale.EstaActivo && sale.Estado != SaleStatuses.Cancelled);
+            .Where(sale => sale.EstaActivo && sale.Estado != SaleStatuses.Cancelled && sale.Estado != SaleStatuses.PendingPayment);
 
         if (startDate.HasValue)
         {

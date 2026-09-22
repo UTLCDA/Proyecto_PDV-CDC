@@ -504,7 +504,13 @@ public class SaleApplicationService : ISaleApplicationService
         CancellationToken cancellationToken = default)
     {
         ValidateDateRange(startDate, endDate);
-        var sales = await ApplySaleFilters(_dbContext.Sales.AsNoTracking(), search, status, startDate, endDate)
+        var baseQuery = _dbContext.Sales.AsNoTracking();
+        // Si no se filtra por un estado explícito, se excluyen ventas canceladas y pendientes de pago
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            baseQuery = baseQuery.Where(sale => sale.Estado != SaleStatuses.Cancelled && sale.Estado != SaleStatuses.PendingPayment);
+        }
+        var sales = await ApplySaleFilters(baseQuery, search, status, startDate, endDate)
             .Select(sale => new
             {
                 sale.MontoTotal,
@@ -578,37 +584,42 @@ public class SaleApplicationService : ISaleApplicationService
         }
 
         var cleanReason = reason.Trim();
+        var wasPendingPayment = sale.Estado == SaleStatuses.PendingPayment;
         sale.Estado = SaleStatuses.Cancelled;
         sale.Notas = string.IsNullOrWhiteSpace(sale.Notas)
             ? $"[CANCELADA]: {cleanReason}"
             : $"{sale.Notas} | [CANCELADA]: {cleanReason}";
 
-        var productIds = sale.Partidas.Select(p => p.ProductoId).Distinct().ToList();
-        var stocks = await _dbContext.Stocks
-            .Where(s => productIds.Contains(s.ProductoId))
-            .ToDictionaryAsync(s => s.ProductoId, cancellationToken);
-
-        var nowUtc = DateTime.UtcNow;
-        foreach (var item in sale.Partidas)
+        // Solo se reingresa stock si la venta realmente había descontado inventario (no estaba pendiente de pago)
+        if (!wasPendingPayment)
         {
-            if (stocks.TryGetValue(item.ProductoId, out var stock))
-            {
-                var prevQty = stock.CantidadDisponible;
-                stock.AgregarStock(item.Cantidad);
+            var productIds = sale.Partidas.Select(p => p.ProductoId).Distinct().ToList();
+            var stocks = await _dbContext.Stocks
+                .Where(s => productIds.Contains(s.ProductoId))
+                .ToDictionaryAsync(s => s.ProductoId, cancellationToken);
 
-                _dbContext.InventoryMovements.Add(new MovimientoInventario
+            var nowUtc = DateTime.UtcNow;
+            foreach (var item in sale.Partidas)
+            {
+                if (stocks.TryGetValue(item.ProductoId, out var stock))
                 {
-                    ProductoId = item.ProductoId,
-                    TipoMovimiento = InventoryMovementTypes.Return,
-                    Cantidad = item.Cantidad,
-                    CantidadAnterior = prevQty,
-                    CantidadNueva = stock.CantidadDisponible,
-                    Motivo = $"Cancelación Venta #{sale.IdVenta}: {cleanReason}",
-                    NumeroReferencia = sale.NumeroFolio,
-                    IdVenta = sale.IdVenta,
-                    UsuarioId = currentUserId,
-                    FechaCreacionUtc = nowUtc
-                });
+                    var prevQty = stock.CantidadDisponible;
+                    stock.AgregarStock(item.Cantidad);
+
+                    _dbContext.InventoryMovements.Add(new MovimientoInventario
+                    {
+                        ProductoId = item.ProductoId,
+                        TipoMovimiento = InventoryMovementTypes.Return,
+                        Cantidad = item.Cantidad,
+                        CantidadAnterior = prevQty,
+                        CantidadNueva = stock.CantidadDisponible,
+                        Motivo = $"Cancelación Venta #{sale.IdVenta}: {cleanReason}",
+                        NumeroReferencia = sale.NumeroFolio,
+                        IdVenta = sale.IdVenta,
+                        UsuarioId = currentUserId,
+                        FechaCreacionUtc = nowUtc
+                    });
+                }
             }
         }
 
