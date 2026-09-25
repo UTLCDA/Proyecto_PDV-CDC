@@ -173,16 +173,20 @@ public class InventoryApplicationService : IInventoryApplicationService
             return new PagedResult<InventoryMovementDto>([], 0, pageNumber, pageSize);
         }
 
+        var isAsc = string.Equals(sortDirection, "asc", StringComparison.OrdinalIgnoreCase);
         var isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
         var sortedQuery = (sortBy?.Trim().ToLowerInvariant()) switch
         {
             "product" or "producto" or "nombre" => isDesc ? baseQuery.OrderByDescending(m => m.Producto.Nombre) : baseQuery.OrderBy(m => m.Producto.Nombre),
             "type" or "tipo" or "tipomovimiento" => isDesc ? baseQuery.OrderByDescending(m => m.TipoMovimiento) : baseQuery.OrderBy(m => m.TipoMovimiento),
+            "previousquantity" or "cantidadanterior" or "stockanterior" => isDesc ? baseQuery.OrderByDescending(m => m.CantidadAnterior) : baseQuery.OrderBy(m => m.CantidadAnterior),
             "quantity" or "cantidad" => isDesc ? baseQuery.OrderByDescending(m => m.Cantidad) : baseQuery.OrderBy(m => m.Cantidad),
+            "newquantity" or "cantidadnueva" or "stockresultante" or "stockfinal" => isDesc ? baseQuery.OrderByDescending(m => m.CantidadNueva) : baseQuery.OrderBy(m => m.CantidadNueva),
             "reference" or "referencia" or "numeroreferencia" => isDesc ? baseQuery.OrderByDescending(m => m.NumeroReferencia) : baseQuery.OrderBy(m => m.NumeroReferencia),
             "reason" or "motivo" => isDesc ? baseQuery.OrderByDescending(m => m.Motivo) : baseQuery.OrderBy(m => m.Motivo),
             "user" or "usuario" => isDesc ? baseQuery.OrderByDescending(m => m.Usuario != null ? m.Usuario.NombreUsuario : "") : baseQuery.OrderBy(m => m.Usuario != null ? m.Usuario.NombreUsuario : ""),
-            _ => isDesc ? baseQuery.OrderByDescending(m => m.FechaCreacionUtc).ThenByDescending(m => m.Id) : baseQuery.OrderBy(m => m.FechaCreacionUtc).ThenBy(m => m.Id)
+            "date" or "fecha" or "createdatutc" or "fechacreacionutc" => isAsc ? baseQuery.OrderBy(m => m.FechaCreacionUtc).ThenBy(m => m.Id) : baseQuery.OrderByDescending(m => m.FechaCreacionUtc).ThenByDescending(m => m.Id),
+            _ => isAsc ? baseQuery.OrderBy(m => m.FechaCreacionUtc).ThenBy(m => m.Id) : baseQuery.OrderByDescending(m => m.FechaCreacionUtc).ThenByDescending(m => m.Id)
         };
 
         var (skip, take) = QueryPaging.Normalize(pageNumber, pageSize, 100);

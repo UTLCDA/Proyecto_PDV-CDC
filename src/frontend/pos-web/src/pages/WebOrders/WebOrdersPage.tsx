@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import apiClient from '../../services/apiClient';
 import './WebOrdersPage.css';
 
@@ -56,6 +57,7 @@ const CARRIERS = [
 ];
 
 export const WebOrdersPage: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const [orders, setOrders] = useState<WebOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,7 +115,7 @@ export const WebOrdersPage: React.FC = () => {
         status: orderStatus
       });
 
-      setSaveSuccessMessage('¡Información de guía y estado actualizada con éxito!');
+      setSaveSuccessMessage(t('saveSuccess', '¡Información de guía y estado actualizada con éxito!'));
 
       // Actualizar pedido en estado local
       setOrders(prev => prev.map(o => {
@@ -138,7 +140,7 @@ export const WebOrdersPage: React.FC = () => {
       }, 1500);
     } catch (err) {
       console.error('Error al guardar guía:', err);
-      alert('Ocurrió un error al actualizar la guía de rastreo.');
+      alert(t('saveTrackingError', 'Ocurrió un error al actualizar la guía de rastreo.'));
     } finally {
       setSavingTracking(false);
     }
@@ -168,44 +170,59 @@ export const WebOrdersPage: React.FC = () => {
     return { total, delivered, shipped, pending, totalRevenue };
   }, [orders]);
 
+  const formatOrderStatusLabel = (status: string, fallbackLabel: string) => {
+    switch (status) {
+      case 'delivered':
+        return t('webOrderStatusDelivered');
+      case 'shipped':
+        return t('webOrderStatusShipped');
+      case 'preparing':
+        return t('webOrderStatusPreparing');
+      case 'paid':
+        return t('webOrderStatusPaid');
+      default:
+        return fallbackLabel;
+    }
+  };
+
   return (
     <div className="web-orders-page">
       <header className="web-orders-header">
         <div className="web-orders-header__top">
           <div>
             <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              📦 Pedidos Tienda en Línea (CDC / Stripe)
+              📦 {t('webOrdersTitle')}
             </h2>
             <p style={{ margin: '0.25rem 0 0', color: 'var(--text-secondary)' }}>
-              Supervisión de compras web, asignación manual de guías de paquetería y control de despachos.
+              {t('webOrdersSubtitle')}
             </p>
           </div>
           <button className="action-btn" onClick={fetchOrders} disabled={loading}>
-            🔄 {loading ? 'Actualizando...' : 'Recargar Pedidos'}
+            🔄 {loading ? t('updating', 'Actualizando...') : t('reloadOrders')}
           </button>
         </div>
 
         {/* Métricas */}
         <div className="sales-history-metrics" style={{ marginTop: '1rem' }}>
           <article className="card">
-            <span>Total Pedidos Web</span>
-            <strong>{metrics.total} órdenes</strong>
-            <small style={{ color: 'var(--text-secondary)' }}>{money.format(metrics.totalRevenue)} facturado</small>
+            <span>{t('webOrdersTotal')}</span>
+            <strong>{metrics.total} {t('ordersCount')}</strong>
+            <small style={{ color: 'var(--text-secondary)' }}>{money.format(metrics.totalRevenue)} {t('invoiced')}</small>
           </article>
           <article className="card">
-            <span>Por Empacar / Despachar</span>
-            <strong style={{ color: '#d97706' }}>{metrics.pending} pendientes</strong>
-            <small>En almacén central</small>
+            <span>{t('webOrdersPending')}</span>
+            <strong style={{ color: '#d97706' }}>{metrics.pending} {t('pendingCount')}</strong>
+            <small>{t('inCentralWarehouse')}</small>
           </article>
           <article className="card">
-            <span>En Camino / Con Guía</span>
-            <strong style={{ color: '#2563eb' }}>{metrics.shipped} en ruta</strong>
-            <small>Con paquetería</small>
+            <span>{t('webOrdersShipped')}</span>
+            <strong style={{ color: '#2563eb' }}>{metrics.shipped} {t('inTransitCount')}</strong>
+            <small>{t('withCourier')}</small>
           </article>
           <article className="card">
-            <span>Entregados con Éxito</span>
-            <strong style={{ color: '#16a34a' }}>{metrics.delivered} entregados</strong>
-            <small>Clientes satisfechos</small>
+            <span>{t('webOrdersDelivered')}</span>
+            <strong style={{ color: '#16a34a' }}>{metrics.delivered} {t('deliveredCount')}</strong>
+            <small>{t('satisfiedCustomers')}</small>
           </article>
         </div>
 
@@ -215,7 +232,7 @@ export const WebOrdersPage: React.FC = () => {
             type="text"
             className="form-control"
             style={{ flex: '1 1 240px' }}
-            placeholder="🔍 Buscar por Folio (WPC-...), Cliente, Correo o Guía..."
+            placeholder={t('searchWebOrdersPlaceholder')}
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
@@ -226,15 +243,15 @@ export const WebOrdersPage: React.FC = () => {
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
           >
-            <option value="all">Todos los estatus</option>
-            <option value="paid">Por despachar (Pagado)</option>
-            <option value="preparing">Preparando en almacén</option>
-            <option value="shipped">En camino (Con guía)</option>
-            <option value="delivered">Entregados</option>
+            <option value="all">{t('allStatus')}</option>
+            <option value="paid">{t('webOrderStatusPaid')}</option>
+            <option value="preparing">{t('webOrderStatusPreparing')}</option>
+            <option value="shipped">{t('webOrderStatusShipped')}</option>
+            <option value="delivered">{t('webOrderStatusDelivered')}</option>
           </select>
 
           <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Mostrando <strong>{filteredOrders.length}</strong> de {orders.length} pedidos
+            {t('showingWebOrdersCount', { filtered: filteredOrders.length, total: orders.length })}
           </span>
         </div>
       </header>
@@ -245,28 +262,28 @@ export const WebOrdersPage: React.FC = () => {
           <table className="sales-history-table">
             <thead>
               <tr>
-                <th>Folio / Fecha</th>
-                <th>Cliente</th>
-                <th>Modalidad / Destino</th>
-                <th>Partidas</th>
-                <th>Flete</th>
-                <th>Total</th>
-                <th>Paquetería & Guía</th>
-                <th>Estado</th>
-                <th>Acción</th>
+                <th>{t('orderFolioDate')}</th>
+                <th>{t('customer')}</th>
+                <th>{t('deliveryMethodDestination')}</th>
+                <th>{t('itemsQuantityHeader')}</th>
+                <th>{t('shippingHeader')}</th>
+                <th>{t('total')}</th>
+                <th>{t('courierAndTrackingHeader')}</th>
+                <th>{t('status')}</th>
+                <th>{t('actions')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
                   <td colSpan={9} style={{ textAlign: 'center', padding: '2.5rem' }}>
-                    Cargando pedidos de la tienda en línea...
+                    {t('loadingWebOrders')}
                   </td>
                 </tr>
               ) : filteredOrders.length === 0 ? (
                 <tr>
                   <td colSpan={9} style={{ textAlign: 'center', padding: '2.5rem' }}>
-                    No se encontraron pedidos web con los filtros seleccionados.
+                    {t('noWebOrdersFound')}
                   </td>
                 </tr>
               ) : (
@@ -277,13 +294,13 @@ export const WebOrdersPage: React.FC = () => {
                         {order.folio}
                       </strong>
                       <small style={{ display: 'block', color: 'var(--text-secondary)' }}>
-                        {new Date(order.createdAtUtc).toLocaleString('es-MX')}
+                        {new Date(order.createdAtUtc).toLocaleString(i18n.language === 'zh' ? 'zh-CN' : 'es-MX')}
                       </small>
                     </td>
                     <td>
                       <strong>{order.customer.displayName}</strong>
                       <small style={{ display: 'block', color: 'var(--text-secondary)' }}>{order.customer.email}</small>
-                      <small style={{ display: 'block', color: 'var(--text-secondary)' }}>📞 {order.customer.phone || 'Sin tel.'}</small>
+                      <small style={{ display: 'block', color: 'var(--text-secondary)' }}>📞 {order.customer.phone || t('notProvided')}</small>
                     </td>
                     <td>
                       <span className="badge" style={{
@@ -292,7 +309,7 @@ export const WebOrdersPage: React.FC = () => {
                         marginBottom: '0.25rem',
                         display: 'inline-block'
                       }}>
-                        {order.deliveryMethod === 'pickup' ? '🏪 Recolección en Tienda' : '🚚 Envío a Domicilio'}
+                        {order.deliveryMethod === 'pickup' ? `🏪 ${t('pickupInStore')}` : `🚚 ${t('homeDelivery')}`}
                       </span>
                       {order.deliveryMethod === 'delivery' && (
                         <small style={{ display: 'block', maxWidth: '240px', lineHeight: '1.2' }}>
@@ -301,19 +318,19 @@ export const WebOrdersPage: React.FC = () => {
                       )}
                     </td>
                     <td>
-                      <strong>{order.itemsCount} producto(s)</strong>
+                      <strong>{order.itemsCount} {t('itemCountSuffix')}</strong>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                         {order.items.slice(0, 2).map((it, i) => (
                           <div key={i}>{it.quantity}× {it.name}</div>
                         ))}
-                        {order.items.length > 2 && <div>+{order.items.length - 2} más...</div>}
+                        {order.items.length > 2 && <div>+{order.items.length - 2} {t('moreItems')}</div>}
                       </div>
                     </td>
                     <td>
                       {order.shippingCost > 0 ? (
                         <strong>{money.format(order.shippingCost)}</strong>
                       ) : (
-                        <span style={{ color: '#16a34a', fontWeight: 600 }}>$0.00 (Gratis)</span>
+                        <span style={{ color: '#16a34a', fontWeight: 600 }}>{t('freeShipping')}</span>
                       )}
                     </td>
                     <td>
@@ -331,7 +348,7 @@ export const WebOrdersPage: React.FC = () => {
                         </div>
                       ) : (
                         <span style={{ color: '#d97706', fontSize: '0.8rem', fontStyle: 'italic' }}>
-                          ⚠️ Sin guía asignada
+                          ⚠️ {t('noTrackingAssigned')}
                         </span>
                       )}
                     </td>
@@ -344,7 +361,7 @@ export const WebOrdersPage: React.FC = () => {
                         color: '#fff',
                         fontWeight: 600
                       }}>
-                        {order.statusLabel}
+                        {formatOrderStatusLabel(order.status, order.statusLabel)}
                       </span>
                     </td>
                     <td>
@@ -353,7 +370,7 @@ export const WebOrdersPage: React.FC = () => {
                         style={{ fontWeight: 600, color: 'var(--primary-main)' }}
                         onClick={() => openTrackingModal(order)}
                       >
-                        ✏️ Guía / Detalle
+                        ✏️ {t('editTrackingDetail')}
                       </button>
                     </td>
                   </tr>
@@ -371,16 +388,17 @@ export const WebOrdersPage: React.FC = () => {
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
               <div>
                 <h3 style={{ margin: 0, color: 'var(--primary-main)' }}>
-                  📦 Pedido Web {selectedOrder.folio}
+                  📦 {t('webOrderFolio', { folio: selectedOrder.folio })}
                 </h3>
                 <small style={{ color: 'var(--text-secondary)' }}>
-                  Registrado el {new Date(selectedOrder.createdAtUtc).toLocaleString('es-MX')}
+                  {t('orderRegisteredAt', { date: new Date(selectedOrder.createdAtUtc).toLocaleString(i18n.language === 'zh' ? 'zh-CN' : 'es-MX') })}
                 </small>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedOrder(null)}
                 style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                aria-label={t('close')}
               >
                 ✕
               </button>
@@ -396,15 +414,15 @@ export const WebOrdersPage: React.FC = () => {
             {/* Datos del Cliente y Entrega */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', background: 'var(--background-container)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem' }}>
               <div>
-                <span style={{ fontWeight: 700, display: 'block', color: 'var(--text-secondary)' }}>DATOS DEL CLIENTE</span>
+                <span style={{ fontWeight: 700, display: 'block', color: 'var(--text-secondary)' }}>{t('customerDataSection')}</span>
                 <p style={{ margin: '0.25rem 0' }}><strong>{selectedOrder.customer.displayName}</strong></p>
                 <p style={{ margin: '0.25rem 0' }}>📧 {selectedOrder.customer.email}</p>
-                <p style={{ margin: '0.25rem 0' }}>📞 {selectedOrder.customer.phone || 'No proporcionado'}</p>
+                <p style={{ margin: '0.25rem 0' }}>📞 {selectedOrder.customer.phone || t('notProvided')}</p>
               </div>
               <div>
-                <span style={{ fontWeight: 700, display: 'block', color: 'var(--text-secondary)' }}>DESTINO DE ENVÍO</span>
+                <span style={{ fontWeight: 700, display: 'block', color: 'var(--text-secondary)' }}>{t('shippingDestinationSection')}</span>
                 <p style={{ margin: '0.25rem 0' }}>
-                  <strong>{selectedOrder.deliveryMethod === 'pickup' ? 'Recolección en Tienda León' : 'Envío a Domicilio'}</strong>
+                  <strong>{selectedOrder.deliveryMethod === 'pickup' ? t('pickupStoreLeon') : t('homeDelivery')}</strong>
                 </p>
                 <p style={{ margin: '0.25rem 0', color: 'var(--text-secondary)' }}>
                   {selectedOrder.customer.address}
@@ -414,14 +432,14 @@ export const WebOrdersPage: React.FC = () => {
 
             {/* Desglose de Productos */}
             <div style={{ marginBottom: '1.25rem' }}>
-              <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>Partidas del Pedido ({selectedOrder.items.length})</h4>
+              <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>{t('orderItemsCount', { count: selectedOrder.items.length })}</h4>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                 <thead>
                   <tr style={{ background: 'var(--background-container)', borderBottom: '1px solid var(--border-subtle)' }}>
-                    <th style={{ padding: '6px', textAlign: 'left' }}>Producto</th>
-                    <th style={{ padding: '6px', textAlign: 'center' }}>Cant.</th>
-                    <th style={{ padding: '6px', textAlign: 'right' }}>Precio Unit.</th>
-                    <th style={{ padding: '6px', textAlign: 'right' }}>Total</th>
+                    <th style={{ padding: '6px', textAlign: 'left' }}>{t('product')}</th>
+                    <th style={{ padding: '6px', textAlign: 'center' }}>{t('quantity')}</th>
+                    <th style={{ padding: '6px', textAlign: 'right' }}>{t('price')}</th>
+                    <th style={{ padding: '6px', textAlign: 'right' }}>{t('total')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -431,30 +449,30 @@ export const WebOrdersPage: React.FC = () => {
                         <strong>{it.name}</strong> <small style={{ color: 'var(--text-secondary)' }}>({it.sku})</small>
                       </td>
                       <td style={{ padding: '6px', textAlign: 'center' }}>
-                        {it.quantity} {it.unit === 'box' ? 'caja(s)' : 'pza(s)'}
+                        {it.quantity} {it.unit === 'box' ? t('boxesUnit') : t('piecesUnit')}
                       </td>
                       <td style={{ padding: '6px', textAlign: 'right' }}>{money.format(it.unitPrice)}</td>
                       <td style={{ padding: '6px', textAlign: 'right' }}><strong>{money.format(it.lineTotal)}</strong></td>
                     </tr>
                   ))}
                   <tr style={{ borderTop: '2px solid var(--border-subtle)' }}>
-                    <td colSpan={3} style={{ padding: '6px', textAlign: 'right' }}>Subtotal:</td>
+                    <td colSpan={3} style={{ padding: '6px', textAlign: 'right' }}>{t('subtotal')}:</td>
                     <td style={{ padding: '6px', textAlign: 'right' }}>{money.format(selectedOrder.subtotal)}</td>
                   </tr>
                   {selectedOrder.discountAmount !== undefined && selectedOrder.discountAmount > 0 && (
                     <tr style={{ color: '#16a34a' }}>
-                      <td colSpan={3} style={{ padding: '6px', textAlign: 'right', fontWeight: 600 }}>Descuento aplicado:</td>
+                      <td colSpan={3} style={{ padding: '6px', textAlign: 'right', fontWeight: 600 }}>{t('discountApplied')}:</td>
                       <td style={{ padding: '6px', textAlign: 'right', fontWeight: 700 }}>-{money.format(selectedOrder.discountAmount)}</td>
                     </tr>
                   )}
                   <tr>
-                    <td colSpan={3} style={{ padding: '6px', textAlign: 'right' }}>Costo de Envío:</td>
+                    <td colSpan={3} style={{ padding: '6px', textAlign: 'right' }}>{t('shippingCost')}:</td>
                     <td style={{ padding: '6px', textAlign: 'right' }}>
-                      {selectedOrder.shippingCost > 0 ? money.format(selectedOrder.shippingCost) : '$0.00 (Gratis)'}
+                      {selectedOrder.shippingCost > 0 ? money.format(selectedOrder.shippingCost) : t('freeShipping')}
                     </td>
                   </tr>
                   <tr style={{ fontWeight: 800, fontSize: '0.95rem' }}>
-                    <td colSpan={3} style={{ padding: '6px', textAlign: 'right', color: 'var(--primary-main)' }}>Total Pagado:</td>
+                    <td colSpan={3} style={{ padding: '6px', textAlign: 'right', color: 'var(--primary-main)' }}>{t('totalPaid')}:</td>
                     <td style={{ padding: '6px', textAlign: 'right', color: 'var(--primary-main)' }}>{money.format(selectedOrder.total)}</td>
                   </tr>
                 </tbody>
@@ -464,20 +482,20 @@ export const WebOrdersPage: React.FC = () => {
             {/* Formulario de Asignación de Guía */}
             <form onSubmit={handleSaveTracking} style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem' }}>
               <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--primary-main)' }}>
-                🚚 Gestión y Asignación de Guía de Rastreo
+                🚚 {t('trackingSectionTitle')}
               </h4>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-                    Empresa de Paquetería / Transporte
+                    {t('courierCarrierLabel')}
                   </label>
                   <input
                     list="carriers-list"
                     className="form-control"
                     value={carrier}
                     onChange={e => setCarrier(e.target.value)}
-                    placeholder="Ej. Estafeta, FedEx, Redpack..."
+                    placeholder={t('courierCarrierPlaceholder')}
                     required
                   />
                   <datalist id="carriers-list">
@@ -487,7 +505,7 @@ export const WebOrdersPage: React.FC = () => {
 
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-                    Número de Guía / Código de Rastreo
+                    {t('trackingNumberFieldLabel')}
                   </label>
                   <input
                     type="text"
@@ -502,19 +520,19 @@ export const WebOrdersPage: React.FC = () => {
 
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-                  Estatus de Despacho
+                  {t('dispatchStatusLabel')}
                 </label>
                 <select
                   className="form-control"
                   value={orderStatus}
                   onChange={e => setOrderStatus(e.target.value)}
                 >
-                  <option value="Preparando">📦 Preparando en almacén</option>
-                  <option value="En camino">🚚 En camino / Entregado a paquetería</option>
-                  <option value="Entregado">✅ Entregado al cliente</option>
+                  <option value="Preparando">📦 {t('dispatchPreparing')}</option>
+                  <option value="En camino">🚚 {t('dispatchInTransit')}</option>
+                  <option value="Entregado">✅ {t('dispatchDelivered')}</option>
                 </select>
                 <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.25rem' }}>
-                  Al guardar, el cliente podrá consultar en tiempo real este número de guía desde la página /cuenta de la tienda en línea.
+                  {t('trackingRealtimeNotice')}
                 </small>
               </div>
 
@@ -525,7 +543,7 @@ export const WebOrdersPage: React.FC = () => {
                   onClick={() => setSelectedOrder(null)}
                   disabled={savingTracking}
                 >
-                  Cancelar
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
@@ -533,7 +551,7 @@ export const WebOrdersPage: React.FC = () => {
                   disabled={savingTracking}
                   style={{ background: 'var(--primary-main)', color: '#fff' }}
                 >
-                  {savingTracking ? 'Guardando...' : '💾 Guardar Guía y Actualizar'}
+                  {savingTracking ? t('saving') : `💾 ${t('saveTrackingAndNotify')}`}
                 </button>
               </div>
             </form>

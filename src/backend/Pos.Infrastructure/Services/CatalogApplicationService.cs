@@ -316,10 +316,19 @@ public class CatalogApplicationService : ICatalogApplicationService
         {
             var term = search.Trim().ToLower();
             var hasNumericId = int.TryParse(term, out var searchId) && searchId > 0;
+            var termAscii = term.Replace('\u2011', '-').Replace('\u2013', '-').Replace('\u2014', '-');
+            var termNb = termAscii.Replace('-', '\u2011');
+            var termNoHyphen = termAscii.Replace("-", "").Replace(" ", "");
+
             baseQuery = baseQuery.Where(p => (hasNumericId && p.IdProducto == searchId) ||
                                              p.Nombre.ToLower().Contains(term) ||
+                                             p.Nombre.ToLower().Contains(termAscii) ||
+                                             p.Nombre.ToLower().Contains(termNb) ||
                                              p.Sku.ToLower().Contains(term) ||
-                                             p.Barcode.Contains(term));
+                                             p.Sku.ToLower().Contains(termAscii) ||
+                                             p.Sku.ToLower().Contains(termNb) ||
+                                             (termNoHyphen != "" && p.Sku.ToLower().Replace("-", "").Replace("\u2011", "").Replace(" ", "").Contains(termNoHyphen)) ||
+                                             (p.Barcode != null && (p.Barcode.Contains(term) || p.Barcode.Contains(termAscii) || p.Barcode.Contains(termNb))));
         }
 
         var totalItems = await baseQuery.CountAsync(cancellationToken);
@@ -402,10 +411,20 @@ public class CatalogApplicationService : ICatalogApplicationService
     public async Task<ProductDto?> GetProductByCodeAsync(string code, CancellationToken cancellationToken = default)
     {
         var term = code.Trim().ToLower();
+        var termAscii = term.Replace('\u2011', '-').Replace('\u2013', '-').Replace('\u2014', '-');
+        var termNb = termAscii.Replace('-', '\u2011');
+        var termNoHyphen = termAscii.Replace("-", "").Replace(" ", "");
+
         var product = await _dbContext.Products
             .Include(p => p.Categoria)
             .Include(p => p.Imagenes)
-            .FirstOrDefaultAsync(p => p.Barcode.ToLower() == term || p.Sku.ToLower() == term, cancellationToken);
+            .FirstOrDefaultAsync(p => 
+                (p.Barcode != null && (p.Barcode.ToLower() == term || p.Barcode.ToLower() == termAscii || p.Barcode.ToLower() == termNb)) || 
+                p.Sku.ToLower() == term || 
+                p.Sku.ToLower() == termAscii || 
+                p.Sku.ToLower() == termNb ||
+                (termNoHyphen != "" && p.Sku.ToLower().Replace("-", "").Replace("\u2011", "").Replace(" ", "") == termNoHyphen), 
+                cancellationToken);
 
         if (product == null) return null;
         var availableQuantity = await _dbContext.Stocks
@@ -1120,6 +1139,7 @@ public class CatalogApplicationService : ICatalogApplicationService
     private static string NormalizeSku(string value)
     {
         var sku = NormalizeText(value, "El SKU", 64, required: true).Trim().ToUpperInvariant();
+        sku = sku.Replace('\u2011', '-').Replace('\u2013', '-').Replace('\u2014', '-');
         return sku;
     }
 

@@ -103,7 +103,7 @@ export const PurchaseReceiptsPage: React.FC = () => {
     }
     const timer = setTimeout(async () => {
       try {
-        const res = await servicioCatalogo.getProducts(productSearchTerm.trim(), undefined, { page: 1, pageSize: 20 });
+        const res = await servicioCatalogo.getProducts(productSearchTerm.trim(), undefined, { page: 1, pageSize: 100 });
         const items = Array.isArray(res) ? res : res.items;
         setMatchingProducts(items.filter(p => p.isActive));
       } catch {
@@ -118,12 +118,15 @@ export const PurchaseReceiptsPage: React.FC = () => {
     setMatchingProducts([]);
     setProductSearchTerm(`${prod.sku} — ${prod.name}`);
     setFormPrecioCosto(prod.unitCost ? String(prod.unitCost) : '0');
+    setSelectedProductStock(prod.availableQuantity ?? 0);
 
     try {
       const stockInfo = await inventoryService.getStockByProductId(prod.id);
-      setSelectedProductStock(stockInfo ? stockInfo.quantityOnHand : 0);
+      if (stockInfo && typeof stockInfo.quantityOnHand === 'number') {
+        setSelectedProductStock(stockInfo.quantityOnHand);
+      }
     } catch {
-      setSelectedProductStock(0);
+      // keep prod.availableQuantity fallback
     }
   };
 

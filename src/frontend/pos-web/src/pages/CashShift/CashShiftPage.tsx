@@ -358,10 +358,10 @@ export const CashShiftPage: React.FC = () => {
           {SHOW_FORCE_CORTE_Z && (canClose || canReport) && (
             <div style={{ marginTop: '16px', padding: '14px', background: '#fff3cd', borderRadius: '8px', border: '1px solid #ffe79a' }}>
               <p style={{ margin: '0 0 10px 0', fontWeight: 600, color: '#856404' }}>
-                ⚠️ Si existe un turno activo previo que impide la apertura, puedes recuperar o forzar el Corte Z para cerrar el turno y liberar la caja:
+                {t('forceZReportWarning')}
               </p>
               <button type="button" className="cash-danger-btn" onClick={() => void openCloseDialog()}>
-                🔒 Ejecutar Corte Z y Cerrar Turno Activo
+                {t('executeZReportAndFreeDrawer')}
               </button>
             </div>
           )}
@@ -381,9 +381,9 @@ export const CashShiftPage: React.FC = () => {
               <CashMetric icon="💵" label={t('totalSalesCash')} value={moneyFormatter.format(currentShift.totalSalesCash)} />
               <CashMetric icon="💳" label={t('totalSalesCard')} value={moneyFormatter.format(currentShift.totalSalesCard)} />
               <CashMetric icon="🏦" label={t('totalSalesTransfer')} value={moneyFormatter.format(currentShift.totalSalesTransfer)} />
-              <CashMetric icon="📥" label="Ingreso / Ajuste Cambio" value={safeMoney(currentShift.totalCashDeposits ?? currentShift.totalEntradas, moneyFormatter)} tone="accent" />
+              <CashMetric icon="📥" label={t('depositAdjustment')} value={safeMoney(currentShift.totalCashDeposits ?? currentShift.totalEntradas, moneyFormatter)} tone="accent" />
               <CashMetric icon="💸" label={t('totalWithdrawals')} value={moneyFormatter.format(currentShift.totalWithdrawals)} tone="danger" />
-              <CashMetric icon="📊" label="Esperado en Caja ($)" value={moneyFormatter.format(currentShift.expectedClosingAmount)} tone="accent" subtitle="Fondo + Ingresos + Ventas/Abonos Efectivo - Retiros" />
+              <CashMetric icon="📊" label={t('expectedInDrawer')} value={moneyFormatter.format(currentShift.expectedClosingAmount)} tone="accent" subtitle={t('expectedInDrawerSubtitle')} />
             </div>
           </article>
 
@@ -401,12 +401,12 @@ export const CashShiftPage: React.FC = () => {
             {canClose && <article className="cash-card cash-close-card">
               <h2>🔒 {t('zReportTitle')}</h2>
               <p>{t('zReportHint')}</p>
-              <div className="cash-close-card__amount"><span>Esperado en Caja ($)</span><strong>{moneyFormatter.format(currentShift.expectedClosingAmount)}</strong></div>
+              <div className="cash-close-card__amount"><span>{t('expectedInDrawer')}</span><strong>{moneyFormatter.format(currentShift.expectedClosingAmount)}</strong></div>
               <div className="cash-close-details" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', margin: '0.75rem 0', padding: '0.65rem 0.85rem', background: 'rgba(255, 255, 255, 0.75)', borderRadius: '6px', fontSize: '0.82rem', color: '#1e293b' }}>
-                <div>💵 <strong>Fondo:</strong> <span className={currentShift.openingAmount > 0 ? 'cash-positive' : ''}>+{moneyFormatter.format(currentShift.openingAmount)}</span></div>
-                <div>📥 <strong>Ingresos:</strong> <span className={(currentShift.totalCashDeposits ?? currentShift.totalEntradas ?? 0) > 0 ? 'cash-positive' : ''}>+{moneyFormatter.format(currentShift.totalCashDeposits ?? currentShift.totalEntradas ?? 0)}</span></div>
-                <div>💰 <strong>Ventas/Abonos Efec.:</strong> <span className={currentShift.totalSalesCash > 0 ? 'cash-positive' : ''}>+{moneyFormatter.format(currentShift.totalSalesCash)}</span></div>
-                <div>💸 <strong>Retiros:</strong> <span className={currentShift.totalWithdrawals > 0 ? 'cash-negative' : ''}>-{moneyFormatter.format(currentShift.totalWithdrawals)}</span></div>
+                <div>💵 <strong>{t('shiftFund')}:</strong> <span className={currentShift.openingAmount > 0 ? 'cash-positive' : ''}>+{moneyFormatter.format(currentShift.openingAmount)}</span></div>
+                <div>📥 <strong>{t('shiftDeposits')}:</strong> <span className={(currentShift.totalCashDeposits ?? currentShift.totalEntradas ?? 0) > 0 ? 'cash-positive' : ''}>+{moneyFormatter.format(currentShift.totalCashDeposits ?? currentShift.totalEntradas ?? 0)}</span></div>
+                <div>💰 <strong>{t('shiftCashSalesAndPayments')}:</strong> <span className={currentShift.totalSalesCash > 0 ? 'cash-positive' : ''}>+{moneyFormatter.format(currentShift.totalSalesCash)}</span></div>
+                <div>💸 <strong>{t('shiftWithdrawals')}:</strong> <span className={currentShift.totalWithdrawals > 0 ? 'cash-negative' : ''}>-{moneyFormatter.format(currentShift.totalWithdrawals)}</span></div>
               </div>
               <button className="cash-danger-btn" disabled={saving} onClick={openCloseDialog}>{t('startZReport')}</button>
             </article>}
@@ -529,14 +529,14 @@ export const CashShiftPage: React.FC = () => {
           {notice && <div className={`cash-notice cash-notice--${notice.type}`} role="alert" style={{ marginTop: '0.75rem' }}>{notice.text}</div>}
           <form className="cash-form" onSubmit={handleCloseShift}>
             <div className="cash-close-summary">
-              <span>Esperado en Caja ($)<strong>{safeMoney(currentShift.expectedClosingAmount, moneyFormatter)}</strong></span>
+              <span>{t('expectedInDrawer')}<strong>{safeMoney(currentShift.expectedClosingAmount, moneyFormatter)}</strong></span>
               <span>{t('calculatedDifference')}<strong className={closeDifference == null || Math.abs(closeDifference) <= 0.01 ? '' : closeDifference > 0 ? 'cash-positive' : 'cash-negative'}>{closeDifference == null ? '—' : safeMoney(closeDifference, moneyFormatter)}</strong></span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1rem', padding: '0.75rem 1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.82rem', color: '#1e293b' }}>
-              <div>💵 <strong>Fondo Inicial:</strong> <span className={currentShift.openingAmount > 0 ? 'cash-positive' : ''}>+{safeMoney(currentShift.openingAmount, moneyFormatter)}</span></div>
-              <div>📥 <strong>Ingresos:</strong> <span className={(currentShift.totalCashDeposits ?? currentShift.totalEntradas ?? 0) > 0 ? 'cash-positive' : ''}>+{safeMoney(currentShift.totalCashDeposits ?? currentShift.totalEntradas, moneyFormatter)}</span></div>
-              <div>💰 <strong>Ventas/Abonos Efectivo:</strong> <span className={currentShift.totalSalesCash > 0 ? 'cash-positive' : ''}>+{safeMoney(currentShift.totalSalesCash, moneyFormatter)}</span></div>
-              <div>💸 <strong>Retiros:</strong> <span className={currentShift.totalWithdrawals > 0 ? 'cash-negative' : ''}>-{safeMoney(currentShift.totalWithdrawals, moneyFormatter)}</span></div>
+              <div>💵 <strong>{t('openingFloatAmount')}:</strong> <span className={currentShift.openingAmount > 0 ? 'cash-positive' : ''}>+{safeMoney(currentShift.openingAmount, moneyFormatter)}</span></div>
+              <div>📥 <strong>{t('shiftDeposits')}:</strong> <span className={(currentShift.totalCashDeposits ?? currentShift.totalEntradas ?? 0) > 0 ? 'cash-positive' : ''}>+{safeMoney(currentShift.totalCashDeposits ?? currentShift.totalEntradas, moneyFormatter)}</span></div>
+              <div>💰 <strong>{t('shiftCashSalesAndPaymentsFull')}:</strong> <span className={currentShift.totalSalesCash > 0 ? 'cash-positive' : ''}>+{safeMoney(currentShift.totalSalesCash, moneyFormatter)}</span></div>
+              <div>💸 <strong>{t('shiftWithdrawals')}:</strong> <span className={currentShift.totalWithdrawals > 0 ? 'cash-negative' : ''}>-{safeMoney(currentShift.totalWithdrawals, moneyFormatter)}</span></div>
             </div>
             <label>{t('actualClosingAmount')} *<input autoFocus type="number" min="0" max="1000000" step="0.01" value={closingAmount} onChange={event => setClosingAmount(event.target.value)} placeholder="0.00" required /></label>
             <label>{t('closingJustification')} {closeDifference != null && Math.abs(closeDifference) > 0.01 ? '*' : ''}<textarea rows={4} maxLength={500} value={closingNotes} onChange={event => setClosingNotes(event.target.value)} placeholder={t('closingJustificationPlaceholder')} /></label>

@@ -2,12 +2,12 @@
 
 ## 📌 Estado Actual
 
-- **Rama Git Activa**: `mantenimiento-observaciones-18-septiembre` -> `main`
-- **Estado de Trabajo**: VoBo concedido por el usuario para commit, integración a `main` y despliegue a servidores.
+- **Rama Git**: `main`
+- **Estado de Trabajo**: Cambios consolidados, validados al 100% con pruebas backend (97/97) y frontend (47/47) y build de producción exitoso. Cambios subidos a `main`.
 
 ## 📌 Siguiente Tarea Recomendada
 
-Subir los cambios a la rama remota, fusionar a `main`, compilar en los servidores y verificar el correcto levantamiento de los servicios.
+Verificar y compilar ambos aplicativos en los entornos correspondientes (VPS / Servidor / Cloudflare), asegurando que los servicios se encuentren arriba y respondiendo con normalidad.
 
 ### Criterios de Aceptación para Cierre de Tarea
 1. Validar en `localhost` que el Punto de Venta se ajuste correctamente con zoom al 80% y 60%.
@@ -20,6 +20,15 @@ Subir los cambios a la rama remota, fusionar a `main`, compilar en los servidore
 8. Validar el comprobante de venta térmico: exclusivamente en español y sin el badge "PRÓXIMAMENTE" en `www.wpcbajio.com`.
 9. Validar los campos de Login vacíos por defecto y el nuevo footer.
 10. Validar la generación del contrato en Chino al guardar en Comercial.
-11. Validar el modal de movimiento de inventario con buscador predictivo.
-12. Validar el nuevo módulo de **Recibos de Compra**: traducción completa en español y chino (columnas, filtros, botones, modal y formulario), alta, edición y comprobante voucher.
-13. Recibir el VoBo del usuario para proceder al commit y push de la rama.
+11. Validar el modal de movimiento de inventario con buscador predictivo y etiquetas bilingües.
+12. Validar el módulo de **Recibos de Compra**: traducción completa en español y chino (columnas, filtros, botones, modal y formulario), alta, edición y comprobante voucher.
+13. Validar la **traducción al chino (zh-CN)** en los 4 módulos reportados:
+    - **Pedidos Web (CDC)**: Título, subtítulo, tarjetas de métricas, filtros, tabla y modal de asignación de guía de rastreo.
+    - **Control de Inventarios**: Título y descripción principal traducidos reactivamente al chino (`WPC Bajío 库存管理`).
+    - **Catálogo de Categorías**: Título, descripción, selector de estado, buscador y modal de alta/edición 100% en chino.
+    - **Corte de Turno y Caja**: Desglose de Corte Z (`Esperado en Caja`, `Fondo`, `Ingresos`, `Ventas/Abonos Efectivo`, `Retiros`) y advertencias de contingencia.
+14. Validar la **trazabilidad de Stock Previo y Stock Final**:
+    - En la tabla de **Movimientos de Inventario**: verificar que la tabla cargue ordenada por fecha más reciente primero (`Fecha / 日期` descendente con indicador ▼ activo) para que cualquier venta o ajuste reciente aparezca en la parte superior.
+    - Verificar las columnas `Stock Previo / 原库存`, `Cantidad / 数量` y `Stock Final / 最终库存` para ventas, devoluciones, ajustes, entradas y salidas, así como el ordenamiento y la exportación a Excel y PDF.
+    - En el modal de **Captura de Movimiento / Ajuste**: verificar que al seleccionar un producto y seleccionar "Ajuste", "Entrada" o "Salida" se previsualicen en vivo: Stock Anterior, Variación con diferencia neta y Stock Resultante.
+15. Recibir el VoBo del usuario para proceder al commit y push de la rama.

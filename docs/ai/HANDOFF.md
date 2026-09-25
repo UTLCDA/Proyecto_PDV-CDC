@@ -1,3 +1,36 @@
+## 📌 Hito Cumplido: Corrección de Búsqueda Predictiva de SKU (`LAM-15`), Despliegue de Catálogo y Consulta de Stock en Vivo (24 de Septiembre, 2026 - Tarde / Noche)
+- **Archivos Modificados**:
+  - `src/backend/Pos.Infrastructure/Services/CatalogApplicationService.cs`: Búsqueda precisa multivariante en `GetProductsAsync` y `GetProductByCodeAsync` que contempla guiones ASCII (`-`), guiones no separables Unicode (`\u2011`), variantes ortográficas y códigos compactos sin guiones (`LAM15` -> `LAM-15`). Normalización en `NormalizeSku`.
+  - `src/frontend/pos-web/src/services/inventoryService.ts`: `getStockByProductId` corregido para invocar directamente el endpoint REST `GET /api/v1/inventory/product/{productId}` en vez de la búsqueda textual por GUID que arrojaba 0 resultados.
+  - `src/frontend/pos-web/src/pages/Inventory/MovementCaptureModal.tsx`:
+    - Identificador de entrada actualizado a `id="inventory-product-search"`.
+    - Dropdown ampliado a al menos 30-50 elementos visibles (`pageSize: 100`, `maxHeight: 320px` con scroll).
+    - Despliegue automático de productos al enfocar/hacer clic en el campo.
+    - Eliminado el destello a 0 piezas al seleccionar un producto (`availableQuantity` como base inmediata y persistente).
+  - `src/frontend/pos-web/src/pages/Receipts/PurchaseReceiptsPage.tsx`: Actualizado con `pageSize: 100` y persistencia de stock idéntica.
+- **Validaciones**: 97 pruebas de backend superadas (0 fallos), 47 pruebas de frontend superadas (0 fallos), `npm run build` ejecutado exitosamente con 0 errores. Pruebas realizadas exclusivamente en DEV local.
+
+## 📌 Hito Cumplido: Trazabilidad de Cantidad Anterior y Resultante en Movimientos y Ajustes de Inventario (24 de Septiembre, 2026 - Tarde)
+- **Archivos Modificados / Creados**:
+  - `src/frontend/pos-web/src/pages/Inventory/MovementCaptureModal.tsx`: Nuevo componente reutilizable para la captura de movimientos y ajustes con cálculo en tiempo real (`Stock Anterior`, `Ajuste/Movimiento` con badge de diferencia neta, y `Stock Resultante`).
+  - `src/frontend/pos-web/src/pages/Inventory/InventoryMovementsPage.tsx`: Incorporación de las columnas `Stock Previo / 原库存` y `Stock Final / 最终库存`, ordenamiento por defecto por fecha descendente (`createdAtUtc desc`), ordenamiento dinámico por `previousQuantity` y `newQuantity`, exportación a Excel/PDF y botón superior `➕ Capturar Movimiento`.
+  - `src/frontend/pos-web/src/pages/Inventory/InventoryListPage.tsx`: Sustitución del modal duplicado por `MovementCaptureModal.tsx`.
+  - `src/frontend/pos-web/src/pages/Inventory/InventoryListPage.css`: Nuevos estilos para la tarjeta de cálculo predictivo de stock (`.inventory-stock-calculation-box`, `.inventory-stock-calculation-grid`, `.inventory-stock-diff-badge`).
+  - `src/frontend/pos-web/src/i18n/index.ts`: Añadidas llaves de traducción para encabezados y previsualización de inventario en español y chino (`previousStockHeader`, `resultStockHeader`, `movementPreview`, etc.).
+  - `src/backend/Pos.Infrastructure/Services/InventoryApplicationService.cs`: Añadido ordenamiento por `previousquantity`, `newquantity` y ordenamiento predeterminado por fecha más reciente descendente.
+  - `tests/backend/Pos.Application.Tests/Inventory/InventoryApplicationTests.cs`: Pruebas unitarias para validar el registro de ajustes con cantidades anterior/nueva y ordenamiento por fecha descendente por defecto.
+- **Validaciones**: 97 pruebas de backend superadas (0 fallos), 47 pruebas de frontend superadas (0 fallos), `npm run build` ejecutado exitosamente con 0 errores.
+
+## 📌 Hito Cumplido: Internacionalización y Traducción Completa al Chino Simplificado (24 de Septiembre, 2026)
+- **Archivos Modificados**:
+  - `src/frontend/pos-web/src/i18n/index.ts`: Añadidos diccionarios completos en español (`es`) y chino simplificado (`zh`) para pedidos web, catálogo de categorías, control de inventario y desglose de corte Z de caja.
+  - `src/frontend/pos-web/src/App.tsx`: Localizada la pestaña `📦 Pedidos Web (CDC)` / `📦 网店订单 (CDC)` y traducción dinámica del rol del usuario (Administrador / 管理员).
+  - `src/frontend/pos-web/src/pages/WebOrders/WebOrdersPage.tsx`: Integración total con `useTranslation` (título, subtítulo, botón de actualización, tarjetas métricas, filtros, tabla con formato dual bilingüe y modal de asignación de guía de rastreo y despacho).
+  - `src/frontend/pos-web/src/pages/Inventory/InventoryListPage.tsx`: Encabezados principales del módulo (`WPC Bajío 库存管理`) y campos del modal de movimientos traducidos con `t()`.
+  - `src/frontend/pos-web/src/pages/Categories/CategoryListPage.tsx`: Títulos, filtros, tabla, modal de creación/edición de categorías traducidos al chino.
+  - `src/frontend/pos-web/src/pages/CashShift/CashShiftPage.tsx`: Localización de métricas de cierre y corte Z (`Esperado en Caja`, `Fondo`, `Ingresos`, `Ventas/Abonos Efectivo`, `Retiros`) y advertencias de contingencia.
+- **Validaciones**: 95 pruebas de backend superadas (0 fallos), 47 pruebas de frontend superadas (0 fallos), `npm run build` ejecutado exitosamente con 0 errores.
+
 ## 📌 Hito Cumplido: Observaciones y Mejoras del 18 de Septiembre (Rama `mantenimiento-observaciones-18-septiembre`)
 - **Rama Git**: `mantenimiento-observaciones-18-septiembre` (sin commits realizados todavía, respetando la instrucción de esperar el VoBo del usuario tras su validación en `localhost`).
 - **Resumen de Cambios**:

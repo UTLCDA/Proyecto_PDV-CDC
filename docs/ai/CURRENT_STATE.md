@@ -1,6 +1,70 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
-## 🟢 ESTADO ACTUAL (18 de Septiembre, 2026)
+## 🟢 ESTADO ACTUAL (24 de Septiembre, 2026 - Tarde / Noche)
+
+- **Corrección de Búsqueda Predictiva de SKU (`LAM-15`), Despliegue de Catálogo y Consulta de Stock en Vivo**:
+  - **Filtro de Producto en Movimientos (`inventory-product-search` / `MovementCaptureModal.tsx`)**:
+    - **Capacidad ampliada (al menos 30 a 50 elementos)**: Se incrementó la consulta remota a `pageSize: 100` y el contenedor desplegable a `maxHeight: 320px` con scroll independiente.
+    - **Despliegue al enfocar**: Al dar clic o enfocar el input sin texto previo, despliega las opciones activas del catálogo para selección ágil sin forzar la escritura.
+    - **Búsqueda Precisa e Inmune a Variantes de Guiones (`LAM-15`, `LAM‑15`, `LAM15`, `LAM 15`)**:
+      - Backend (`CatalogApplicationService.cs`): `GetProductsAsync` y `GetProductByCodeAsync` ahora normalizan y comparan el término de búsqueda contra múltiples variantes ortográficas simultáneas: guion ASCII 45 (`-`), guion de no separación Unicode 8209 (`\u2011`), variantes de guion tipográfico (`\u2013`, `\u2014`) y forma compacta sin guiones (`Replace("-", "")`).
+      - Esto resuelve de raíz la discordancia en la base de datos DEV donde existían SKUs importados con código Unicode 8209.
+      - Frontend: Filtro cliente robusto que evalúa coincidencias exactas, códigos normalizados y nombres de producto.
+  - **Corrección del Error de Existencias a 0 ("Existencia Actual: 0 Piezas")**:
+    - `inventoryService.getStockByProductId`: Ahora consume directamente el endpoint REST dedicado `GET /api/v1/inventory/product/{productId}` en lugar de invocar `/inventory?search={guid}` (el cual fallaba en SQL Server al comparar un GUID contra columnas de texto, devolviendo 0 resultados y forzando la existencia a 0).
+    - Mecanismo de persistencia y salvaguarda: Se mantiene `availableQuantity` del producto de catálogo como valor base inmediato y de fallback, garantizando que nunca se produzca un destello a 0 piezas ni reseteo erróneo de la existencia.
+    - Actualizado análogamente en `PurchaseReceiptsPage.tsx`.
+  - **Pruebas y Verificación**:
+    - Backend: 97 pruebas de xUnit superadas al 100% (0 errores).
+    - Frontend: 47 pruebas de Vitest superadas al 100% (0 errores).
+    - Compilación de producción: `npm run build` ejecutada exitosamente con 0 errores.
+    - Cumplimiento de regla de entorno: Pruebas ejecutadas estrictamente en entorno local DEV.
+
+## 🟢 ESTADO PREVIO (24 de Septiembre, 2026 - Tarde)
+
+- **Trazabilidad de Cantidad Anterior y Resultante en Movimientos y Ajustes de Inventario**:
+  - **Módulo de Movimientos de Inventario (`InventoryMovementsPage.tsx`)**:
+    - Incorporación de las columnas `Stock Previo / 原库存` (`previousQuantity`) y `Stock Final / 最终库存` (`newQuantity`) junto a `Cantidad / 数量`.
+    - Cobertura integral y auditada para: **Ventas**, **Devoluciones**, **Ajustes de Inventario Físico**, **Entradas** y **Salidas**.
+    - Ordenamiento dinámico bidireccional por `previousQuantity` y `newQuantity` tanto en el cliente como en el backend (`InventoryApplicationService.cs`).
+    - Ordenamiento por defecto por **Fecha más reciente primero (`createdAtUtc` descendente)**: la vista despliega de forma predeterminada los últimos movimientos en la cima de la tabla (con flecha ▼ activa en `Fecha / 日期`), evitando que los ajustes o ventas recientes queden al final.
+    - Inclusión de ambas columnas en las plantillas de exportación a Excel y PDF (`exportConfig`).
+    - Botón de acceso directo `➕ Capturar Movimiento` en la barra superior del historial de movimientos.
+  - **Componente Reutilizable `MovementCaptureModal.tsx`**:
+    - Centraliza la captura de movimientos para `InventoryListPage.tsx` e `InventoryMovementsPage.tsx`.
+    - Cálculo reactivo en vivo: muestra en una tarjeta dedicada el **Stock Anterior**, la **Variación / Ajuste Físico** con indicador visual de diferencia neta (`+X dif` / `-X dif`) y el **Stock Final** resultante.
+    - Prevención y alerta si una salida excede las existencias disponibles.
+  - **Pruebas y Verificación**:
+    - Backend: 97 pruebas de xUnit superadas al 100%.
+    - Frontend: 47 pruebas de Vitest superadas al 100%.
+    - Build de producción: `npm run build` ejecutado exitosamente con 0 errores y 0 advertencias de TypeScript.
+
+## 🟢 ESTADO PREVIO (24 de Septiembre, 2026 - Mañana)
+
+- **Corrección Exhaustiva de Internacionalización en Chino Simplificado (zh-CN) y Español (es)**:
+  - **Módulo de Pedidos Web (`WebOrdersPage.tsx`)**:
+    - Pestaña de navegación en navbar traducida (`navWebOrders`: `Pedidos Web (CDC)` / `网店订单 (CDC)`).
+    - Título, subtítulo, botón de refresco y tarjetas de métricas traducidas al chino (`商城订单总数`, `待打包 / 待发货`, `运输中 / 已发货`, `已成功签收`).
+    - Buscador, selector de estatus, resumen de conteo, badges de modalidad (recogida en tienda / envío a domicilio), estados de entrega y columnas de tabla normalizadas.
+    - Modal de asignación de guía de paquetería y detalle de pedido 100% traducidos (datos de cliente, destino, partidas, unidades, desglose financiero, transportista y estados de despacho).
+  - **Módulo de Inventario (`InventoryListPage.tsx`)**:
+    - Encabezados principales traducidos reactivamente al chino (`WPC Bajío 库存管理` y `仓库现货管理、补货预警及库存出入库变动登记`).
+    - Buscador predictivo en el modal de movimientos con etiquetas bilingües y placeholder traducido.
+  - **Módulo de Categorías (`CategoryListPage.tsx`)**:
+    - Título y subtítulo traducidos (`WPC Bajío 分类目录` y descripción funcional).
+    - Filtros de estado (todas, activas, inactivas), buscador, botón de limpiar filtros y nuevo registro internacionalizados.
+    - Modal de alta y edición de categorías con todos los campos traducidos al chino.
+  - **Corte de Caja y Turnos (`CashShiftPage.tsx`)**:
+    - Resumen y tarjeta de Corte Z: *Esperado en Caja ($)* (`钱箱预期金额 ($)`), *Fondo* (`开班底金`), *Ingresos* (`存入现金`), *Ventas/Abonos Efec.* (`现金销售/还款`), *Retiros* (`现金支出`) y *Ventas/Abonos Efectivo* traducidos con precisión técnica en chino.
+    - Mensajes y botones de contingencia para forzar Corte Z internacionalizados.
+  - **Barra de Navegación y Perfil de Usuario (`App.tsx`)**:
+    - Localización dinámica de los roles de usuario (ej. Administrador -> 管理员).
+  - **Pruebas y Verificación**:
+    - Backend: 95 pruebas unitarias e integración superadas (100% exitoso).
+    - Frontend: 47 pruebas unitarias de Vitest superadas (100% exitoso).
+    - Compilación de producción: `npm run build` completada con éxito (0 errores).
+
+## 🟢 ESTADO PREVIO (18 de Septiembre, 2026)
 
 - **Rama Activa de Mantenimiento (`mantenimiento-observaciones-18-septiembre`)**:
   - **Objetivo**: Implementación completa de las observaciones solicitadas el 18 de septiembre para PDV, Login, Contratos, Inventario y el nuevo Módulo de Recibos de Compra.

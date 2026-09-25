@@ -100,7 +100,7 @@ const MainLayout: React.FC = () => {
                   color: currentTab === 'web-orders' ? '#fff' : undefined
                 }}
               >
-                📦 Pedidos Web (CDC)
+                📦 {t('navWebOrders')}
               </button>
               )}
               {canOpenTab('shift') && (
@@ -240,7 +240,7 @@ const MainLayout: React.FC = () => {
               <span aria-hidden="true">👤</span>
               <span className="nav-profile-copy">
                 <span>{user.fullName || user.username}</span>
-                <small>{user.roles.join(', ')}</small>
+                <small>{user.roles.map(r => r.toLowerCase() === 'administrador' ? t('roleAdmin') : r.toLowerCase() === 'cajero' ? t('roleCashier') : r).join(', ')}</small>
               </span>
             </button>
           )}

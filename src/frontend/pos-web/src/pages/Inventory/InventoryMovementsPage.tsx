@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { inventoryService } from '../../services/inventoryService';
 import { InventoryMovement } from '../../types/inventory';
+import { useAuth } from '../../context/AuthContext';
+import { permissionCodes } from '../../security/accessControl';
 import ExportButtons from '../../components/export/ExportButtons';
 import { ExportReportConfig } from '../../components/export/exportTypes';
 import { getOperationalDateInputValue, toOperationalUtcBoundary } from '../../utils/operationalDate';
@@ -10,6 +12,7 @@ import { useTableSort } from '../../hooks/useTableSort';
 import { SortableTh } from '../../components/common/SortableTh';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../../components/common/TablePagination';
+import MovementCaptureModal from './MovementCaptureModal';
 import './InventoryListPage.css';
 
 const today = getOperationalDateInputValue;
@@ -35,6 +38,10 @@ const movementBadge = (movementType: string) => {
 
 export const InventoryMovementsPage: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const { user } = useAuth();
+  const canCaptureMovements = user?.permissions.some(
+    permission => permission.toLowerCase() === permissionCodes.inventoryMovements.toLowerCase()
+  ) ?? false;
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [search, setSearch] = useState('');
   const [movementType, setMovementType] = useState('');
@@ -44,14 +51,19 @@ export const InventoryMovementsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [evidenceImage, setEvidenceImage] = useState<string | null>(null);
+  const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const pagination = usePagination({ initialPageSize: 25 });
 
   const { sortedData: sortedMovements, sortKey, sortDirection, handleSort } = useTableSort(movements, {
+    initialKey: 'createdAtUtc',
+    initialDirection: 'desc',
     valueExtractors: {
       createdAtUtc: m => m.createdAtUtc,
       product: m => `${m.productName} ${m.productSku}`,
       movementType: m => m.movementType,
+      previousQuantity: m => m.previousQuantity ?? 0,
       quantity: m => m.quantity,
+      newQuantity: m => m.newQuantity ?? 0,
       unitCost: m => m.unitCost ?? 0,
       unitPrice: m => m.unitPrice ?? 0,
       totalAmount: m => m.totalAmount ?? (m.quantity * (m.unitPrice ?? 0)),
@@ -148,7 +160,9 @@ export const InventoryMovementsPage: React.FC = () => {
       { key: 'sku', label: 'SKU / 编号', width: 0.8, value: movement => movement.productSku },
       { key: 'product', label: 'Producto / 产品', width: 1.5, value: movement => movement.productName },
       { key: 'type', label: 'Tipo / 类型', width: 0.9, value: movement => { const key = movementLabelKey(movement.movementType); return key ? t(key) : movement.movementType; } },
+      { key: 'previousQuantity', label: 'Stock Previo / 原库存', type: 'number', width: 0.85, value: movement => movement.previousQuantity ?? 0 },
       { key: 'quantity', label: 'Cantidad / 数量', type: 'number', width: 0.7, value: movement => movement.quantity },
+      { key: 'newQuantity', label: 'Stock Final / 最终库存', type: 'number', width: 0.85, value: movement => movement.newQuantity ?? 0 },
       { key: 'unitCost', label: 'Costo Actual / 成本单价', type: 'currency', width: 0.9, value: movement => movement.unitCost ?? 0 },
       { key: 'unitPrice', label: 'Precio Venta / 销售单价', type: 'currency', width: 0.9, value: movement => movement.unitPrice ?? 0 },
       { key: 'totalAmount', label: 'Monto Total / 总付款', type: 'currency', width: 1, value: movement => movement.totalAmount ?? 0 },
@@ -166,12 +180,23 @@ export const InventoryMovementsPage: React.FC = () => {
       <header className="inventory-history-header">
         <div className="inventory-history-header__top">
           <div><h2>📋 {t('inventoryMovementsTitle')}</h2><p>{t('inventoryMovementsSubtitle')}</p></div>
-          <ExportButtons data={movements} config={exportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => inventoryService.getMovements({
-            search: appliedFilters.search || undefined,
-            movementType: appliedFilters.movementType || undefined,
-            startDateUtc: toOperationalUtcBoundary(appliedFilters.startDate),
-            endDateUtc: toOperationalUtcBoundary(appliedFilters.endDate, true)
-          }, paging))} />
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            {canCaptureMovements && (
+              <button
+                type="button"
+                className="action-btn"
+                onClick={() => setIsMovementModalOpen(true)}
+              >
+                ➕ {t('captureMovement')}
+              </button>
+            )}
+            <ExportButtons data={movements} config={exportConfig} onLoadAllData={kind => loadAllPagesForExport(kind, paging => inventoryService.getMovements({
+              search: appliedFilters.search || undefined,
+              movementType: appliedFilters.movementType || undefined,
+              startDateUtc: toOperationalUtcBoundary(appliedFilters.startDate),
+              endDateUtc: toOperationalUtcBoundary(appliedFilters.endDate, true)
+            }, paging))} />
+          </div>
         </div>
         <form className="inventory-history-filters" onSubmit={handleApplyFilters}>
           <input className="form-control" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('searchInventoryMovements')} />
@@ -207,8 +232,14 @@ export const InventoryMovementsPage: React.FC = () => {
             <SortableTh columnKey="movementType" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
               Tipo / 类型
             </SortableTh>
+            <SortableTh columnKey="previousQuantity" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+              Stock Previo / 原库存
+            </SortableTh>
             <SortableTh columnKey="quantity" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
               Cantidad / 数量
+            </SortableTh>
+            <SortableTh columnKey="newQuantity" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
+              Stock Final / 最终库存
             </SortableTh>
             <SortableTh columnKey="unitCost" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
               Costo Actual / 成本单价
@@ -240,7 +271,7 @@ export const InventoryMovementsPage: React.FC = () => {
             </SortableTh>
           </tr></thead>
           <tbody>
-            {sortedMovements.length === 0 && <tr><td colSpan={14} className="inventory-empty-state">{t('noInventoryMovements')}</td></tr>}
+            {sortedMovements.length === 0 && <tr><td colSpan={16} className="inventory-empty-state">{t('noInventoryMovements')}</td></tr>}
             {sortedMovements.map(movement => {
               const labelKey = movementLabelKey(movement.movementType);
               const uCost = movement.unitCost ?? 0;
@@ -250,12 +281,20 @@ export const InventoryMovementsPage: React.FC = () => {
               const net = movement.netCost ?? (movement.quantity * uCost);
               const profit = movement.profit ?? (tot - net);
               const displayReason = movement.idVenta && (movement.reason?.startsWith('Venta folio:') || movement.reason?.startsWith('VENTA-')) ? `Venta #${movement.idVenta}` : movement.reason;
+              const isIncrease = ['entry', 'entrada', 'entradas', 'return', 'devolucion', 'devolución'].includes(movement.movementType.toLowerCase());
+              const isDecrease = ['exit', 'salida', 'salidas', 'sale', 'venta'].includes(movement.movementType.toLowerCase());
 
               return <tr key={movement.id}>
                 <td>{new Date(movement.createdAtUtc).toLocaleString()}</td>
                 <td><strong>{movement.productName}</strong><small>{movement.productSku}</small></td>
                 <td><span className={`badge ${movementBadge(movement.movementType)}`}>{labelKey ? t(labelKey) : movement.movementType}</span></td>
-                <td><strong>{movement.quantity}</strong></td>
+                <td style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{movement.previousQuantity}</td>
+                <td>
+                  <strong style={{ color: isIncrease ? 'var(--success)' : isDecrease ? 'var(--danger)' : 'inherit' }}>
+                    {isIncrease ? `+${movement.quantity}` : isDecrease ? `-${movement.quantity}` : movement.quantity}
+                  </strong>
+                </td>
+                <td><strong style={{ color: 'var(--primary-main)' }}>{movement.newQuantity}</strong></td>
                 <td>{money.format(uCost)}</td>
                 <td>{money.format(uPrice)}</td>
                 <td><strong>{money.format(tot)}</strong></td>
@@ -283,6 +322,12 @@ export const InventoryMovementsPage: React.FC = () => {
         <img src={evidenceImage} alt={t('physicalEvidence')} className="inventory-evidence-modal-image" />
       </div>
     </div>}
+
+    <MovementCaptureModal
+      isOpen={isMovementModalOpen}
+      onClose={() => setIsMovementModalOpen(false)}
+      onSuccess={() => void loadMovements()}
+    />
   </section>;
 };
 

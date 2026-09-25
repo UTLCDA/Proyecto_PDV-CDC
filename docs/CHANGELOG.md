@@ -2,6 +2,71 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.12.1] Corrección de Búsqueda Predictiva de SKU (LAM-15), Catálogo Ampliado y Consulta de Stock en Vivo - 2026-09-24
+
+### Corregido / Optimizado
+- **Filtro de Producto en Movimientos (`inventory-product-search` / `MovementCaptureModal.tsx`)**:
+  - **Ampliación de datos a al menos 30-50 elementos**: La consulta remota ahora solicita `pageSize: 100` y el dropdown cuenta con `maxHeight: 320px` y desplazamiento fluido para visualizar el catálogo completo sin restricciones.
+  - **Despliegue al enfocar**: Al dar clic o enfocar el buscador sin haber escrito, se despliegan automáticamente los productos activos del catálogo.
+  - **Búsqueda Precisa e Inmune a Variantes de Guiones (`LAM-15`, `LAM‑15`, `LAM15`, `LAM 15`)**:
+    - `CatalogApplicationService.cs`: Búsqueda multivariante en `GetProductsAsync` y `GetProductByCodeAsync` que resuelve coincidencias contra guiones estándar ASCII (`-`), guiones no separables Unicode (`\u2011`), variantes de guion tipográfico y códigos compactos sin guiones (`Replace("-", "")`).
+    - Normalización automática en creación/actualización de SKUs con `NormalizeSku`.
+  - **Persistencia de Existencia Actual ("Existencia Actual: 0 Piezas")**:
+    - `inventoryService.getStockByProductId`: Ahora consulta directamente el endpoint REST `GET /api/v1/inventory/product/{productId}` en lugar de la búsqueda textual por GUID.
+    - Se establece `availableQuantity` del producto como valor inicial y de respaldo, erradicando por completo el destello y caída a 0 piezas.
+    - Se actualizó con la misma persistencia en `PurchaseReceiptsPage.tsx`.
+
+## [2.12.0] Trazabilidad de Cantidad Anterior y Resultante en Movimientos y Ajustes de Inventario - 2026-09-24
+
+### Añadido / Optimizado
+- **Control y Visualización de Cantidad Anterior (`Stock Previo / 原库存`) y Resultante (`Stock Final / 最终库存`)**:
+  - **Módulo de Movimientos de Inventario (`InventoryMovementsPage.tsx`)**:
+    - Nuevas columnas bilingües en la tabla: `Stock Previo / 原库存` y `Stock Final / 最终库存` flanqueando a `Cantidad / 数量`.
+    - Trazabilidad y visibilidad auditada aplicable a **Ventas**, **Devoluciones**, **Ajustes de Inventario Físico**, **Entradas** y **Salidas**.
+    - Integración de `previousQuantity` y `newQuantity` en el ordenamiento dinámico de la tabla (`useTableSort` y backend en `InventoryApplicationService.cs`).
+    - Ordenamiento por defecto por **Fecha más reciente primero (`createdAtUtc` descendente)**: la vista ahora despliega inmediatamente los últimos movimientos y ajustes en la parte superior de la primera página, con indicador visual activo (▼) en `Fecha / 日期`.
+    - Inclusión de ambas métricas en los reportes exportables a Excel y PDF (`exportConfig`).
+    - Botón de acceso directo `➕ Capturar Movimiento` en el encabezado para registrar ajustes y movimientos directamente desde la vista de movimientos.
+  - **Componente Modal Reutilizable de Captura de Movimientos (`MovementCaptureModal.tsx`)**:
+    - Componente desacoplado y reutilizado en `InventoryListPage.tsx` y `InventoryMovementsPage.tsx`.
+    - Caja de previsualización y cálculo en tiempo real (`📊 Previsualización del Inventario / 库存变动预览`):
+      - Despliega en vivo: **Stock Anterior** (`previousQuantity`), **Movimiento / Ajuste Físico** (`quantity`) con badge de diferencia neta (`+X dif` / `-X dif`) y **Stock Resultante** (`newQuantity`).
+      - Bloqueo y advertencia visual preventiva en caso de salidas mayores al stock disponible.
+      - Búsqueda predictiva con escáner de código de barras USB y soporte de evidencia fotográfica con compresión automática.
+  - **Backend y Pruebas**:
+    - Backend: soporte de ordenamiento por `previousquantity` y `newquantity` en `InventoryApplicationService.cs`, y ordenamiento por fecha descendente por defecto en consultas de movimientos.
+    - Pruebas unitarias en `InventoryApplicationTests.cs` (`RegisterMovementAsync_ShouldRecordPreviousAndNewQuantity_OnAdjustmentMovement` y `GetMovementsAsync_ShouldOrderByMostRecentDateDescending_ByDefault`).
+    - 97/97 pruebas de backend en xUnit superadas al 100%.
+    - 47/47 pruebas de frontend en Vitest superadas al 100%.
+    - Compilación de producción `npm run build` completada con 0 errores de TypeScript.
+
+## [2.11.0] Internacionalización y Traducción Completa al Chino Simplificado - 2026-09-24
+
+### Corregido / Optimizado
+- **Traducción Universal en Chino Simplificado (zh-CN) y Español (es)**:
+  - **Módulo de Pedidos Web (`WebOrdersPage.tsx`)**:
+    - Pestaña de navegación en navbar traducida (`navWebOrders`: `Pedidos Web (CDC)` / `网店订单 (CDC)`).
+    - Título, subtítulo, botón de actualización, métricas (órdenes, facturado, pendientes, en ruta, entregados) completamente internacionalizados con `t()`.
+    - Selector de estatus, buscador, resumen de conteo, badges de entrega (tienda/domicilio) y tabla con formato bilingüe unificado.
+    - Modal de detalle y captura de guía de rastreo (datos del cliente, destino, partidas, unidades caja/pza, totales, transportista, estatus y notas) 100% traducidos.
+  - **Módulo de Inventario (`InventoryListPage.tsx`)**:
+    - Título y subtítulo traducidos reactivamente (`inventoryControlTitle` y `inventoryControlSubtitle`).
+    - Modal de registro de movimiento: etiqueta de búsqueda y placeholder de SKU / código de barras traducidos.
+  - **Módulo de Categorías (`CategoryListPage.tsx`)**:
+    - Título y subtítulo traducidos (`categoryCatalogTitle` y `categoryCatalogSubtitle`).
+    - Buscador, selector de estatus (todas, activas, inactivas), botón de limpiar filtros y nuevo registro.
+    - Columna de foto y estados en tabla.
+    - Modal completo de alta y edición de categorías (nombre, imagen, descripción, categoría padre, estado activo y botones de acción) traducidos al 100%.
+  - **Corte de Caja y Turnos (`CashShiftPage.tsx`)**:
+    - Resumen y tarjeta de Corte Z: *Esperado en Caja ($)* (`expectedInDrawer`), *Fondo* (`shiftFund`), *Ingresos* (`shiftDeposits`), *Ventas/Abonos Efec.* (`shiftCashSalesAndPayments`), *Retiros* (`shiftWithdrawals`) y *Ventas/Abonos Efectivo* traducidos con precisión técnica en chino.
+    - Banner de advertencia y botón de forzar Corte Z internacionalizados.
+  - **Barra de Navegación y Perfil de Usuario (`App.tsx`)**:
+    - Roles de usuario (Administrador / 管理员, Cajero / 收银员) localizados automáticamente según el idioma activo.
+- **Validación de Compilación y Suites de Pruebas**:
+  - Frontend: `npm run build` ejecutado exitosamente con 0 errores de TypeScript y 0 advertencias de bundling.
+  - Pruebas Frontend: 47/47 pruebas unitarias de Vitest superadas al 100%.
+  - Pruebas Backend: 95/95 pruebas de xUnit superadas al 100%.
+
 ## [2.10.0] Mantenimiento y Mejoras: Recibos de Compra, PDV, Mayoreo, Calculadora m² e i18n - 2026-09-18
 
 ### Añadido / Optimizado

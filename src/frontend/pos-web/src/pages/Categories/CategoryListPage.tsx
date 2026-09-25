@@ -309,8 +309,8 @@ export const CategoryListPage: React.FC = () => {
     <div className="categories-page">
       <div className="card categories-header">
         <div>
-          <h1>📁 Catálogo de Categorías WPC Bajío</h1>
-          <p>Módulo para el ABC (Alta, Bajas/desactivar y Cambios) y clasificación de productos</p>
+          <h1>📁 {t('categoryCatalogTitle')}</h1>
+          <p>{t('categoryCatalogSubtitle')}</p>
         </div>
 
         <form
@@ -320,7 +320,7 @@ export const CategoryListPage: React.FC = () => {
           <input
             type="search"
             className="form-control"
-            placeholder="🔍 Buscar categoría por nombre, slug o descripción..."
+            placeholder={t('searchCategoryPlaceholder')}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -330,17 +330,17 @@ export const CategoryListPage: React.FC = () => {
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value as any)}
           >
-            <option value="all">Todas las categorías</option>
-            <option value="active">Activas</option>
-            <option value="inactive">Inactivas</option>
+            <option value="all">{t('allCategories')}</option>
+            <option value="active">{t('activeCategories')}</option>
+            <option value="inactive">{t('inactiveCategories')}</option>
           </select>
 
           <button type="submit" className="lang-btn">🔎 {t('search')}</button>
-          <button type="button" className="lang-btn" onClick={handleClearFilters}>🔄 Limpiar filtros</button>
+          <button type="button" className="lang-btn" onClick={handleClearFilters}>🔄 {t('clearFilters')}</button>
 
           {canCreate && (
             <button type="button" className="action-btn" onClick={openCreate}>
-              ➕ Nueva Categoría
+              ➕ {t('newCategory')}
             </button>
           )}
 
@@ -362,16 +362,16 @@ export const CategoryListPage: React.FC = () => {
 
       <div className="card categories-card">
         {loading ? (
-          <div className="categories-empty">Cargando categorías...</div>
+          <div className="categories-empty">{t('loadingCategories')}</div>
         ) : filteredCategories.length === 0 ? (
-          <div className="categories-empty">No se encontraron categorías con los filtros seleccionados.</div>
+          <div className="categories-empty">{t('noCategoriesFound')}</div>
         ) : (
           <>
             <div className="categories-table-wrap">
             <table className="categories-table">
               <thead>
                 <tr>
-                  <th style={{ width: '56px', textAlign: 'center' }}>Foto</th>
+                  <th style={{ width: '56px', textAlign: 'center' }}>{t('photoHeader')}</th>
                   <SortableTh columnKey="name" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort}>
                     {t('category')}
                   </SortableTh>
@@ -422,7 +422,7 @@ export const CategoryListPage: React.FC = () => {
                       </td>
                       <td>
                         <span className={`category-badge ${isActive ? 'category-badge--active' : 'category-badge--inactive'}`}>
-                          {isActive ? '🟢 Activa' : '🔴 Inactiva'}
+                          {isActive ? `🟢 ${t('activeCategories')}` : `🔴 ${t('inactiveCategories')}`}
                         </span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
@@ -433,9 +433,9 @@ export const CategoryListPage: React.FC = () => {
                               className="lang-btn"
                               style={{ fontSize: '0.78rem', padding: '0.35rem 0.65rem' }}
                               onClick={() => openEdit(cat)}
-                              title="Editar categoría"
+                              title={t('editCategoryTooltip')}
                             >
-                              ✏️ Editar
+                              ✏️ {t('edit')}
                             </button>
                           )}
                           {canEdit && (
@@ -448,9 +448,9 @@ export const CategoryListPage: React.FC = () => {
                                 color: isActive ? 'var(--danger)' : 'var(--success)'
                               }}
                               onClick={() => handleToggleStatus(cat)}
-                              title={isActive ? 'Desactivar categoría' : 'Activar categoría'}
+                              title={isActive ? t('deactivateCategoryTooltip') : t('activateCategoryTooltip')}
                             >
-                              {isActive ? '🗑️ Desactivar' : '🔄 Activar'}
+                              {isActive ? `🗑️ ${t('deactivate')}` : `🔄 ${t('activate')}`}
                             </button>
                           )}
                         </div>
@@ -480,21 +480,21 @@ export const CategoryListPage: React.FC = () => {
           <div className="categories-modal" onClick={e => e.stopPropagation()}>
             <header>
               <div>
-                <h2>{editingCategory ? '✏️ Editar Categoría' : '➕ Nueva Categoría'}</h2>
-                <p>{editingCategory ? 'Modifique los datos de la categoría' : 'Ingrese los datos para registrar una nueva categoría'}</p>
+                <h2>{editingCategory ? `✏️ ${t('editCategoryTitle')}` : `➕ ${t('newCategoryTitle')}`}</h2>
+                <p>{editingCategory ? t('editCategorySubtitle') : t('newCategorySubtitle')}</p>
               </div>
-              <button type="button" onClick={() => !saving && setIsModalOpen(false)} aria-label="Cerrar">✕</button>
+              <button type="button" onClick={() => !saving && setIsModalOpen(false)} aria-label={t('close')}>✕</button>
             </header>
 
             <form onSubmit={handleSubmit}>
               <div className="categories-form-grid">
                 <label className="categories-field">
-                  Nombre de la Categoría *
+                  {t('categoryNameInputLabel')} *
                   <input
                     type="text"
                     required
                     maxLength={120}
-                    placeholder="Ej. Lambrín WPC Interior, Lambrín Exterior..."
+                    placeholder={t('categoryNameInputPlaceholder')}
                     value={form.name}
                     onChange={e => setForm({ ...form, name: e.target.value })}
                     disabled={saving}
@@ -504,7 +504,7 @@ export const CategoryListPage: React.FC = () => {
                 {/* Sección de Imagen Representativa */}
                 <div className="categories-field">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
-                    Imagen de la Categoría (Se mostrará en la tienda CDC y PDV)
+                    {t('categoryImageSectionTitle')}
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     {(imagenPreviewUrl || form.imageUrl) && !imagenFueEliminada ? (
@@ -556,18 +556,18 @@ export const CategoryListPage: React.FC = () => {
                         style={{ display: 'block', fontSize: '0.85rem' }}
                       />
                       <small style={{ color: 'var(--text-muted, #64748b)', display: 'block', marginTop: '0.35rem', fontSize: '0.78rem' }}>
-                        {procesandoImagen ? '⏳ Optimizando imagen...' : 'Formatos: JPG, PNG, WEBP, HEIC. Se optimiza y comprime automáticamente.'}
+                        {procesandoImagen ? '⏳ Optimizando imagen...' : t('categoryImageHelp')}
                       </small>
                     </div>
                   </div>
                 </div>
 
                 <label className="categories-field">
-                  Descripción
+                  {t('description')}
                   <textarea
                     rows={3}
                     maxLength={500}
-                    placeholder="Detalles sobre los productos de esta categoría..."
+                    placeholder={t('categoryDescPlaceholder')}
                     value={form.description}
                     onChange={e => setForm({ ...form, description: e.target.value })}
                     disabled={saving}
@@ -575,13 +575,13 @@ export const CategoryListPage: React.FC = () => {
                 </label>
 
                 <label className="categories-field">
-                  Categoría Padre (Opcional)
+                  {t('parentCategoryLabel')}
                   <select
                     value={form.parentCategoryId}
                     onChange={e => setForm({ ...form, parentCategoryId: e.target.value })}
                     disabled={saving}
                   >
-                    <option value="">Ninguna (Categoría Principal)</option>
+                    <option value="">{t('noParentCategoryOption')}</option>
                     {categories
                       .filter(c => !editingCategory || c.id !== editingCategory.id)
                       .map(c => (
@@ -598,7 +598,7 @@ export const CategoryListPage: React.FC = () => {
                       onChange={e => setForm({ ...form, isActive: e.target.checked })}
                       disabled={saving}
                     />
-                    Categoría Activa (Visible en catálogo y punto de venta)
+                    {t('categoryActiveLabel')}
                   </label>
                 )}
               </div>
@@ -610,14 +610,14 @@ export const CategoryListPage: React.FC = () => {
                   onClick={() => setIsModalOpen(false)}
                   disabled={saving}
                 >
-                  Cancelar
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
                   className="action-btn"
                   disabled={saving}
                 >
-                  {saving ? 'Guardando...' : editingCategory ? 'Guardar Cambios' : 'Crear Categoría'}
+                  {saving ? t('saving') : editingCategory ? t('updateCategory') : t('saveCategory')}
                 </button>
               </footer>
             </form>
