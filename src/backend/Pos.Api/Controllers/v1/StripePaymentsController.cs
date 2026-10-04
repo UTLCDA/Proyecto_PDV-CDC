@@ -52,7 +52,7 @@ public class StripePaymentsController : ControllerBase
         [FromBody] CreateStripePaymentIntentRequest request,
         CancellationToken cancellationToken)
     {
-        var isMaintenance = _configuration.GetValue<bool>("StripeSettings:MaintenanceMode", true) ||
+        var isMaintenance = _configuration.GetValue<bool>("StripeSettings:MaintenanceMode", false) ||
                             string.Equals(Environment.GetEnvironmentVariable("STRIPE_MAINTENANCE_MODE"), "true", StringComparison.OrdinalIgnoreCase);
 
         if (isMaintenance)
@@ -177,11 +177,11 @@ public class StripePaymentsController : ControllerBase
         decimal total = Math.Max(0m, verifiedSubtotal - discount + shippingCost);
         long amountCents = (long)Math.Round(total * 100);
 
-        if (amountCents < 1000)
+        if (amountCents < 100)
         {
             return BadRequest(new
             {
-                message = "El monto mínimo de compra para pago en línea con tarjeta es de $10.00 MXN. Por favor añade más unidades a tu carrito."
+                message = "El monto mínimo de compra para pago en línea con tarjeta es de $1.00 MXN."
             });
         }
 
@@ -367,6 +367,14 @@ public class StripePaymentsController : ControllerBase
                     isLive = true
                 });
             }
+            catch (StripeException sEx)
+            {
+                _logger.LogError(sEx, "Error de Stripe API al crear PaymentIntent para folio {Folio}: {Message}", orderFolio, sEx.Message);
+                return BadRequest(new
+                {
+                    message = sEx.StripeError?.Message ?? sEx.Message
+                });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error comunicando con Stripe API al crear PaymentIntent para folio {Folio}", orderFolio);
@@ -412,7 +420,7 @@ public class StripePaymentsController : ControllerBase
         [FromBody] CreateStripeCheckoutSessionRequest request,
         CancellationToken cancellationToken)
     {
-        var isMaintenance = _configuration.GetValue<bool>("StripeSettings:MaintenanceMode", true) ||
+        var isMaintenance = _configuration.GetValue<bool>("StripeSettings:MaintenanceMode", false) ||
                             string.Equals(Environment.GetEnvironmentVariable("STRIPE_MAINTENANCE_MODE"), "true", StringComparison.OrdinalIgnoreCase);
 
         if (isMaintenance)

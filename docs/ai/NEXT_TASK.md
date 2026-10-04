@@ -7,7 +7,15 @@
 
 ## 📌 Siguiente Tarea Recomendada
 
-Verificar y compilar ambos aplicativos en los entornos correspondientes (VPS / Servidor / Cloudflare), asegurando que los servicios se encuentren arriba y respondiendo con normalidad.
+Ejecutar la prueba de compra manual controlada con tarjeta bancaria en el entorno de producción (`https://www.wpcbajio.com`), verificando el flujo completo de Stripe Payment Element, webhooks, confirmación de pedido y actualización de inventario.
+
+### Criterios de Aceptación para Cierre de Tarea
+1. Acceder a `https://www.wpcbajio.com/productos` y agregar el producto de prueba (ID 106, SKU `ZWEB`).
+2. Seleccionar modalidad `Recoger en sucursal` en el carrito de compra.
+3. Avanzar al Checkout y verificar que cargue el formulario seguro de Stripe Elements sin bloqueos ni mensajes de mantenimiento.
+4. Concluir la transacción de pago con tarjeta bancaria.
+5. Confirmar que el webhook de Stripe reporte `payment_intent.succeeded` y que la venta pase a estado `Completada` en SQL Server.
+6. Verificar que el pedido aparezca listado en el PDV en el módulo `Pedidos Web (CDC)`.
 
 ### Criterios de Aceptación para Cierre de Tarea
 1. Validar en `localhost` que el Punto de Venta se ajuste correctamente con zoom al 80% y 60%.

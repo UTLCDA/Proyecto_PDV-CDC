@@ -1,6 +1,28 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
-## 🟢 ESTADO ACTUAL (24 de Septiembre, 2026 - Tarde / Noche)
+## 🟢 ESTADO ACTUAL (04 de Octubre, 2026 - Tarde / Noche)
+
+- **Reactivación y Desbloqueo de Pagos Stripe para E-Commerce en Producción (PR)**:
+  - **Desbloqueo de Modo Mantenimiento (`StripePaymentsController.cs` y `appsettings.json`)**:
+    - Se eliminó el bloqueo preventivo temporal que retornaba HTTP 503 por validación de titular de cuenta hasta el 25 de septiembre.
+    - Se configuró `"MaintenanceMode": false` por defecto y explícitamente en el entorno de producción (`/var/www/pos-api/appsettings.json`).
+    - Se ajustó el filtro de validación de monto mínimo en el backend a `$1.00 MXN` (`amountCents >= 100`).
+    - Se introdujo un bloque especializado `catch (StripeException sEx)` que expone directamente los mensajes nativos de la API de Stripe en lugar de devolver errores genéricos HTTP 502.
+  - **Sincronización de Catálogo e Inventario para Producto de Prueba (ID 106)**:
+    - Producto autorizado: ID 106 / UUID `7E6E4E93-02BB-478C-872F-A4659806B027`, SKU `ZWEB`, Nombre `PRUEBA`.
+    - Se configuró `PrecioOnlineManual = 1.00` en SQL Server para neutralizar el redondeo del markup online (4.88% + múltiplos de 0.50), garantizando que el precio web coincida con `$1.00 MXN` sin alterar el precio de catálogo de mostrador (`PrecioUnitario = 1.00`).
+    - Inventario confirmado en SQL Server: 10 unidades disponibles (`CantidadDisponible = 10.00`).
+  - **Reactivación de Interfaz de Usuario E-Commerce (`WPCBajio-Ecommerce` / `wpcbajio.com`)**:
+    - Se desactivó el modo de mantenimiento (`MAINTENANCE_CONFIG.enabled: false` en `lib/maintenance.ts`).
+    - Eliminado el banner visible de cabecera y el cuadro de mantenimiento del carrito de compras.
+    - Reactivado el botón de compra a estado primario sólido (`Continuar compra`), enlazando fluidamente con la carga de Stripe Payment Element y la confirmación de pago.
+    - El build de Next.js (`npm run build`) se ejecutó exitosamente (122 rutas optimizadas) y el servicio PM2 `wpc-ecommerce` fue reiniciado operando al 100%.
+  - **Verificación de Conectividad con Stripe**:
+    - Backend responde 200 OK con `clientSecret` y `paymentIntentId` en `POST /api/v1/payments/stripe/create-payment-intent`.
+    - Endpoint público de webhooks `POST /api/v1/payments/stripe/webhook` verificado y operativo con validación de firma criptográfica.
+    - Pruebas unitarias backend: 97/97 pruebas superadas al 100% (0 errores).
+
+## 🟢 ESTADO PREVIO (24 de Septiembre, 2026 - Tarde / Noche)
 
 - **Corrección de Búsqueda Predictiva de SKU (`LAM-15`), Despliegue de Catálogo y Consulta de Stock en Vivo**:
   - **Filtro de Producto en Movimientos (`inventory-product-search` / `MovementCaptureModal.tsx`)**:

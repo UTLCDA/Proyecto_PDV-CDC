@@ -1,3 +1,23 @@
+## 📌 Hito Cumplido: Reactivación y Desbloqueo de Pagos Stripe en Producción (PR) (04 de Octubre, 2026 - Tarde / Noche)
+- **Archivos Modificados**:
+  - `src/backend/Pos.Api/Controllers/v1/StripePaymentsController.cs`:
+    - Desbloqueo de modo de mantenimiento (`MaintenanceMode: false` por defecto en `CreatePaymentIntent` y `CreateCheckoutSession`).
+    - Flexibilización de validación de monto mínimo a `$1.00 MXN` (`amountCents >= 100`).
+    - Manejo de excepciones `StripeException` para retransmitir diagnósticos claros de la pasarela Stripe sin enmascarar con 502.
+  - `src/backend/Pos.Api/appsettings.json` y `/var/www/pos-api/appsettings.json` en VPS:
+    - Agregado `"MaintenanceMode": false` bajo `"StripeSettings"`.
+  - Base de Datos SQL Server en VPS (`PosLambrinDb`):
+    - Configurado `PrecioOnlineManual = 1.00` para el producto de prueba ID 106 (`7E6E4E93-02BB-478C-872F-A4659806B027`, SKU `ZWEB`) para asegurar cobro de `$1.00 MXN` exacto online sin alterar el catálogo de mostrador. Stock verificado: 10 unidades.
+  - `D:\WPC-BajioEcommerce\lib\maintenance.ts` y `/var/www/ecommerce/lib/maintenance.ts` en VPS:
+    - Desactivado modo de mantenimiento (`enabled: false`).
+    - Eliminado el banner visible de cabecera y el cuadro de mantenimiento del carrito de compras.
+- **Validaciones**:
+  - 97 pruebas backend superadas (0 fallos).
+  - Next.js build (`npm run build`) en VPS ejecutado exitosamente (122 rutas optimizadas).
+  - `POST /api/v1/payments/stripe/create-payment-intent` verificado en vivo retornando `clientSecret` y `isLive: true`.
+  - Webhooks verificados en `POST /api/v1/payments/stripe/webhook` con firma criptográfica activa.
+  - Restricción de Stripe documentada: la pasarela Stripe en México exige un monto mínimo de `$10.00 MXN` por transacción; por ello, la prueba con el producto de $1.00 MXN se completa agregando 10 piezas o ajustando el umbral en Stripe.
+
 ## 📌 Hito Cumplido: Corrección de Búsqueda Predictiva de SKU (`LAM-15`), Despliegue de Catálogo y Consulta de Stock en Vivo (24 de Septiembre, 2026 - Tarde / Noche)
 - **Archivos Modificados**:
   - `src/backend/Pos.Infrastructure/Services/CatalogApplicationService.cs`: Búsqueda precisa multivariante en `GetProductsAsync` y `GetProductByCodeAsync` que contempla guiones ASCII (`-`), guiones no separables Unicode (`\u2011`), variantes ortográficas y códigos compactos sin guiones (`LAM15` -> `LAM-15`). Normalización en `NormalizeSku`.

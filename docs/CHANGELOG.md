@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.13.0] Reactivación de Pasarela de Pagos Stripe y Desbloqueo de Modo Mantenimiento en Producción (PR) - 2026-10-04
+
+### Añadido / Optimizado
+- **Reactivación del Módulo de Pagos con Stripe (`StripePaymentsController.cs`)**:
+  - Desbloqueo del modo de mantenimiento preventivo (`MaintenanceMode: false` por defecto en configuración y controladores).
+  - Admisión de montos mínimos desde `$1.00 MXN` (`amountCents >= 100`) en validación de backend.
+  - Captura especializada de `StripeException` para reportar códigos de error nativos y directos de Stripe (e.g. validación de monto mínimo de pasarela) sin degradar a error genérico 502.
+  - Sincronización del precio en línea del producto de prueba (ID 106 / UUID `7E6E4E93-02BB-478C-872F-A4659806B027`) con `PrecioOnlineManual = 1.00` para mantener `$1.00 MXN` exacto en la tienda virtual sin alterar el precio de catálogo de mostrador.
+  - Despliegue de binarios actualizados en VPS y reinicio de `pos-api.service`.
+- **E-Commerce (`WPCBajio-Ecommerce` / `wpcbajio.com`)**:
+  - Desactivación de `MAINTENANCE_CONFIG.enabled: false` en `lib/maintenance.ts`.
+  - Retiro definitivo del banner de mantenimiento en cabecera y en el carrito de compra.
+  - Reactivación del botón `Continuar compra` / `Confirmar y pagar` con inicialización fluida de Stripe Payment Element.
+  - Recompilación de producción y reinicio de servicio PM2 `wpc-ecommerce` en VPS.
+
 ## [2.12.1] Corrección de Búsqueda Predictiva de SKU (LAM-15), Catálogo Ampliado y Consulta de Stock en Vivo - 2026-09-24
 
 ### Corregido / Optimizado
