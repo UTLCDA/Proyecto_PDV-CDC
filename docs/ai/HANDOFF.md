@@ -1,3 +1,20 @@
+## 📌 Hito Cumplido: Remediación Integral de Vulnerabilidades Críticas y Blindaje de Seguridad (05 de Octubre, 2026 - Madrugada)
+- **Objetivo**: Auditoría técnica y corrección a nivel extremo de todas las vulnerabilidades detectadas en el backend (.NET 9) y tienda en línea (Next.js), garantizando cero exposición de vectores de ataque en producción.
+- **Acciones Realizadas**:
+  1. **Neutralización de `simulate-webhook`**: Endpoint restringido a `Development` (`404 Not Found` en producción) y protegido con política `ventas:procesar`.
+  2. **Criptografía de Contraseñas y Eliminación de Backdoor**: Reemplazada la contraseña maestra `"WPC123"` por autenticación formal con `IPasswordHasherService` (PBKDF2 HMAC-SHA256, 100,000 iteraciones); migración inline transparente para cuentas antiguas.
+  3. **Mitigación de Account Takeover (ATO)**: Reseteo de contraseñas (`customers/reset-password`) ahora exige validación estricta de factor secundario de identidad (teléfono registrado del cliente).
+  4. **Blindaje de Tracking de Envíos**: Eliminado `[AllowAnonymous]` global en `StripePaymentsController`; `PUT web-orders/{id}/tracking` ahora protegido con `ventas:procesar` (`401 Unauthorized` a anónimos).
+  5. **Protección de Datos Personales (PII) en Contacto**: `GET /api/v1/store/contact-messages` protegido con `clientes:ver` (`401 Unauthorized` público).
+  6. **Restricción Estricta de CORS**: Eliminados comodines permisivos (`.workers.dev`, `.pages.dev`); admitidos únicamente `localhost`, `127.0.0.1` y dominios oficiales de `wpcbajio.com`.
+  7. **Defensa contra Ataques de Fuerza Bruta y DoS**: Implementado ASP.NET Core Sliding Window Rate Limiting (`auth`: 15 req/min, `payments`: 20 req/min) por IP.
+  8. **Protección de Credenciales de Logs Serilog**: Eliminadas credenciales estáticas de código; leídas de configuración con comparación en tiempo constante (`CryptographicOperations.FixedTimeEquals`) contra ataques de temporización.
+  9. **Protección de Margen de Ganancia**: `PUT system-settings/ecommerce-pricing` protegido con `catalogo:productos_editar`.
+- **Despliegue y Validación en VPS (`193.46.198.88`)**:
+  - Binarios `Pos.Api` desplegados en `/var/www/pos-api`; servicio `pos-api.service` activo.
+  - Frontend Next.js desplegado en `/var/www/ecommerce`; PM2 `wpc-ecommerce` activo.
+  - Verificación en vivo con curl: endpoints protegidos retornan 401/404 según lo diseñado.
+
 ## 📌 Hito Cumplido: Protección Crítica de Privacidad (PII) y Verificación en Rastreo de Pedidos (05 de Octubre, 2026 - Madrugada)
 - **Problema Reportado**: Al pegar un enlace `/pedido/{folio}` en ventana privada/incógnito sin iniciar sesión, se mostraban los datos del pedido y datos personales del comprador a cualquier visitante no autenticado.
 - **Archivos Modificados**:

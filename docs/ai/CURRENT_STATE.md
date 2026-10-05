@@ -1,6 +1,46 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
-## 🟢 ESTADO ACTUAL (05 de Octubre, 2026 - Madrugada / Seguridad Crítica)
+## 🟢 ESTADO ACTUAL (05 de Octubre, 2026 - Madrugada / Auditoría y Remediación de Seguridad Extrema)
+
+- **Remediación Exhaustiva de Vulnerabilidades en Backend (.NET 9) y Frontend (Next.js)**:
+  - **Vulnerabilidad 1 (Crítica) — `simulate-webhook`**:
+    - Se eliminó el vector de evasión y simulación de pagos fraudulentos.
+    - Se restringió a entornos locales de desarrollo (`!_env.IsDevelopment() => 404 Not Found`).
+    - Se requirió autorización interna estricta: `[Authorize(Policy = PermissionCodes.Sales.Process)]`.
+    - Verificado en producción con curl: responde `HTTP 404 Not Found`.
+  - **Vulnerabilidad 2 (Crítica) — Contraseñas de Clientes Web y Backdoor "WPC123"**:
+    - Se eliminó la puerta trasera `"WPC123"` en `StoreController.cs`.
+    - Se integró `IPasswordHasherService` (PBKDF2 HMAC-SHA256, 100,000 iteraciones + salt aleatorio de 16 bytes).
+    - Cuentas existentes con hash legado/texto plano se migran de forma automática y transparente a hash criptográfico en su primer login.
+  - **Vulnerabilidad 3 (Alta) — Restablecimiento de Contraseñas / Account Takeover (ATO)**:
+    - Se introdujo validación de factor secundario de identidad: teléfono registrado del cliente.
+    - `POST /api/v1/store/customers/reset-password` exige coincidencia del teléfono antes de actualizar el hash de contraseña.
+    - Frontend (`/cuenta`) actualizado para solicitar y validar el teléfono antes de enviar la solicitud.
+  - **Vulnerabilidad 4 (Alta) — Manipulación Anónima de Tracking de Pedidos**:
+    - Se eliminó el atributo `[AllowAnonymous]` a nivel de clase en `StripePaymentsController`.
+    - `PUT /api/v1/payments/stripe/web-orders/{id}/tracking` ahora exige permiso estricto `[Authorize(Policy = PermissionCodes.Sales.Process)]`.
+    - Verificado en producción con curl: peticiones anónimas reciben `HTTP 401 Unauthorized`.
+  - **Vulnerabilidad 5 (Media) — Fuga de Mensajes de Contacto y Datos Personales (PII)**:
+    - Se eliminó el acceso público anónimo a `GET /api/v1/store/contact-messages`.
+    - Ahora exige autenticación y permiso de visualización de clientes: `[Authorize(Policy = PermissionCodes.Customers.View)]`.
+    - Verificado en producción con curl: responde `HTTP 401 Unauthorized`.
+  - **Vulnerabilidad 6 (Alta) — CORS Permisivo y Comodines de Terceros**:
+    - Se eliminaron comodines `.workers.dev` y `.pages.dev` en `Program.cs`.
+    - Orígenes autorizados restringidos estrictamente a `localhost`, `127.0.0.1`, `wpcbajio.com`, `admin.wpcbajio.com`, `api.wpcbajio.com` y dominios oficiales configurados.
+  - **Vulnerabilidad 7 (Media/Alta) — Ataques de Fuerza Bruta y Denial of Service (DoS)**:
+    - Se implementó ASP.NET Core Sliding Window Rate Limiting en `Program.cs` (`app.UseRateLimiter()`).
+    - Políticas `auth` (15 req/min) y `payments` (20 req/min) aplicadas por IP en endpoints de login, registro, reseteo de contraseña y creación de pasarelas Stripe.
+  - **Vulnerabilidad 8 (Media) — Credenciales Estáticas en Código para Serilog UI**:
+    - Se eliminaron credenciales fijas en código fuente en `SerilogAuthMiddleware.cs`.
+    - Ahora se leen dinámicamente de `IConfiguration` / variables de entorno.
+    - Se implementó validación criptográfica en tiempo constante (`CryptographicOperations.FixedTimeEquals`) contra ataques de canal lateral (timing attacks).
+  - **Vulnerabilidad 9 (Media) — Margen E-Commerce sin Validación de Rol**:
+    - `PUT /api/v1/system-settings/ecommerce-pricing` blindado con `[Authorize(Policy = PermissionCodes.Catalog.ProductsEdit)]`.
+  - **Despliegue y Validación en VPS (`193.46.198.88`)**:
+    - Backend: publicado en Release, sincronizado a `/var/www/pos-api`, `pos-api.service` reiniciado y validado en tiempo real.
+    - Frontend: cambios sincronizados a `/var/www/ecommerce`, `npm run build` completado exitosamente y `pm2 reload wpc-ecommerce` verificado.
+
+## 🟢 ESTADO PREVIO (05 de Octubre, 2026 - Madrugada / Privacidad de Pedidos)
 
 - **Protección de Privacidad de Datos (PII) y Blindaje contra IDOR en Consulta de Pedidos (`/pedido/[folio]`)**:
   - **Detección del Problema**: Al pegar el enlace `/pedido/{folio}` en modo incógnito/privado sin iniciar sesión, un tercero no autenticado podía visualizar el estado completo de la orden, los artículos comprados y los datos sensibles del comprador (Nombre, Apellidos, Teléfono, Correo y Dirección de Entrega).
