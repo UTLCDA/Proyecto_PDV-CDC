@@ -1,11 +1,28 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
-## 🟢 ESTADO ACTUAL (05 de Octubre, 2026 - Madrugada)
+## 🟢 ESTADO ACTUAL (05 de Octubre, 2026 - Madrugada / Seguridad Crítica)
+
+- **Protección de Privacidad de Datos (PII) y Blindaje contra IDOR en Consulta de Pedidos (`/pedido/[folio]`)**:
+  - **Detección del Problema**: Al pegar el enlace `/pedido/{folio}` en modo incógnito/privado sin iniciar sesión, un tercero no autenticado podía visualizar el estado completo de la orden, los artículos comprados y los datos sensibles del comprador (Nombre, Apellidos, Teléfono, Correo y Dirección de Entrega).
+  - **Blindaje Backend (`StripePaymentsController.cs`)**:
+    - Se agregó el parámetro `[FromQuery] string? email` al endpoint público `GET /api/v1/payments/stripe/orders/{folio}`.
+    - Se implementó validación estricta de identidad: si el correo electrónico no se proporciona o no coincide exactamente con el cliente registrado en la venta (`sale.Cliente.Email`), el backend responde con **HTTP 403 Forbidden** (`requiresVerification: true`).
+    - Ningún dato de cliente, dirección, partidas o montos se entrega a peticiones sin validación.
+  - **Blindaje Frontend (`order-status-client.tsx`, `checkout.ts`, `services/index.ts`)**:
+    - Nueva pantalla de seguridad con diseño profesional y escudo protector (`ShieldCheck`): solicita el correo del comprador antes de revelar el pedido en ventanas privadas o anónimas.
+    - Si el comprador ya inició sesión en `/cuenta` o acaba de finalizar el pago en su navegador, el email se valida transparentemente sin fricción.
+    - Eliminado el mock estático residual en `services/index.ts` que mostraba datos ficticios de prueba.
+  - **Despliegue en Producción (VPS)**:
+    - Backend compilado y transferido a `/var/www/pos-api`; servicio `pos-api.service` reiniciado y verificado.
+    - Frontend compilado con `npm run build` en `/var/www/ecommerce` y proceso PM2 `wpc-ecommerce` recargado al 100%.
+    - Verificado con curl: peticiones anónimas o con correo erróneo reciben `HTTP 403 Forbidden`, mientras que el correo legítimo del comprador desbloquea `HTTP 200 OK`.
+
+## 🟢 ESTADO PREVIO (05 de Octubre, 2026 - Madrugada)
 
 - **Estandarización de Órdenes Web por Folio Operativo (`IdVenta`), Canal `WEB` y Corrección de Visualización**:
   - **Identificador de Pedido (`IdVenta` + Badge `WEB`)**:
     - Backend (`StripePaymentsController.cs`): Al registrar la venta en SQL Server, `sale.NumeroFolio` ahora adopta el identificador limpio consecutivo `WEB-{sale.IdVenta}` y registra los metadatos `IdVenta` y `Channel: "WEB"`.
-    - Endpoint público `GET /api/v1/payments/stripe/orders/{folio}` ahora permite consultar órdenes no solo por UUID o folio antiguo, sino también por `IdVenta`, `#IdVenta` o `WEB-IdVenta`.
+    - Endpoint público `GET /api/v1/payments/stripe/orders/{folio}` ahora permite consultar órdenes no solo por UUID o folio antiguo, sino también por `IdVenta`, `#IdVenta` o `WEB-IdVenta` sujeto a validación de correo.
     - Frontend E-Commerce (`app/cuenta/page.tsx`, `components/order/order-status-client.tsx`, `app/pago-exitoso/page.tsx`): Los pedidos se visualizan como `Venta #{idVenta}` acompañados de la etiqueta distintiva `WEB` (y conservan su folio de referencia en caso necesario).
     - Frontend PDV (`WebOrdersPage.tsx`): Tabla de órdenes web estandarizada para mostrar `Venta #{idVenta}` con badge `WEB`.
   - **Corrección de Errores de Mapeo y Valores `NaN` e `Invalid Date`**:
@@ -15,7 +32,7 @@
   - **Compilación y Pruebas**:
     - Backend .NET: 97/97 pruebas xUnit aprobadas con 0 errores.
     - Frontend PDV (`pos-web`): Compilación de producción exitosa con Vite.
-    - Frontend E-Commerce (`WPCBajio-Ecommerce`): Build de producción de Next.js exitoso (25/25 páginas generadas).
+    - Frontend E-Commerce (`WPCBajio-Ecommerce`): Build de producción de Next.js exitoso (122 rutas optimizadas).
 
 ## 🟢 ESTADO PREVIO (04 de Octubre, 2026 - Tarde / Noche)
 

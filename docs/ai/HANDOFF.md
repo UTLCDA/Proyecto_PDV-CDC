@@ -1,3 +1,19 @@
+## 📌 Hito Cumplido: Protección Crítica de Privacidad (PII) y Verificación en Rastreo de Pedidos (05 de Octubre, 2026 - Madrugada)
+- **Problema Reportado**: Al pegar un enlace `/pedido/{folio}` en ventana privada/incógnito sin iniciar sesión, se mostraban los datos del pedido y datos personales del comprador a cualquier visitante no autenticado.
+- **Archivos Modificados**:
+  - `src/backend/Pos.Api/Controllers/v1/StripePaymentsController.cs`:
+    - Endpoint `GET /api/v1/payments/stripe/orders/{folio}` ahora recibe `[FromQuery] string? email`.
+    - Validación estricta: si el correo del comprador no coincide exactamente con el registrado en `sale.Cliente.Email`, el API deniega la entrega de datos devolviendo `403 Forbidden` (`requiresVerification: true`).
+  - `d:\WPC-BajioEcommerce`:
+    - `services/api/checkout.ts`: Incorpora `getOrderFromApiWithVerification` para gestionar respuestas 403 y estados de verificación.
+    - `services/index.ts`: Eliminado el mock estático residual que devolvía datos ficticios ante fallos de búsqueda; ahora enlaza de forma segura con el servicio de API.
+    - `components/order/order-status-client.tsx`: Nueva pantalla de autenticación y verificación de seguridad con icono de escudo (`ShieldCheck`); exige al visitante el correo de compra para desbloquear los datos del pedido si no tiene sesión activa.
+- **Despliegue y Pruebas en Vivo**:
+  - Binarios Release de `Pos.Api` desplegados en `/var/www/pos-api/` y servicio `pos-api.service` reiniciado en VPS.
+  - Build de Next.js (`npm run build`) ejecutado en `/var/www/ecommerce` y proceso PM2 `wpc-ecommerce` recargado.
+  - Petición sin correo o correo erróneo: `HTTP 403 Forbidden` (Zero PII leak).
+  - Petición con correo legítimo del cliente: `HTTP 200 OK` (desbloqueo seguro).
+
 ## 📌 Hito Cumplido: Estandarización de Órdenes Web con IdVenta, Canal WEB y Corrección de Visualización (05 de Octubre, 2026 - Madrugada)
 - **Archivos Modificados**:
   - `src/backend/Pos.Api/Controllers/v1/StripePaymentsController.cs`:
