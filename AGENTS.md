@@ -58,3 +58,9 @@ Una historia o funcionalidad solo está terminada cuando:
 7. Documentos de IA (`CURRENT_STATE.md`, `HANDOFF.md`, `NEXT_TASK.md`) actualizados.
 8. Descripción de Pull Request redactada.
 9. Validación y aprobación explícita por el desarrollador humano.
+
+## 8. Identidad de Git y Autores
+- Para cualquier commit o configuración de Git, utilizar exclusivamente las credenciales oficiales autorizadas:
+  - **Nombre:** `Aaron Arenas Martinez`
+  - **Email:** `44418304+UTLCDA@users.noreply.github.com`
+- Está estrictamente prohibido utilizar o configurar cuentas corporativas o correos externos como `siniestros-desarrollo@devsecops.hdi.com.mx`. Si se detecta alguna referencia a dicho correo o similares en cualquier archivo, configuración o commit, debe ser eliminada y reemplazada de inmediato.

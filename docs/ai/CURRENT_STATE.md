@@ -1,6 +1,23 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
-## 🟢 ESTADO ACTUAL (04 de Octubre, 2026 - Tarde / Noche)
+## 🟢 ESTADO ACTUAL (05 de Octubre, 2026 - Madrugada)
+
+- **Estandarización de Órdenes Web por Folio Operativo (`IdVenta`), Canal `WEB` y Corrección de Visualización**:
+  - **Identificador de Pedido (`IdVenta` + Badge `WEB`)**:
+    - Backend (`StripePaymentsController.cs`): Al registrar la venta en SQL Server, `sale.NumeroFolio` ahora adopta el identificador limpio consecutivo `WEB-{sale.IdVenta}` y registra los metadatos `IdVenta` y `Channel: "WEB"`.
+    - Endpoint público `GET /api/v1/payments/stripe/orders/{folio}` ahora permite consultar órdenes no solo por UUID o folio antiguo, sino también por `IdVenta`, `#IdVenta` o `WEB-IdVenta`.
+    - Frontend E-Commerce (`app/cuenta/page.tsx`, `components/order/order-status-client.tsx`, `app/pago-exitoso/page.tsx`): Los pedidos se visualizan como `Venta #{idVenta}` acompañados de la etiqueta distintiva `WEB` (y conservan su folio de referencia en caso necesario).
+    - Frontend PDV (`WebOrdersPage.tsx`): Tabla de órdenes web estandarizada para mostrar `Venta #{idVenta}` con badge `WEB`.
+  - **Corrección de Errores de Mapeo y Valores `NaN` e `Invalid Date`**:
+    - Backend: Expone propiedades normalizadas duales en las respuestas de órdenes: `createdAt` / `createdAtUtc`, `unitPrice` / `pricePerUnit`, `lineTotal`, y `imageUrl` / `image`.
+    - Frontend E-Commerce: Capa de normalización centralizada en `services/api/checkout.ts` (`normalizeOrder`) y parseo seguro de fechas (`formatOrderDate`), eliminando por completo los textos `$NaN`, `$NaN c/u` y `Registrado el Invalid Date`.
+    - Fallback de imagen de producto: Cuando un producto en BD no cuenta con foto o `imageUrl` es cadena vacía, se renderiza un thumbnail con ícono representativo `<Package />` evitando renderizados rotos `<img src="" />`.
+  - **Compilación y Pruebas**:
+    - Backend .NET: 97/97 pruebas xUnit aprobadas con 0 errores.
+    - Frontend PDV (`pos-web`): Compilación de producción exitosa con Vite.
+    - Frontend E-Commerce (`WPCBajio-Ecommerce`): Build de producción de Next.js exitoso (25/25 páginas generadas).
+
+## 🟢 ESTADO PREVIO (04 de Octubre, 2026 - Tarde / Noche)
 
 - **Reactivación y Desbloqueo de Pagos Stripe para E-Commerce en Producción (PR)**:
   - **Desbloqueo de Modo Mantenimiento (`StripePaymentsController.cs` y `appsettings.json`)**:

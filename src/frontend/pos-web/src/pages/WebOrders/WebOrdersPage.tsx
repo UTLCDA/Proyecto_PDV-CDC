@@ -290,9 +290,19 @@ export const WebOrdersPage: React.FC = () => {
                 filteredOrders.map(order => (
                   <tr key={order.id}>
                     <td>
-                      <strong style={{ color: 'var(--primary-main)', fontFamily: 'monospace', fontSize: '0.95rem' }}>
-                        {order.folio}
-                      </strong>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                        <strong style={{ color: 'var(--primary-main)', fontFamily: 'monospace', fontSize: '0.95rem' }}>
+                          {order.idVenta ? `Venta #${order.idVenta}` : order.folio}
+                        </strong>
+                        <span className="badge" style={{ backgroundColor: '#2563eb', color: '#fff', fontSize: '0.7rem', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>
+                          WEB
+                        </span>
+                      </div>
+                      {order.folio && order.folio !== `WEB-${order.idVenta}` && order.folio !== String(order.idVenta) && (
+                        <small style={{ display: 'block', color: 'var(--text-secondary)', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                          {order.folio}
+                        </small>
+                      )}
                       <small style={{ display: 'block', color: 'var(--text-secondary)' }}>
                         {new Date(order.createdAtUtc).toLocaleString(i18n.language === 'zh' ? 'zh-CN' : 'es-MX')}
                       </small>

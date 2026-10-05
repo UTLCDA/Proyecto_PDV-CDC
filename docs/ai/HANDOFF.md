@@ -1,3 +1,23 @@
+## 📌 Hito Cumplido: Estandarización de Órdenes Web con IdVenta, Canal WEB y Corrección de Visualización (05 de Octubre, 2026 - Madrugada)
+- **Archivos Modificados**:
+  - `src/backend/Pos.Api/Controllers/v1/StripePaymentsController.cs`:
+    - Creación de órdenes con folio `WEB-{IdVenta}` en lugar de UUIDs largos.
+    - Metadatos Stripe actualizados con `IdVenta`, `Channel: "WEB"` y `Source: "WEB"`.
+    - `GetOrderByFolio` permite consultar por `IdVenta`, `#IdVenta`, `WEB-IdVenta` o UUID antiguo.
+    - Respuestas de órdenes enriquecidas con `idVenta`, `channel: "WEB"`, `createdAt`, `createdAtUtc`, `pricePerUnit`, `unitPrice`, `lineTotal`, `imageUrl` e `image`.
+  - `src/frontend/pos-web/src/pages/WebOrders/WebOrdersPage.tsx`:
+    - Estandarizado para mostrar `Venta #{order.idVenta}` con badge `WEB`.
+  - `d:\WPC-BajioEcommerce`:
+    - `types/index.ts`: Modelos `Order` y `CartItem` actualizados con `idVenta`, `channel`, `unitPrice`, `lineTotal`, `imageUrl`, etc.
+    - `services/api/checkout.ts`: Normalizador centralizado de órdenes (`normalizeOrder`) que garantiza coherencia de campos y previene `NaN` e `Invalid Date`.
+    - `app/cuenta/page.tsx`: Folios como `Venta #{idVenta}` + badge `WEB`, formateador de fechas seguro y miniaturas de partidas con fallback `<Package />` e importes exactos.
+    - `components/order/order-status-client.tsx`: Folio con `Venta #{order.idVenta}` + badge `WEB`, fechas seguras, desglose monetario sin `NaN` y contenedor de imagen con fallback si `src` está vacío.
+    - `app/pago-exitoso/page.tsx`: Folio mostrado como `Venta #{idVenta}` con badge `WEB`.
+- **Validaciones**:
+  - 97 pruebas backend superadas con 0 errores (`dotnet test`).
+  - Build de producción Vite en `pos-web` exitoso.
+  - Build de producción Next.js en `WPC-BajioEcommerce` exitoso (25 rutas compiladas).
+
 ## 📌 Hito Cumplido: Reactivación y Desbloqueo de Pagos Stripe en Producción (PR) (04 de Octubre, 2026 - Tarde / Noche)
 - **Archivos Modificados**:
   - `src/backend/Pos.Api/Controllers/v1/StripePaymentsController.cs`:

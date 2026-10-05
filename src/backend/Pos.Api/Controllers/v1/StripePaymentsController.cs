@@ -278,6 +278,13 @@ public class StripePaymentsController : ControllerBase
         _dbContext.Sales.Add(sale);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        if (sale.IdVenta > 0)
+        {
+            sale.NumeroFolio = $"WEB-{sale.IdVenta}";
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            orderFolio = sale.NumeroFolio;
+        }
+
         // 5. Configurar y Crear PaymentIntent en Stripe
         var stripeSecretKey = _configuration["StripeSettings:SecretKey"] ?? Environment.GetEnvironmentVariable("STRIPE_SECRET_KEY");
         var stripePublishableKey = _configuration["StripeSettings:PublishableKey"] ?? Environment.GetEnvironmentVariable("STRIPE_PUBLISHABLE_KEY") ?? "";
@@ -303,10 +310,12 @@ public class StripePaymentsController : ControllerBase
                     {
                         { "OrderFolio", orderFolio },
                         { "SaleId", sale.Id.ToString() },
+                        { "IdVenta", sale.IdVenta.ToString() },
                         { "CustomerId", customer.Id.ToString() },
                         { "CustomerEmail", normalizedEmail },
                         { "DeliveryMethod", isPickup ? "pickup" : "delivery" },
-                        { "Source", "WEB" }
+                        { "Source", "WEB" },
+                        { "Channel", "WEB" }
                     },
                     Description = $"Pedido WPC Bajío: {orderFolio} ({normalizedEmail})"
                 };
@@ -634,6 +643,13 @@ public class StripePaymentsController : ControllerBase
         _dbContext.Sales.Add(sale);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        if (sale.IdVenta > 0)
+        {
+            sale.NumeroFolio = $"WEB-{sale.IdVenta}";
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            orderFolio = sale.NumeroFolio;
+        }
+
         var stripeSecretKey = _configuration["StripeSettings:SecretKey"] ?? Environment.GetEnvironmentVariable("STRIPE_SECRET_KEY");
         bool hasLiveStripeKey = !string.IsNullOrWhiteSpace(stripeSecretKey) &&
                                 !stripeSecretKey.Contains("placeholder") &&
@@ -726,8 +742,11 @@ public class StripePaymentsController : ControllerBase
                     {
                         { "OrderFolio", orderFolio },
                         { "SaleId", sale.Id.ToString() },
+                        { "IdVenta", sale.IdVenta.ToString() },
                         { "CustomerId", customer.Id.ToString() },
-                        { "DeliveryMethod", isPickup ? "pickup" : "delivery" }
+                        { "DeliveryMethod", isPickup ? "pickup" : "delivery" },
+                        { "Source", "WEB" },
+                        { "Channel", "WEB" }
                     },
                     SuccessUrl = successUrl,
                     CancelUrl = cancelUrl
@@ -1478,12 +1497,16 @@ public class StripePaymentsController : ControllerBase
     public async Task<IActionResult> GetOrderByFolio(string folio, CancellationToken cancellationToken)
     {
         var term = folio.Trim().ToUpperInvariant();
+        int.TryParse(term.Replace("#", "").Replace("VENTA-", "").Replace("VENTA", "").Replace("WEB-", "").Trim(), out var parsedIdVenta);
+
         var sale = await _dbContext.Sales
             .AsNoTracking()
             .Include(s => s.Cliente)
             .Include(s => s.Partidas)
                 .ThenInclude(p => p.Producto)
-            .FirstOrDefaultAsync(s => s.NumeroFolio == term || s.Id.ToString() == term, cancellationToken);
+            .FirstOrDefaultAsync(s => s.NumeroFolio == term 
+                                   || s.Id.ToString() == term 
+                                   || (parsedIdVenta > 0 && s.IdVenta == parsedIdVenta), cancellationToken);
 
         if (sale == null)
         {
@@ -1525,10 +1548,15 @@ public class StripePaymentsController : ControllerBase
             statusLabel = "Preparando en almacén";
         }
 
+        var shipping = sale.MontoTotal > (sale.SubTotal - sale.MontoDescuento) ? Math.Max(0m, sale.MontoTotal - (sale.SubTotal - sale.MontoDescuento)) : 0m;
+
         return Ok(new
         {
             id = sale.Id,
+            idVenta = sale.IdVenta,
             folio = sale.NumeroFolio,
+            channel = "WEB",
+            source = "WEB",
             status = orderStatus,
             statusLabel = statusLabel,
             trackingCarrier = carrier,
@@ -1549,11 +1577,13 @@ public class StripePaymentsController : ControllerBase
                 zipCode = sale.Cliente?.CodigoPostal ?? ""
             },
             subtotal = sale.SubTotal,
-            shipping = sale.MontoTotal > (sale.SubTotal - sale.MontoDescuento) ? Math.Max(0m, sale.MontoTotal - (sale.SubTotal - sale.MontoDescuento)) : 0m,
+            shipping = shipping,
+            shippingCost = shipping,
             discount = sale.MontoDescuento,
             discountAmount = sale.MontoDescuento,
             total = sale.MontoTotal,
             createdAt = sale.FechaCreacionUtc,
+            createdAtUtc = sale.FechaCreacionUtc,
             items = sale.Partidas.Select(p => new
             {
                 id = p.Id,
@@ -1563,8 +1593,10 @@ public class StripePaymentsController : ControllerBase
                 unit = p.Producto != null && p.Producto.PiezasPorCaja > 1 ? "box" : "piece",
                 quantity = (int)p.Cantidad,
                 unitPrice = p.PrecioUnitario,
+                pricePerUnit = p.PrecioUnitario,
                 lineTotal = p.PrecioTotal,
-                imageUrl = p.Producto?.ImagenUrl ?? ""
+                imageUrl = p.Producto?.ImagenUrl ?? "",
+                image = p.Producto?.ImagenUrl ?? ""
             }).ToList()
         });
     }
@@ -1643,13 +1675,17 @@ public class StripePaymentsController : ControllerBase
                 id = sale.Id,
                 folio = sale.NumeroFolio,
                 idVenta = sale.IdVenta,
+                channel = "WEB",
+                source = "WEB",
                 status = orderStatus,
                 statusLabel = statusLabel,
                 trackingCarrier = carrier,
                 trackingNumber = trackingNumber,
                 deliveryMethod = isPickup ? "pickup" : "delivery",
                 subtotal = sale.SubTotal,
+                shipping = shippingCost,
                 shippingCost = shippingCost,
+                discount = sale.MontoDescuento,
                 discountAmount = sale.MontoDescuento,
                 total = sale.MontoTotal,
                 itemsCount = sale.Partidas.Count,
@@ -1662,9 +1698,12 @@ public class StripePaymentsController : ControllerBase
                     unit = p.Producto != null && p.Producto.PiezasPorCaja > 1 ? "box" : "piece",
                     quantity = (int)p.Cantidad,
                     unitPrice = p.PrecioUnitario,
+                    pricePerUnit = p.PrecioUnitario,
                     lineTotal = p.PrecioTotal,
-                    imageUrl = p.Producto?.ImagenUrl ?? ""
+                    imageUrl = p.Producto?.ImagenUrl ?? "",
+                    image = p.Producto?.ImagenUrl ?? ""
                 }).ToList(),
+                createdAt = sale.FechaCreacionUtc,
                 createdAtUtc = sale.FechaCreacionUtc
             };
         }).ToList();
