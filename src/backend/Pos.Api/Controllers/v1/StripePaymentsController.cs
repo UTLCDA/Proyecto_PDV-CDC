@@ -370,9 +370,14 @@ public class StripePaymentsController : ControllerBase
             catch (StripeException sEx)
             {
                 _logger.LogError(sEx, "Error de Stripe API al crear PaymentIntent para folio {Folio}: {Message}", orderFolio, sEx.Message);
+                var rawMsg = sEx.StripeError?.Message ?? sEx.Message;
+                if (sEx.StripeError?.Code == "amount_too_small" || rawMsg.Contains("at least $10.00 MXN", StringComparison.OrdinalIgnoreCase))
+                {
+                    rawMsg = "El monto mínimo permitido por la pasarela de pagos Stripe en México es de $10.00 MXN. Por favor añade al menos 10 piezas de este producto de $1.00 MXN a tu carrito.";
+                }
                 return BadRequest(new
                 {
-                    message = sEx.StripeError?.Message ?? sEx.Message
+                    message = rawMsg
                 });
             }
             catch (Exception ex)
