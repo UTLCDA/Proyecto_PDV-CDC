@@ -1491,10 +1491,12 @@ public class StripePaymentsController : ControllerBase
     }
 
     /// <summary>
-    /// Consulta el estado público oficial de una orden web mediante su folio WPC (GET /api/v1/payments/stripe/orders/{folio}).
+    /// Consulta el estado público oficial de una orden web mediante su folio WPC (GET /api/v1/payments/stripe/orders/{folio}?email=xxx).
+    /// Por seguridad y privacidad (Zero Trust / LFPDPPP), para acceder a los detalles y datos de la orden
+    /// se requiere validación estricta del correo electrónico con el que se realizó la compra.
     /// </summary>
     [HttpGet("orders/{folio}")]
-    public async Task<IActionResult> GetOrderByFolio(string folio, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetOrderByFolio(string folio, [FromQuery] string? email, CancellationToken cancellationToken)
     {
         var term = folio.Trim().ToUpperInvariant();
         int.TryParse(term.Replace("#", "").Replace("VENTA-", "").Replace("VENTA", "").Replace("WEB-", "").Trim(), out var parsedIdVenta);
@@ -1511,6 +1513,26 @@ public class StripePaymentsController : ControllerBase
         if (sale == null)
         {
             return NotFound(new { message = $"Pedido no encontrado con folio: '{folio}'" });
+        }
+
+        var customerEmail = (sale.Cliente?.Email ?? "").Trim().ToLowerInvariant();
+        var providedEmail = (email ?? "").Trim().ToLowerInvariant();
+
+        // Verificación estricta de identidad:
+        // El usuario debe proporcionar el correo registrado en la venta o estar autenticado
+        bool isVerified = !string.IsNullOrEmpty(customerEmail) 
+                       && !string.IsNullOrEmpty(providedEmail) 
+                       && string.Equals(customerEmail, providedEmail, StringComparison.OrdinalIgnoreCase);
+
+        if (!isVerified)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                requiresVerification = true,
+                message = "Por seguridad y protección de datos personales, para consultar los detalles de este pedido se requiere verificar el correo electrónico con el que se realizó la compra o iniciar sesión.",
+                folio = sale.NumeroFolio,
+                idVenta = sale.IdVenta
+            });
         }
 
         var isPickup = sale.Notas.Contains("Recolección en Tienda", StringComparison.OrdinalIgnoreCase);
