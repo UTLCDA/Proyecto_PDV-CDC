@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using Serilog.Sinks.InMemory;
 
@@ -6,10 +7,12 @@ namespace Pos.Api.Middleware;
 public class SerilogAuthMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly IConfiguration _configuration;
 
-    public SerilogAuthMiddleware(RequestDelegate next)
+    public SerilogAuthMiddleware(RequestDelegate next, IConfiguration configuration)
     {
         _next = next;
+        _configuration = configuration;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -27,16 +30,32 @@ public class SerilogAuthMiddleware
                     var token = authHeader.Substring("Basic ".Length).Trim();
                     var credentials = Encoding.UTF8.GetString(Convert.FromBase64String(token)).Split(':', 2);
 
-                    if (credentials.Length == 2 && credentials[0] == "administrador" && credentials[1] == "Aaron096")
+                    var expectedUser = _configuration["SerilogUi:Username"] ?? "administrador";
+                    var expectedPass = _configuration["SerilogUi:Password"] ?? "Aaron096";
+
+                    if (credentials.Length == 2)
                     {
-                        if (path == "/serilog-ui/stream")
+                        var userBytes = Encoding.UTF8.GetBytes(credentials[0]);
+                        var expectedUserBytes = Encoding.UTF8.GetBytes(expectedUser);
+                        var passBytes = Encoding.UTF8.GetBytes(credentials[1]);
+                        var expectedPassBytes = Encoding.UTF8.GetBytes(expectedPass);
+
+                        bool userMatch = userBytes.Length == expectedUserBytes.Length && 
+                                         CryptographicOperations.FixedTimeEquals(userBytes, expectedUserBytes);
+                        bool passMatch = passBytes.Length == expectedPassBytes.Length && 
+                                         CryptographicOperations.FixedTimeEquals(passBytes, expectedPassBytes);
+
+                        if (userMatch && passMatch)
                         {
-                            await ServeLogStreamAsync(context);
+                            if (path == "/serilog-ui/stream")
+                            {
+                                await ServeLogStreamAsync(context);
+                                return;
+                            }
+
+                            await ServeDashboardHtmlAsync(context);
                             return;
                         }
-
-                        await ServeDashboardHtmlAsync(context);
-                        return;
                     }
                 }
                 catch

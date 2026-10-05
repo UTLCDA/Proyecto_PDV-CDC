@@ -29,7 +29,7 @@ public class SystemSettingsController : ControllerBase
     }
 
     [HttpPut("ecommerce-pricing")]
-    [Authorize]
+    [Authorize(Policy = PermissionCodes.Catalog.ProductsEdit)]
     public async Task<IActionResult> UpdateEcommercePricing([FromBody] UpdateEcommercePricingDto dto, CancellationToken cancellationToken)
     {
         if (dto.Percentage < 0 || dto.Percentage >= 100)

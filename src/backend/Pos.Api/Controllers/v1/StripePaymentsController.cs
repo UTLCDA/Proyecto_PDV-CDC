@@ -1,40 +1,44 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pos.Domain.Common;
 using Pos.Domain.Entidades;
 using Pos.Infrastructure.Persistence;
 using Pos.Application.Catalog.Services;
+using Pos.Application.Common.Security;
 using Stripe;
 using Stripe.Checkout;
 
 namespace Pos.Api.Controllers.v1;
 
 /// <summary>
-/// Controlador público de integración de pagos oficiales con Stripe para WPC Bajío E-Commerce.
+/// Controlador de integración de pagos oficiales con Stripe para WPC Bajío E-Commerce.
 /// Maneja la creación de PaymentIntents con Stripe Payment Element, webhooks autoritativos con firma criptográfica,
 /// deducción atómica de inventario e integración directa con el módulo de Pedidos Web del PDV.
 /// </summary>
 [ApiController]
 [Route("api/v1/payments/stripe")]
-[AllowAnonymous]
 public class StripePaymentsController : ControllerBase
 {
     private readonly PosDbContext _dbContext;
     private readonly IConfiguration _configuration;
     private readonly IPricingService _pricingService;
     private readonly ILogger<StripePaymentsController> _logger;
+    private readonly IWebHostEnvironment _env;
 
     public StripePaymentsController(
         PosDbContext dbContext,
         IConfiguration configuration,
         IPricingService pricingService,
-        ILogger<StripePaymentsController> logger)
+        ILogger<StripePaymentsController> logger,
+        IWebHostEnvironment env)
     {
         _dbContext = dbContext;
         _configuration = configuration;
         _pricingService = pricingService;
         _logger = logger;
+        _env = env;
     }
 
     /// <summary>
@@ -48,6 +52,8 @@ public class StripePaymentsController : ControllerBase
     /// 7. Retorna clientSecret y desglose oficial al frontend.
     /// </summary>
     [HttpPost("create-payment-intent")]
+    [AllowAnonymous]
+    [EnableRateLimiting("payments")]
     public async Task<IActionResult> CreatePaymentIntent(
         [FromBody] CreateStripePaymentIntentRequest request,
         CancellationToken cancellationToken)
@@ -430,6 +436,8 @@ public class StripePaymentsController : ControllerBase
     /// Mantenido para retrocompatibilidad con redirecciones externas.
     /// </summary>
     [HttpPost("create-checkout-session")]
+    [AllowAnonymous]
+    [EnableRateLimiting("payments")]
     public async Task<IActionResult> CreateCheckoutSession(
         [FromBody] CreateStripeCheckoutSessionRequest request,
         CancellationToken cancellationToken)
@@ -807,6 +815,7 @@ public class StripePaymentsController : ControllerBase
     ///    - Registro en bitácora de auditoría (AuditLogs).
     /// </summary>
     [HttpPost("webhook")]
+    [AllowAnonymous]
     public async Task<IActionResult> HandleWebhook(CancellationToken cancellationToken)
     {
         string json;
@@ -1202,10 +1211,17 @@ public class StripePaymentsController : ControllerBase
 
     /// <summary>
     /// Simula la acreditación de webhook para pruebas locales y QA de inventario (POST /api/v1/payments/stripe/simulate-webhook/{folio}).
+    /// SEGURIDAD CRÍTICA: Deshabilitado en producción y requiere autorización interna de ventas.
     /// </summary>
     [HttpPost("simulate-webhook/{folio}")]
+    [Authorize(Policy = PermissionCodes.Sales.Process)]
     public async Task<IActionResult> SimulateWebhook(string folio, CancellationToken cancellationToken)
     {
+        if (!_env.IsDevelopment())
+        {
+            return NotFound(new { message = "El simulador de webhooks está deshabilitado en ambientes productivos por seguridad." });
+        }
+
         var term = folio.Trim().ToUpperInvariant();
         var sale = await _dbContext.Sales
             .Include(s => s.Partidas)
@@ -1443,6 +1459,7 @@ public class StripePaymentsController : ControllerBase
     /// Actualiza el número de guía y paquetería de una orden web desde el PDV (PUT /api/v1/payments/stripe/web-orders/{id}/tracking).
     /// </summary>
     [HttpPut("web-orders/{id}/tracking")]
+    [Authorize(Policy = PermissionCodes.Sales.Process)]
     public async Task<IActionResult> UpdateWebOrderTracking(
         Guid id,
         [FromBody] UpdateTrackingRequest request,
@@ -1496,6 +1513,7 @@ public class StripePaymentsController : ControllerBase
     /// se requiere validación estricta del correo electrónico con el que se realizó la compra.
     /// </summary>
     [HttpGet("orders/{folio}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetOrderByFolio(string folio, [FromQuery] string? email, CancellationToken cancellationToken)
     {
         var term = folio.Trim().ToUpperInvariant();
@@ -1627,6 +1645,7 @@ public class StripePaymentsController : ControllerBase
     /// Consulta el historial de órdenes de un cliente por correo electrónico (GET /api/v1/payments/stripe/orders/customer?email=xxx).
     /// </summary>
     [HttpGet("orders/customer")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetCustomerOrders([FromQuery] string email, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(email))

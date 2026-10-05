@@ -1,4 +1,6 @@
 using System.Text;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -123,6 +125,36 @@ builder.Services.AddAuthorization(options =>
             .Any(claim => salesPermissions.Contains(claim.Value))));
 });
 
+// Rate Limiter configuration for sensitive & auth endpoints
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("auth", httpContext =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 15,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 3,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy("payments", httpContext =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 2,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+});
+
 // CORS for React Frontend (Localhost, Cloudflare Workers/Pages, and Production Domains)
 var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 builder.Services.AddCors(options =>
@@ -139,9 +171,9 @@ builder.Services.AddCors(options =>
                 return host == "localhost" ||
                        host == "127.0.0.1" ||
                        host == "wpcbajio.com" ||
-                       host.EndsWith(".wpcbajio.com") ||
-                       host.EndsWith(".workers.dev") ||
-                       host.EndsWith(".pages.dev");
+                       host.EndsWith(".wpcbajio.com");
+
+
             }
             return false;
         })
@@ -243,6 +275,7 @@ using (var scope = app.Services.CreateScope())
 
 // Configure HTTP pipeline — CORS MUST be first to guarantee headers on all responses & errors
 app.UseCors("AllowFrontend");
+app.UseRateLimiter();
 
 // Servir archivos estáticos de imágenes de productos fuera de wwwroot (persistencia VPS)
 var productImagesConfigPath = builder.Configuration["Storage:ProductImagesPath"];

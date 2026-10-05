@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.RateLimiting;
+using Pos.Application.Common.Interfaces;
+using Pos.Application.Common.Security;
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +18,6 @@ namespace Pos.Api.Controllers.v1;
 /// </summary>
 [ApiController]
 [Route("api/v1/[controller]")]
-[AllowAnonymous]
 public class StoreController : ControllerBase
 {
     private static readonly List<ContactMessageDto> _contactMessages = new()
@@ -37,6 +39,7 @@ public class StoreController : ControllerBase
     private readonly IPricingService _pricingService;
     private readonly ILogger<StoreController> _logger;
     private readonly IWebHostEnvironment _env;
+    private readonly IPasswordHasherService _passwordHasher;
 
     private static bool _migrationStarted = false;
     private static readonly object _migrationLock = new();
@@ -54,18 +57,21 @@ public class StoreController : ControllerBase
         PosDbContext dbContext,
         IPricingService pricingService,
         ILogger<StoreController> logger,
-        IWebHostEnvironment env)
+        IWebHostEnvironment env,
+        IPasswordHasherService passwordHasher)
     {
         _catalogService = catalogService;
         _dbContext = dbContext;
         _pricingService = pricingService;
         _logger = logger;
         _env = env;
+        _passwordHasher = passwordHasher;
     }
 
     /// <summary>
     /// Verificación de conectividad y estado operativo para la tienda en línea.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("ping")]
     public IActionResult Ping()
     {
@@ -81,6 +87,7 @@ public class StoreController : ControllerBase
     /// <summary>
     /// Consulta el listado de categorías activas para menús y filtros de la tienda.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("categories")]
     public async Task<ActionResult<List<CategoryDto>>> GetStoreCategories(CancellationToken cancellationToken)
     {
@@ -93,6 +100,7 @@ public class StoreController : ControllerBase
     /// Consulta el catálogo de productos disponibles para la venta en línea.
     /// Oculta costos confidenciales de adquisición y excluye productos inactivos.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("products")]
     public async Task<ActionResult<List<ProductDto>>> GetStoreProducts(
         [FromQuery] string? search,
@@ -133,6 +141,7 @@ public class StoreController : ControllerBase
     /// <summary>
     /// Consulta el detalle de un producto específico por su Id (GUID), SKU o Código.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("products/{idOrCode}")]
     public async Task<ActionResult<ProductDto>> GetStoreProductByIdOrCode(
         string idOrCode,
@@ -160,6 +169,7 @@ public class StoreController : ControllerBase
     /// <summary>
     /// Consulta el stock disponible en tiempo real de un producto específico por ID o SKU.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("inventory/{idOrCode}")]
     public async Task<IActionResult> GetProductInventory(
         string idOrCode,
@@ -204,6 +214,7 @@ public class StoreController : ControllerBase
     /// <summary>
     /// Verifica en tiempo real la disponibilidad de inventario para una lista de productos.
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("inventory/check")]
     public async Task<IActionResult> CheckBatchInventory(
         [FromBody] CheckInventoryBatchRequest request,
@@ -284,6 +295,7 @@ public class StoreController : ControllerBase
     /// 4. Calcula subtotal, costos de envío según reglas de negocio ($350 MXN < $5000, gratis >= $5000 o recolección) y total exacto.
     /// 5. Retorna si el carrito es válido para proceder al checkout.
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("cart/validate")]
     public async Task<IActionResult> ValidateCart(
         [FromBody] ValidateCartRequest request,
@@ -445,6 +457,7 @@ public class StoreController : ControllerBase
     /// Registra o actualiza de manera segura a un cliente invitado (Guest Checkout) para la tienda en línea.
     /// Permite asociar la orden y la dirección de envío sin requerir creación previa de credenciales de acceso.
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("customers/ensure")]
     public async Task<IActionResult> EnsureGuestCustomer(
         [FromBody] EnsureCustomerRequest request,
@@ -552,6 +565,7 @@ public class StoreController : ControllerBase
     /// <summary>
     /// Valida el formato de código postal mexicano (5 dígitos) y resuelve estado y municipio de referencia en la República Mexicana.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("addresses/validate-zip/{zipCode}")]
     public IActionResult ValidateZipCode(string zipCode)
     {
@@ -625,6 +639,7 @@ public class StoreController : ControllerBase
     /// <summary>
     /// Recibe un mensaje de contacto enviado por clientes desde la tienda en línea.
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("contact")]
     public IActionResult SubmitContactMessage([FromBody] ContactMessageDto message)
     {
@@ -651,6 +666,7 @@ public class StoreController : ControllerBase
     /// Consulta los mensajes de contacto de clientes para atención en PDV.
     /// </summary>
     [HttpGet("contact-messages")]
+    [Authorize(Policy = PermissionCodes.Customers.View)]
     public IActionResult GetContactMessages()
     {
         return Ok(_contactMessages);
@@ -659,6 +675,7 @@ public class StoreController : ControllerBase
     /// <summary>
     /// Consulta las promociones vigentes configuradas para la tienda en línea.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("promotions")]
     public IActionResult GetPromotions()
     {
@@ -684,17 +701,19 @@ public class StoreController : ControllerBase
     }
 
     /// <summary>
-    /// Registro de cliente desde el CDC (Tienda en Línea) con contraseña.
+    /// Registro de cliente desde el CDC (Tienda en L�nea) con contrase�a hasheada.
     /// </summary>
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     [HttpPost("customers/register")]
     public async Task<IActionResult> RegisterStoreCustomer(
         [FromBody] RegisterCustomerRequest request,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Email))
-            return BadRequest(new { message = "El correo electrónico es obligatorio." });
+            return BadRequest(new { message = "El correo electr�nico es obligatorio." });
         if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Trim().Length < 6)
-            return BadRequest(new { message = "La contraseña debe tener al menos 6 caracteres." });
+            return BadRequest(new { message = "La contrase�a debe tener al menos 6 caracteres." });
 
         var normalizedEmail = request.Email.Trim().ToLower();
         var customer = await _dbContext.Customers
@@ -702,28 +721,7 @@ public class StoreController : ControllerBase
 
         if (customer != null)
         {
-            if (string.IsNullOrEmpty(customer.PasswordHash) || customer.PasswordHash == "WPC123")
-            {
-                customer.PasswordHash = request.Password.Trim();
-                if (!string.IsNullOrWhiteSpace(request.FirstName)) customer.Nombre = request.FirstName.Trim();
-                if (!string.IsNullOrWhiteSpace(request.LastName)) customer.Apellido = request.LastName.Trim();
-                if (!string.IsNullOrWhiteSpace(request.Phone)) customer.Telefono = request.Phone.Trim();
-                customer.FechaActualizacionUtc = DateTime.UtcNow;
-                await _dbContext.SaveChangesAsync(cancellationToken);
-
-                return Ok(new
-                {
-                    id = customer.Id,
-                    firstName = customer.Nombre,
-                    lastName = customer.Apellido,
-                    fullName = customer.NombreMostrar,
-                    email = customer.Email,
-                    phone = customer.Telefono,
-                    message = "¡Tu cuenta ha sido activada y vinculada exitosamente con tu registro de tienda física!"
-                });
-            }
-
-            return BadRequest(new { message = "Ya existe una cuenta con este correo electrónico. Por favor inicia sesión o recupera tu contraseña." });
+            return BadRequest(new { message = "Ya existe una cuenta con este correo electr�nico. Por favor inicia sesi�n o recupera tu contrase�a." });
         }
 
         customer = new Cliente
@@ -740,8 +738,8 @@ public class StoreController : ControllerBase
             TipoCliente = CustomerTypes.Retail,
             PorcentajeDescuentoEspecial = 0m,
             LimiteCajasDiarias = 0m,
-            PasswordHash = request.Password.Trim(),
-            Notas = "Cliente registrado desde la tienda en línea (CDC).",
+            PasswordHash = _passwordHasher.HashPassword(request.Password.Trim()),
+            Notas = "Cliente registrado desde la tienda en l�nea (CDC).",
             EstaActivo = true,
             FechaCreacionUtc = DateTime.UtcNow
         };
@@ -762,16 +760,17 @@ public class StoreController : ControllerBase
     }
 
     /// <summary>
-    /// Inicio de sesión de cliente en CDC validando correo y contraseña.
-    /// Soporta contraseña por default WPC123 para clientes registrados previamente en PDV.
+    /// Inicio de sesi�n de cliente en CDC validando correo y contrase�a con verificaci�n criptogr�fica.
     /// </summary>
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     [HttpPost("customers/login")]
     public async Task<IActionResult> LoginStoreCustomer(
         [FromBody] LoginCustomerRequest request,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
-            return BadRequest(new { message = "Debes ingresar correo electrónico y contraseña." });
+            return BadRequest(new { message = "Debes ingresar correo electr�nico y contrase�a." });
 
         var normalizedEmail = request.Email.Trim().ToLower();
         var customer = await _dbContext.Customers
@@ -779,13 +778,29 @@ public class StoreController : ControllerBase
 
         if (customer == null)
         {
-            return BadRequest(new { message = "Correo electrónico o contraseña incorrectos." });
+            return BadRequest(new { message = "Correo electr�nico o contrase�a incorrectos." });
         }
 
-        var effectiveHash = string.IsNullOrWhiteSpace(customer.PasswordHash) ? "WPC123" : customer.PasswordHash;
-        if (effectiveHash != request.Password.Trim())
+        if (string.IsNullOrWhiteSpace(customer.PasswordHash))
         {
-            return BadRequest(new { message = "Correo electrónico o contraseña incorrectos." });
+            return BadRequest(new { message = "Esta cuenta no tiene una contrase�a web configurada. Por favor reg�strate o solicita la activaci�n de tu cuenta." });
+        }
+
+        bool isValidPassword = _passwordHasher.VerifyPassword(customer.PasswordHash, request.Password.Trim());
+
+        // Migraci�n transparente y autom�tica si la cuenta ten�a contrase�a en texto plano
+        if (!isValidPassword && customer.PasswordHash == request.Password.Trim())
+        {
+            isValidPassword = true;
+            customer.PasswordHash = _passwordHasher.HashPassword(request.Password.Trim());
+            customer.FechaActualizacionUtc = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Contrase�a migrada a hash criptogr�fico seguro PBKDF2 para cliente {Email}", customer.Email);
+        }
+
+        if (!isValidPassword)
+        {
+            return BadRequest(new { message = "Correo electr�nico o contrase�a incorrectos." });
         }
 
         return Ok(new
@@ -803,22 +818,24 @@ public class StoreController : ControllerBase
                 state = customer.Estado,
                 zipCode = customer.CodigoPostal
             },
-            message = "Inicio de sesión exitoso."
+            message = "Inicio de sesi�n exitoso."
         });
     }
 
     /// <summary>
-    /// Restablecimiento sencillo de contraseña para clientes del CDC.
+    /// Restablecimiento seguro de contrase�a para clientes del CDC validando identidad mediante tel�fono registrado.
     /// </summary>
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     [HttpPost("customers/reset-password")]
     public async Task<IActionResult> ResetCustomerPassword(
         [FromBody] ResetPasswordRequest request,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Email))
-            return BadRequest(new { message = "El correo electrónico es obligatorio." });
+            return BadRequest(new { message = "El correo electr�nico es obligatorio." });
         if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Trim().Length < 6)
-            return BadRequest(new { message = "La nueva contraseña debe tener al menos 6 caracteres." });
+            return BadRequest(new { message = "La nueva contrase�a debe tener al menos 6 caracteres." });
 
         var normalizedEmail = request.Email.Trim().ToLower();
         var customer = await _dbContext.Customers
@@ -826,17 +843,30 @@ public class StoreController : ControllerBase
 
         if (customer == null)
         {
-            return NotFound(new { message = "No se encontró ningún cliente registrado con este correo." });
+            return NotFound(new { message = "No se encontr� ning�n cliente registrado con este correo." });
         }
 
-        customer.PasswordHash = request.NewPassword.Trim();
+        if (string.IsNullOrWhiteSpace(request.Phone))
+        {
+            return BadRequest(new { message = "Por motivos de seguridad debes ingresar el n�mero telef�nico registrado en tu cuenta para validar tu identidad." });
+        }
+
+        var cleanProvidedPhone = System.Text.RegularExpressions.Regex.Replace(request.Phone, @"[^\d]", "");
+        var cleanCustomerPhone = System.Text.RegularExpressions.Regex.Replace(customer.Telefono ?? "", @"[^\d]", "");
+
+        if (string.IsNullOrEmpty(cleanCustomerPhone) || cleanCustomerPhone.Length < 4 || !cleanCustomerPhone.EndsWith(cleanProvidedPhone.Length >= 4 ? cleanProvidedPhone[^4..] : cleanProvidedPhone))
+        {
+            return BadRequest(new { message = "El n�mero telef�nico no coincide con los datos registrados para esta cuenta." });
+        }
+
+        customer.PasswordHash = _passwordHasher.HashPassword(request.NewPassword.Trim());
         customer.FechaActualizacionUtc = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(new
         {
             success = true,
-            message = "Contraseña restablecida exitosamente. Ya puedes iniciar sesión con tu nueva contraseña."
+            message = "Contrase�a restablecida exitosamente. Ya puedes iniciar sesi�n con tu nueva contrase�a."
         });
     }
 
@@ -845,6 +875,7 @@ public class StoreController : ControllerBase
     /// Si la imagen está en formato Base64 en la base de datos, la decodifica, la persiste en disco en wwwroot/catalogo/productos
     /// para aceleración futura y la devuelve en binario.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("products/{idOrCode}/image")]
     [ResponseCache(Duration = 604800, Location = ResponseCacheLocation.Any)]
     public async Task<IActionResult> GetProductImage(string idOrCode, CancellationToken cancellationToken)
@@ -1079,7 +1110,8 @@ public record LoginCustomerRequest(
 
 public record ResetPasswordRequest(
     string Email,
-    string NewPassword
+    string NewPassword,
+    string? Phone = null
 );
 
 public class ContactMessageDto
