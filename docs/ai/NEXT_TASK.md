@@ -3,9 +3,19 @@
 ## 📌 Estado Actual
 
 - **Rama Git**: `main`
-- **Estado de Trabajo**: Cambios consolidados, validados al 100% con pruebas backend (97/97) y frontend (47/47) y build de producción exitoso. Cambios subidos a `main`.
+- **Estado de Trabajo**: Corrección de CORS para Cloudflare Workers (`pos-wpcbajio.aaronarenasmartinez.workers.dev`) implementada, validada con 104 pruebas de backend (incluyendo suite de integración CORS) y 47 pruebas de frontend. Binarios generados en `bin/publish_vps`.
 
 ## 📌 Siguiente Tarea Recomendada
+
+Aplicar el reinicio y configuración de CORS en el VPS de producción (`193.46.198.88`) y verificar desde el navegador que el Punto de Venta en `https://pos-wpcbajio.aaronarenasmartinez.workers.dev` cargue el catálogo de productos sin errores de CORS.
+
+### Criterios de Aceptación para Cierre de Tarea
+1. Actualizar `/var/www/pos-api/appsettings.json` en el VPS con el origen `https://pos-wpcbajio.aaronarenasmartinez.workers.dev`.
+2. Reiniciar el servicio `pos-api.service` en el VPS.
+3. Verificar con `curl.exe` o navegador que la petición preflight OPTIONS a `https://api.wpcbajio.com/api/v1/products?...` retorne la cabecera `Access-Control-Allow-Origin: https://pos-wpcbajio.aaronarenasmartinez.workers.dev`.
+4. Acceder al PDV en `https://pos-wpcbajio.aaronarenasmartinez.workers.dev` y validar que los productos se carguen correctamente en la interfaz.
+
+## 📌 Tareas Posteriores en Cola
 
 Ejecutar la prueba de compra manual controlada con tarjeta bancaria en el entorno de producción (`https://www.wpcbajio.com`), verificando el flujo completo de Stripe Payment Element, webhooks, confirmación de pedido y actualización de inventario.
 

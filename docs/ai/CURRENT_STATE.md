@@ -1,6 +1,21 @@
 # CURRENT STATE — Estado Real del Sistema WPC Bajío
 
-## 🟢 ESTADO ACTUAL (05 de Octubre, 2026 - Madrugada / Auditoría y Remediación de Seguridad Extrema)
+## 🟢 ESTADO ACTUAL (07 de Octubre, 2026 - Corrección CORS para Cloudflare Workers en Producción)
+
+- **Corrección de Bloqueo de CORS para el Frontend PDV en Cloudflare Workers (`pos-wpcbajio.aaronarenasmartinez.workers.dev`)**:
+  - **Causa Raíz**: Durante la remediación de seguridad previa, la eliminación de comodines permisivos (`*.workers.dev`) dejó fuera el origen de despliegue legítimo del PDV Cloudflare Worker (`https://pos-wpcbajio.aaronarenasmartinez.workers.dev`). Al realizar peticiones preflight OPTIONS a `https://api.wpcbajio.com/api/v1/...`, el backend ASP.NET Core respondía sin la cabecera `Access-Control-Allow-Origin`, provocando el bloqueo del navegador.
+  - **Ajustes en Backend (`Program.cs` y `appsettings.json`)**:
+    - `Program.cs`: `SetIsOriginAllowed` actualizado para permitir de forma segura el host de producción `pos-wpcbajio.aaronarenasmartinez.workers.dev`, así como cualquier subdominio del tenant oficial autorizado (`*.aaronarenasmartinez.workers.dev` y `*.aaronarenasmartinez.pages.dev`), manteniendo el bloqueo estricto contra orígenes no autorizados o comodines globales.
+    - Soporte dinámico para `Cors:AllowedOrigins` con normalización `TrimEnd('/')`.
+    - `appsettings.json` y `appsettings.Development.json`: Añadida la sección `Cors:AllowedOrigins` con los dominios oficiales de producción y desarrollo.
+  - **Pruebas Automatizadas**:
+    - Nueva suite de pruebas de integración `CorsTests.cs` (7 casos de prueba con `[Theory]` e `[InlineData]`), validando que los orígenes autorizados reciben `Access-Control-Allow-Origin` y `Access-Control-Allow-Credentials: true`, mientras que los dominios maliciosos/no autorizados son rechazados.
+    - 104/104 pruebas del backend pasando al 100% (19 Domain, 64 Application, 21 Api.IntegrationTests).
+    - 47/47 pruebas de Vitest del frontend pasando al 100%.
+  - **Publicación de Binarios**:
+    - Publicado en `bin/publish_vps` listo para transferencia al VPS.
+
+## 🟢 ESTADO PREVIO (05 de Octubre, 2026 - Madrugada / Auditoría y Remediación de Seguridad Extrema)
 
 - **Remediación Exhaustiva de Vulnerabilidades en Backend (.NET 9) y Frontend (Next.js)**:
   - **Vulnerabilidad 1 (Crítica) — `simulate-webhook`**:

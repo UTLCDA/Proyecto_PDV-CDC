@@ -164,16 +164,20 @@ builder.Services.AddCors(options =>
         policy.SetIsOriginAllowed(origin =>
         {
             if (string.IsNullOrWhiteSpace(origin)) return false;
-            if (configuredOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)) return true;
+            var trimmedOrigin = origin.TrimEnd('/');
+            if (configuredOrigins.Any(o => string.Equals(o?.TrimEnd('/'), trimmedOrigin, StringComparison.OrdinalIgnoreCase)))
+                return true;
+
             if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
             {
                 var host = uri.Host.ToLowerInvariant();
                 return host == "localhost" ||
                        host == "127.0.0.1" ||
                        host == "wpcbajio.com" ||
-                       host.EndsWith(".wpcbajio.com");
-
-
+                       host.EndsWith(".wpcbajio.com") ||
+                       host == "pos-wpcbajio.aaronarenasmartinez.workers.dev" ||
+                       host.EndsWith(".aaronarenasmartinez.workers.dev") ||
+                       host.EndsWith(".aaronarenasmartinez.pages.dev");
             }
             return false;
         })

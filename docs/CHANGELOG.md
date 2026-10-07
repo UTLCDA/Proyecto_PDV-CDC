@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.14.0] Corrección de Política CORS para Cloudflare Workers en Producción (PR) - 2026-10-07
+
+### Corregido / Optimizado
+- **Soporte CORS Oficial para Cloudflare Workers (`Program.cs` y `appsettings.json`)**:
+  - Habilitado el origen de despliegue oficial del PDV `https://pos-wpcbajio.aaronarenasmartinez.workers.dev` y subdominios del tenant (`*.aaronarenasmartinez.workers.dev` y `*.aaronarenasmartinez.pages.dev`).
+  - Incorporada la sección `Cors:AllowedOrigins` en `appsettings.json` y `appsettings.Development.json` con comparación normalizada insensible a mayúsculas/minúsculas y barras finales (`TrimEnd('/')`).
+  - Añadida suite de pruebas de integración automatizadas `CorsTests.cs` (7 aserciones) garantizando que orígenes válidos reciben `Access-Control-Allow-Origin` y `Access-Control-Allow-Credentials: true`, mientras que orígenes no autorizados son rechazados.
+
 ## [2.13.0] Reactivación de Pasarela de Pagos Stripe y Desbloqueo de Modo Mantenimiento en Producción (PR) - 2026-10-04
 
 ### Añadido / Optimizado

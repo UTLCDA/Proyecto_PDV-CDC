@@ -1,3 +1,16 @@
+## 📌 Hito Cumplido: Corrección de Bloqueo CORS en Producción para Cloudflare Workers (07 de Octubre, 2026)
+- **Problema Reportado**:
+  - Al abrir el frontend del Punto de Venta (PDV) alojado en Cloudflare Workers (`https://pos-wpcbajio.aaronarenasmartinez.workers.dev`), las solicitudes a la API de producción `https://api.wpcbajio.com/api/v1/products?...` fallaban por error de CORS:
+    `Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.`
+- **Causa Raíz**:
+  - La remediación de seguridad previa eliminó comodines globales (`*.workers.dev`), pero no incluyó explícitamente el origen específico y oficial del trabajador de Cloudflare del PDV (`pos-wpcbajio.aaronarenasmartinez.workers.dev`) ni configuró la sección `Cors:AllowedOrigins` en `appsettings.json`.
+- **Acciones Realizadas**:
+  1. `src/backend/Pos.Api/Program.cs`: `SetIsOriginAllowed` actualizado para permitir de manera segura `pos-wpcbajio.aaronarenasmartinez.workers.dev`, así como subdominios autorizados del usuario (`*.aaronarenasmartinez.workers.dev` y `*.aaronarenasmartinez.pages.dev`), además de normalización `TrimEnd('/')` en orígenes configurados dinámicamente.
+  2. `src/backend/Pos.Api/appsettings.json` y `appsettings.Development.json`: Registrada la sección `Cors:AllowedOrigins` con los orígenes oficiales.
+  3. `tests/backend/Pos.Api.IntegrationTests/CorsTests.cs`: Nueva suite con 7 pruebas de integración para validar CORS preflight (OPTIONS) y peticiones regulares en orígenes válidos y el bloqueo estricto ante orígenes no autorizados.
+  4. Pruebas superadas al 100%: 104 pruebas del backend y 47 del frontend.
+  5. Binarios de producción generados en `bin/publish_vps`.
+
 ## 📌 Hito Cumplido: Remediación Integral de Vulnerabilidades Críticas y Blindaje de Seguridad (05 de Octubre, 2026 - Madrugada)
 - **Objetivo**: Auditoría técnica y corrección a nivel extremo de todas las vulnerabilidades detectadas en el backend (.NET 9) y tienda en línea (Next.js), garantizando cero exposición de vectores de ataque en producción.
 - **Acciones Realizadas**:
