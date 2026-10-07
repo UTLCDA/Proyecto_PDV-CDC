@@ -12,8 +12,13 @@
     - Nueva suite de pruebas de integración `CorsTests.cs` (7 casos de prueba con `[Theory]` e `[InlineData]`), validando que los orígenes autorizados reciben `Access-Control-Allow-Origin` y `Access-Control-Allow-Credentials: true`, mientras que los dominios maliciosos/no autorizados son rechazados.
     - 104/104 pruebas del backend pasando al 100% (19 Domain, 64 Application, 21 Api.IntegrationTests).
     - 47/47 pruebas de Vitest del frontend pasando al 100%.
-  - **Publicación de Binarios**:
-    - Publicado en `bin/publish_vps` listo para transferencia al VPS.
+  - **Despliegue y Validación en Vivo en VPS (`193.46.198.88`)**:
+    - Llave SSH (`id_ed25519.pub`) agregada y autorizada permanentemente en `/root/.ssh/authorized_keys`.
+    - `/var/www/pos-api/appsettings.json` actualizado con los orígenes CORS permitidos.
+    - Binarios Release de `Pos.Api` (`Pos.*.dll` y `Pos.*.pdb`) sincronizados en `/var/www/pos-api`.
+    - Servicio `pos-api.service` reiniciado y verificado en estado `active (running)`.
+    - Verificación exitosa en vivo con curl hacia `https://api.wpcbajio.com/api/v1/auth/login` y `/api/v1/products`: las peticiones preflight OPTIONS retornan `HTTP 204 No Content`, `Access-Control-Allow-Origin: https://pos-wpcbajio.aaronarenasmartinez.workers.dev` y `Access-Control-Allow-Credentials: true`.
+    - Los registros del servicio en el VPS confirman: `CORS policy execution successful`.
 
 ## 🟢 ESTADO PREVIO (05 de Octubre, 2026 - Madrugada / Auditoría y Remediación de Seguridad Extrema)
 

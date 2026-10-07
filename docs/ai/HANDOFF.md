@@ -9,7 +9,7 @@
   2. `src/backend/Pos.Api/appsettings.json` y `appsettings.Development.json`: Registrada la sección `Cors:AllowedOrigins` con los orígenes oficiales.
   3. `tests/backend/Pos.Api.IntegrationTests/CorsTests.cs`: Nueva suite con 7 pruebas de integración para validar CORS preflight (OPTIONS) y peticiones regulares en orígenes válidos y el bloqueo estricto ante orígenes no autorizados.
   4. Pruebas superadas al 100%: 104 pruebas del backend y 47 del frontend.
-  5. Binarios de producción generados en `bin/publish_vps`.
+  5. Despliegue en VPS (`193.46.198.88`): Binarios `Pos.Api` actualizados, `appsettings.json` con CORS, llave SSH agregada a `authorized_keys`, `pos-api.service` reiniciado y verificado en vivo con curl (responde con cabeceras CORS válidas: `Access-Control-Allow-Origin: https://pos-wpcbajio.aaronarenasmartinez.workers.dev` y `Access-Control-Allow-Credentials: true`).
 
 ## 📌 Hito Cumplido: Remediación Integral de Vulnerabilidades Críticas y Blindaje de Seguridad (05 de Octubre, 2026 - Madrugada)
 - **Objetivo**: Auditoría técnica y corrección a nivel extremo de todas las vulnerabilidades detectadas en el backend (.NET 9) y tienda en línea (Next.js), garantizando cero exposición de vectores de ataque en producción.
